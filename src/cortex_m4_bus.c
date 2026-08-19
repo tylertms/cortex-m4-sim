@@ -1,21 +1,8 @@
 #include "cortex_m4_internal.h"
 
-static bool ppb_access_permitted(const CortexM4* cpu, uint32_t address,
-                                 CortexM4Access access) {
-    if (address < 0xe0000000u || address >= 0xe0100000u ||
-        access == CORTEX_M4_ACCESS_DEBUG) {
-        return true;
-    }
-    return access == CORTEX_M4_ACCESS_DATA &&
-           ((cpu->xpsr & 0x1ffu) != 0u || (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0u);
-}
-
 bool cortex_m4_bus_read(CortexM4* cpu, uint32_t address, uint8_t size,
                         CortexM4Access access, uint32_t* value) {
     if (value == NULL || (size != 1 && size != 2 && size != 4)) {
-        return false;
-    }
-    if (!ppb_access_permitted(cpu, address, access)) {
         return false;
     }
     cortex_m4_timing_access(cpu, address, size, access, false);
@@ -44,9 +31,6 @@ bool cortex_m4_bus_read(CortexM4* cpu, uint32_t address, uint8_t size,
 bool cortex_m4_bus_write(CortexM4* cpu, uint32_t address, uint8_t size,
                          CortexM4Access access, uint32_t value) {
     if (size != 1 && size != 2 && size != 4) {
-        return false;
-    }
-    if (!ppb_access_permitted(cpu, address, access)) {
         return false;
     }
     cortex_m4_timing_access(cpu, address, size, access, true);

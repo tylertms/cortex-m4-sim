@@ -100,19 +100,19 @@ static void test_cmt(TestState* state, KinetisK22* device) {
     write8(state, device, CMT_CMD4, 0u);
     configure_cmt_dma(state, device);
     write8(state, device, CMT_MSC, 3u);
+    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    TEST_EXPECT(state, !cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 45u));
+    kinetis_k22_advance(device, 1u);
+    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    kinetis_k22_advance(device, 1u);
+    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    kinetis_k22_advance(device, 1u);
     TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
     TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 45u));
     kinetis_k22_advance(device, 1u);
     TEST_EXPECT(state, read8(state, device, 0x20000080u) == 0x83u);
     TEST_EXPECT(state, read16(state, device, DMA_TCD0 + 0x16u) == 1u);
     TEST_EXPECT(state, read16(state, device, DMA_ERQ) == 0u);
-    write8(state, device, CMT_CMD1, 0u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
-    kinetis_k22_advance(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
-    kinetis_k22_advance(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
-    TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 45u));
     write8(state, device, CMT_CMD1, 0u);
     TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
 }
@@ -149,8 +149,12 @@ static void test_usbdcd(TestState* state, KinetisK22* device) {
     kinetis_k22_advance(device, 1024u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x003f0000u) == 0x00300000u);
     write32(state, device, USBDCD_CONTROL, 1u << 25u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_CONTROL) == 0u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_CONTROL) == 0x00010000u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_CLOCK) == 0x000000c1u);
     TEST_EXPECT(state, read32(state, device, USBDCD_STATUS) == 0u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER0) == 0x00100000u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER1) == 0x000a0028u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER2) == 0u);
     TEST_EXPECT(state,
                 !kinetis_k22_set_usb_charger(
                     device, (KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_DEDICATED + 1)));

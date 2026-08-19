@@ -8,6 +8,7 @@ enum {
     K22_AIPS0 = 0x40000000u,
     K22_AIPS1 = 0x40080000u,
     K22_AXBS = 0x40004000u,
+    K22_FMC = 0x4001f000u,
     K22_USBDCD = 0x40035000u,
     K22_CMT = 0x40062000u,
 };
@@ -130,7 +131,7 @@ static bool cmt_write(KinetisK22* device, uint32_t address, uint8_t size, uint32
         if ((value & 1u) == 0u) {
             device->cmt_cycles = 0u;
         } else if ((previous & 1u) == 0u) {
-            cmt_raise_cycle(device, control);
+            device->cmt_cycles = 0u;
         }
         return true;
     }
@@ -185,8 +186,16 @@ static bool usbdcd_read(KinetisK22* device, uint32_t address, uint8_t size,
 }
 
 static void usbdcd_reset(KinetisK22* device) {
-    raw_store(device, K22_USBDCD, 4u, 0u);
-    raw_store(device, K22_USBDCD + 8u, 4u, 0u);
+    static const uint8_t offsets[] = {0u, 4u, 8u, 0x10u, 0x14u, 0x18u};
+    for (size_t index = 0u; index < sizeof(offsets); index++) {
+        const uint32_t address = K22_USBDCD + offsets[index];
+        const K22RegisterDescriptor* descriptor =
+            k22_register_manifest_lookup(device->profile->id, address, 32u);
+        if (descriptor != NULL) {
+            raw_store(device, address, 4u,
+                      descriptor->reset_value & descriptor->reset_mask);
+        }
+    }
     device->usbdcd_cycles = 0u;
     if (device->cpu != NULL) {
         cortex_m4_set_irq_level(device->cpu, 54u, false);
@@ -631,6 +640,29 @@ static bool manifest_write(KinetisK22* device, uint32_t address, uint8_t size,
     return true;
 }
 
+static void apply_fmc_control(KinetisK22* device, uint32_t address, uint8_t size,
+                              uint32_t value) {
+    if (address != K22_FMC + 4u || size != 4u) {
+        return;
+    }
+    const uint8_t ways = (uint8_t)((value >> 20u) & 0x0fu);
+    for (uint8_t way = 0u; way < 4u; way++) {
+        if ((ways & (1u << way)) == 0u) {
+            continue;
+        }
+        for (uint8_t set = 0u; set < 8u; set++) {
+            const uint32_t tag_address =
+                K22_FMC + 0x100u + (uint32_t)way * 0x20u + (uint32_t)set * 4u;
+            if (k22_register_manifest_lookup(device->profile->id, tag_address, 32u) !=
+                NULL) {
+                raw_store(device, tag_address, 4u, raw_load(device, tag_address, 4u) & ~1u);
+            }
+        }
+    }
+    const uint32_t control = raw_load(device, address, 4u) & ~0x00f80000u;
+    raw_store(device, address, 4u, control);
+}
+
 bool kinetis_k22_peripheral_read(KinetisK22* device, uint32_t address, uint8_t size,
                                  CortexM4Access access, uint32_t* value) {
     K22PeripheralLocation location;
@@ -680,6 +712,9 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
     bool handled = semantic_write(device, location.id, address, size, value);
     if (!handled) {
         handled = manifest_write(device, address, size, value);
+    }
+    if (handled && location.id == K22_PERIPHERAL_FMC) {
+        apply_fmc_control(device, address, size, value);
     }
     if (handled && (address == K22_SIM_SCGC1 || address == K22_SIM_SCGC2)) {
         kinetis_k22_sync_clock_gates(device);

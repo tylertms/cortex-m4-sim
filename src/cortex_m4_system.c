@@ -64,6 +64,18 @@ static bool privileged_access(const CortexM4* cpu, CortexM4Access access) {
             ((cpu->xpsr & 0x1ffu) != 0u || (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0u));
 }
 
+static bool debug_access_permitted(const CortexM4* cpu, uint32_t address,
+                                   CortexM4Access access) {
+    if (privileged_access(cpu, access)) {
+        return true;
+    }
+    if (access != CORTEX_M4_ACCESS_UNPRIVILEGED_DATA || address >= 0xe0000080u) {
+        return false;
+    }
+    const uint8_t port_group = (uint8_t)((address >> 5u) & 3u);
+    return (cpu->debug.itm_trace_privilege & (1u << port_group)) != 0u;
+}
+
 static uint8_t irq_word_count(const CortexM4* cpu) {
     return (uint8_t)((cpu->external_irq_count + 31u) / 32u);
 }
@@ -350,8 +362,17 @@ CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint
     if (address < PPB_START || address >= PPB_END) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
-    if (cpu == NULL || value == NULL || !valid_access(address, size) ||
-        !privileged_access(cpu, access)) {
+    if (cpu == NULL || value == NULL) {
+        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
+    const CortexM4SystemAccess debug_access =
+        cortex_m4_debug_read(cpu, address, size, value);
+    if (debug_access != CORTEX_M4_SYSTEM_ACCESS_OUTSIDE) {
+        return debug_access_permitted(cpu, address, access)
+                   ? debug_access
+                   : CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
+    if (!valid_access(address, size) || !privileged_access(cpu, access)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     const uint32_t aligned = address & ~3u;
@@ -493,11 +514,7 @@ CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint
     if (aligned == FPU_MVFR2) {
         return accepted_read(0u, address, size, value);
     }
-    const CortexM4SystemAccess debug_access =
-        cortex_m4_debug_read(cpu, address, size, value);
-    return debug_access == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE
-               ? CORTEX_M4_SYSTEM_ACCESS_REJECTED
-               : debug_access;
+    return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
 }
 
 static uint32_t access_value(uint32_t address, uint8_t size, uint32_t value) {
@@ -521,10 +538,26 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
     if (address < PPB_START || address >= PPB_END) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
-    if (cpu == NULL || !valid_access(address, size) || !privileged_access(cpu, access)) {
+    if (cpu == NULL) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     const uint32_t aligned = address & ~3u;
+    const CortexM4SystemAccess debug_access =
+        cortex_m4_debug_write(cpu, address, size, value);
+    if (debug_access != CORTEX_M4_SYSTEM_ACCESS_OUTSIDE) {
+        return debug_access_permitted(cpu, address, access)
+                   ? debug_access
+                   : CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
+    const bool user_stir = aligned == NVIC_STIR && size == 4u &&
+                           access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA &&
+                           (cpu->ccr & (1u << 1u)) != 0u;
+    if (!valid_access(address, size) && !user_stir) {
+        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
+    if (!privileged_access(cpu, access) && !user_stir) {
+        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
     if (aligned == SYST_CSR) {
         cpu->systick_control =
             write_partial(cpu->systick_control, address, size, value) & 0x00010007u;
@@ -686,11 +719,7 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         aligned == FPU_MVFR0 || aligned == FPU_MVFR1 || aligned == FPU_MVFR2) {
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    const CortexM4SystemAccess debug_access =
-        cortex_m4_debug_write(cpu, address, size, value);
-    return debug_access == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE
-               ? CORTEX_M4_SYSTEM_ACCESS_REJECTED
-               : debug_access;
+    return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
 }
 
 void cortex_m4_system_reset(CortexM4* cpu) {

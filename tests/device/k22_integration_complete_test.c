@@ -5,8 +5,10 @@
 #include "test.h"
 
 enum {
-    FMC_PFB0CR = 0x4001f000u,
+    FMC_PFAPR = 0x4001f000u,
+    FMC_PFB0CR = 0x4001f004u,
     FMC_TAGVDW0S0 = 0x4001f100u,
+    FMC_TAGVDW1S0 = 0x4001f120u,
     DAC1_DAT0L = 0x40028000u,
     SIM_SCGC4 = 0x40048034u,
     I2C0_C1 = 0x40066002u,
@@ -89,13 +91,13 @@ static void expect_package_selection(TestState* state) {
 
 static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     uint32_t value = 0;
-    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, read32(device, FMC_PFAPR, &value));
     TEST_EXPECT(state, value == 0x00f8003fu);
-    TEST_EXPECT(state, write32(device, FMC_PFB0CR, UINT32_MAX));
-    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, write32(device, FMC_PFAPR, UINT32_MAX));
+    TEST_EXPECT(state, read32(device, FMC_PFAPR, &value));
     TEST_EXPECT(state, value == 0x00ffffffu);
-    TEST_EXPECT(state, !read32(device, FMC_PFB0CR + 0x0cu, &value));
-    TEST_EXPECT(state, !write32(device, FMC_PFB0CR + 0x0cu, UINT32_MAX));
+    TEST_EXPECT(state, !read32(device, FMC_PFAPR + 0x0cu, &value));
+    TEST_EXPECT(state, !write32(device, FMC_PFAPR + 0x0cu, UINT32_MAX));
 
     const uint32_t alias = 0x42000000u + (FMC_TAGVDW0S0 - 0x40000000u) * 32u + 5u * 4u;
     TEST_EXPECT(state, write32(device, alias, 1));
@@ -103,6 +105,18 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, value == 0x20u);
     TEST_EXPECT(state, read32(device, alias, &value));
     TEST_EXPECT(state, value == 1);
+    TEST_EXPECT(state, write32(device, FMC_TAGVDW0S0, 0x21u));
+    TEST_EXPECT(state, write32(device, FMC_TAGVDW1S0, 0x41u));
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, (1u << 19u) | (1u << 20u)));
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
+    TEST_EXPECT(state, value == 0x20u);
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW1S0, &value));
+    TEST_EXPECT(state, value == 0x41u);
+    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, (value & 0x00f80000u) == 0u);
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, 1u << 21u));
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW1S0, &value));
+    TEST_EXPECT(state, value == 0x40u);
     TEST_EXPECT(state, !read32(device, 0x43ffffffu, &value));
 
     TEST_EXPECT(state, read32(device, MCM_PLASC, &value));
