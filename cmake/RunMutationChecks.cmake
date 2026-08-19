@@ -128,9 +128,9 @@ run_mutation(
   "ftm_crossed_phase(phase, ticks, period, span)"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
-  ftm_center_aligned_disabled_channel src/k22_timing.c
-  "if ((ftm->channel_sc[channel] & 0x3cu) == 0u || compare <= first ||"
-  "if (false || compare <= first ||"
+  ftm_center_aligned_duty_boundary src/k22_timing.c
+  "if (compare <= first || compare >= last)"
+  "if (compare < first || compare >= last)"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_debug_freeze src/k22_timing.c

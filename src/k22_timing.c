@@ -771,7 +771,7 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
     const uint8_t channels = ftm_channel_count(index);
     for (uint8_t channel = 0u; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
-        if ((ftm->channel_sc[channel] & 0x3cu) == 0u || compare <= first || compare >= last)
+        if (compare <= first || compare >= last)
             continue;
         const uint32_t up_phase = compare - first;
         const uint32_t down_phase = period - up_phase;

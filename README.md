@@ -153,5 +153,5 @@ The checks cover these behaviors:
 - FTM flag-clear sequencing
 - FTM center-aligned counting
 - FTM center-aligned overflow timing
-- FTM disabled channels in center-aligned mode
+- FTM center-aligned duty boundaries
 - FTM debug freeze
