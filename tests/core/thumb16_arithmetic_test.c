@@ -66,6 +66,15 @@ int main(void) {
         TEST_EXPECT(&state, result(device) == expected[index]);
     }
 
+    const uint16_t register_shifts[] = {0x4088u, 0x40c8u, 0x4108u, 0x41c8u};
+    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]);
+         index++) {
+        execute(&state, device, register_shifts[index], 0x81234567u, 0, 1u << 29);
+        TEST_EXPECT(&state, result(device) == 0x81234567u);
+        TEST_EXPECT(&state,
+                    (cortex_m4_get_xpsr(kinetis_k22_cpu(device)) & (1u << 29)) != 0);
+    }
+
     execute(&state, device, 0xb208u, 0, 0x00008001u, 0);
     TEST_EXPECT(&state, result(device) == 0xffff8001u);
     execute(&state, device, 0xb248u, 0, 0x00000081u, 0);

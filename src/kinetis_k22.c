@@ -24,12 +24,27 @@ static void store_little_endian(uint8_t* bytes, uint8_t size, uint32_t value) {
     }
 }
 
+static bool flash_access_allowed(const KinetisK22* device, CortexM4Access access,
+                                 bool write) {
+    if (access == CORTEX_M4_ACCESS_DEBUG) {
+        return true;
+    }
+    const uint32_t offset = 0x4001f000u - K22_PERIPHERAL_BASE;
+    const uint32_t protection = load_little_endian(device->peripheral + offset, 4u);
+    const uint8_t master = access == CORTEX_M4_ACCESS_INSTRUCTION ? 0u : 1u;
+    const uint8_t permission = (uint8_t)((protection >> (master * 2u)) & 3u);
+    return write ? (permission & 2u) != 0u : (permission & 1u) != 0u;
+}
+
 bool kinetis_k22_memory_read(KinetisK22* device, uint32_t address, uint8_t size,
                              CortexM4Access access, uint32_t* value) {
     if (device == NULL || value == NULL || (size != 1 && size != 2 && size != 4)) {
         return false;
     }
     if (valid_range(address, size, K22_FLASH_BASE, device->configuration.flash_size)) {
+        if (!flash_access_allowed(device, access, false)) {
+            return false;
+        }
         *value = load_little_endian(device->flash + address, size);
         return true;
     }
@@ -98,13 +113,11 @@ static bool bit_band_read(KinetisK22* device, uint32_t address, CortexM4Access a
     const uint32_t alias = address - K22_BIT_BAND_BASE;
     const uint32_t byte_address = K22_PERIPHERAL_BASE + alias / 32u;
     const uint8_t bit_in_byte = (uint8_t)((alias / 4u) & 7u);
-    const K22RegisterDescriptor* descriptor =
-        bit_band_descriptor(device, byte_address);
+    const K22RegisterDescriptor* descriptor = bit_band_descriptor(device, byte_address);
     if (descriptor == NULL || (descriptor->access & K22_REGISTER_ACCESS_READ) == 0) {
         return false;
     }
-    const uint8_t bit =
-        (uint8_t)((byte_address - descriptor->address) * 8u + bit_in_byte);
+    const uint8_t bit = (uint8_t)((byte_address - descriptor->address) * 8u + bit_in_byte);
     const uint32_t mask = 1u << bit;
     if ((descriptor->implemented_mask & descriptor->read_mask & mask) == 0) {
         return false;
@@ -127,13 +140,11 @@ static bool bit_band_write(KinetisK22* device, uint32_t address, CortexM4Access 
     const uint32_t alias = address - K22_BIT_BAND_BASE;
     const uint32_t byte_address = K22_PERIPHERAL_BASE + alias / 32u;
     const uint8_t bit_in_byte = (uint8_t)((alias / 4u) & 7u);
-    const K22RegisterDescriptor* descriptor =
-        bit_band_descriptor(device, byte_address);
+    const K22RegisterDescriptor* descriptor = bit_band_descriptor(device, byte_address);
     if (descriptor == NULL || (descriptor->access & K22_REGISTER_ACCESS_WRITE) == 0) {
         return false;
     }
-    const uint8_t bit =
-        (uint8_t)((byte_address - descriptor->address) * 8u + bit_in_byte);
+    const uint8_t bit = (uint8_t)((byte_address - descriptor->address) * 8u + bit_in_byte);
     const uint32_t mask = 1u << bit;
     if ((descriptor->implemented_mask & descriptor->write_mask & mask) == 0) {
         return false;
@@ -150,8 +161,7 @@ static bool bit_band_write(KinetisK22* device, uint32_t address, CortexM4Access 
             register_value |= mask;
         }
     } else {
-        register_value = (value & 1u) != 0 ? register_value | mask
-                                           : register_value & ~mask;
+        register_value = (value & 1u) != 0 ? register_value | mask : register_value & ~mask;
     }
     return kinetis_k22_peripheral_write(device, descriptor->address,
                                         (uint8_t)(descriptor->width / 8u), access,
@@ -182,9 +192,7 @@ static void k22_advance_bus(void* context, uint32_t cycles) {
     kinetis_k22_peripheral_advance(device, cycles);
 }
 
-static void k22_reset_bus(void* context) {
-    kinetis_k22_warm_reset(context, 0, 0x04u);
-}
+static void k22_reset_bus(void* context) { kinetis_k22_warm_reset(context, 0, 0x04u); }
 
 KinetisK22Configuration kinetis_k22_default_configuration(void) {
     KinetisK22Configuration configuration;
@@ -212,8 +220,7 @@ static void destroy_partial(KinetisK22* device) {
 
 KinetisK22* kinetis_k22_create(KinetisK22Configuration configuration) {
     const K22Profile* profile = k22_profile_get(configuration.profile);
-    const K22RegisterManifest* manifest =
-        k22_register_manifest_get(configuration.profile);
+    const K22RegisterManifest* manifest = k22_register_manifest_get(configuration.profile);
     if (profile == NULL || manifest == NULL) {
         return NULL;
     }
@@ -263,16 +270,17 @@ KinetisK22* kinetis_k22_create(KinetisK22Configuration configuration) {
     kinetis_k22_sync_clock_gates(device);
     CortexM4Bus bus = {device, k22_read_bus, k22_write_bus, k22_advance_bus, k22_reset_bus};
     device->cpu = cortex_m4_create(bus);
-    if (device->cpu == NULL) {
+    if (device->cpu == NULL ||
+        !cortex_m4_configure_implementation(device->cpu, profile->cpu.external_irq_count,
+                                            profile->cpu.nvic_priority_bits,
+                                            profile->cpu.has_mpu ? 8u : 0u)) {
         destroy_partial(device);
         return NULL;
     }
     return device;
 }
 
-void kinetis_k22_destroy(KinetisK22* device) {
-    destroy_partial(device);
-}
+void kinetis_k22_destroy(KinetisK22* device) { destroy_partial(device); }
 
 CortexM4* kinetis_k22_cpu(KinetisK22* device) {
     return device == NULL ? NULL : device->cpu;
@@ -313,8 +321,11 @@ void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause_0, uint8_t cause_1
     if (device == NULL) {
         return;
     }
+    uint8_t retained_vbat[0x20];
+    memcpy(retained_vbat, device->peripheral + 0x3e000u, sizeof(retained_vbat));
     sync_flash_configuration(device);
     kinetis_k22_peripheral_reset(device);
+    memcpy(device->peripheral + 0x3e000u, retained_vbat, sizeof(retained_vbat));
     k22_timing_reset(&device->timing, cause_0, cause_1);
     kinetis_k22_sync_clock_gates(device);
     (void)cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
@@ -347,8 +358,7 @@ bool kinetis_k22_read(const KinetisK22* device, uint32_t address, void* data, si
     size_t offset = 0;
     while (offset < size) {
         const size_t remaining = size - offset;
-        const uint8_t width = remaining >= 4 && ((address + offset) & 3u) == 0
-                                  ? 4
+        const uint8_t width = remaining >= 4 && ((address + offset) & 3u) == 0   ? 4
                               : remaining >= 2 && ((address + offset) & 1u) == 0 ? 2
                                                                                  : 1;
         uint32_t value = 0;
@@ -371,8 +381,7 @@ bool kinetis_k22_write(KinetisK22* device, uint32_t address, const void* data,
     size_t offset = 0;
     while (offset < size) {
         const size_t remaining = size - offset;
-        const uint8_t width = remaining >= 4 && ((address + offset) & 3u) == 0
-                                  ? 4
+        const uint8_t width = remaining >= 4 && ((address + offset) & 3u) == 0   ? 4
                               : remaining >= 2 && ((address + offset) & 1u) == 0 ? 2
                                                                                  : 1;
         const uint32_t value = load_little_endian(input + offset, width);
@@ -398,6 +407,10 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     memcpy(destination->peripheral, source->peripheral, K22_PERIPHERAL_SIZE);
     destination->configuration = source->configuration;
     destination->cycles = source->cycles;
+    destination->cmt_cycles = source->cmt_cycles;
+    destination->usbdcd_cycles = source->usbdcd_cycles;
+    destination->cmt_eoc_read = source->cmt_eoc_read;
+    destination->usb_charger = source->usb_charger;
     memcpy(destination->events, source->events, sizeof(destination->events));
     destination->event_read_index = source->event_read_index;
     destination->event_write_index = source->event_write_index;

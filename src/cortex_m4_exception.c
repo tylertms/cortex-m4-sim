@@ -4,6 +4,7 @@ void cortex_m4_raise_fault(CortexM4* cpu, uint8_t exception) {
     if (cpu == NULL || exception < 4 || exception > 6) {
         return;
     }
+    cpu->instruction_faulted = true;
     const uint16_t current = (uint16_t)(cpu->xpsr & 0x1ffu);
     if (current == 2 || current == 3) {
         cpu->stop = CORTEX_M4_STOP_LOCKUP;
@@ -27,13 +28,12 @@ static bool enter_exception(CortexM4* cpu, uint16_t exception) {
     const bool used_psp = was_thread && (cpu->control & CORTEX_M4_CONTROL_SPSEL) != 0;
     uint32_t stack_pointer = used_psp ? cpu->psp : cpu->msp;
     uint32_t exception_return = 0;
-    if (!cortex_m4_system_stack_exception_frame(cpu, &stack_pointer,
-                                                 &exception_return)) {
+    if (!cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &exception_return)) {
         cortex_m4_timing_abort(cpu);
         cortex_m4_exception_advanced_entry_fault(
             cpu, exception, CORTEX_M4_FAULT_STACKING,
             !cortex_m4_mpu_access_permitted(cpu, stack_pointer - 4u, 4,
-                                             CORTEX_M4_ACCESS_DATA, true));
+                                            CORTEX_M4_ACCESS_DATA, true));
         return false;
     }
     if (used_psp) {
@@ -43,8 +43,8 @@ static bool enter_exception(CortexM4* cpu, uint16_t exception) {
     }
     exception = cortex_m4_exception_advanced_late_arrival(cpu, exception);
     uint32_t vector = 0;
-    if (!cortex_m4_bus_read(cpu, cpu->vtor + exception * 4u, 4,
-                            CORTEX_M4_ACCESS_DATA, &vector) ||
+    if (!cortex_m4_bus_read(cpu, cpu->vtor + exception * 4u, 4, CORTEX_M4_ACCESS_DATA,
+                            &vector) ||
         (vector & 1u) == 0) {
         cortex_m4_exception_advanced_vector_fault(cpu);
         if (!cortex_m4_exception_advanced_hardfault_vector(cpu, &vector)) {
@@ -92,15 +92,14 @@ bool cortex_m4_take_pending_exception(CortexM4* cpu) {
             selected_exception = exception;
         }
     }
-    for (uint16_t irq = 0; irq < CORTEX_M4_IRQ_COUNT; irq++) {
+    for (uint16_t irq = 0; irq < cpu->external_irq_count; irq++) {
         const uint32_t mask = 1u << (irq & 31u);
         if ((cpu->irq_pending[irq / 32] & cpu->irq_enabled[irq / 32] & mask) == 0) {
             continue;
         }
         if (cortex_m4_system_exception_can_preempt(cpu, irq + 16u, current) &&
             (selected_exception == 0 ||
-             cortex_m4_system_exception_before(cpu, irq + 16u,
-                                               selected_exception))) {
+             cortex_m4_system_exception_before(cpu, irq + 16u, selected_exception))) {
             selected_exception = irq + 16;
         }
     }
@@ -130,13 +129,13 @@ bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value) {
     const bool use_psp = (value & 4u) != 0;
     uint32_t stack_pointer = use_psp ? cpu->psp : cpu->msp;
     if (!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, value,
-                                                   current_exception)) {
+                                                  current_exception)) {
         cortex_m4_timing_abort(cpu);
         if (cpu->exception_unstack_memory_fault) {
             cortex_m4_exception_advanced_fault(
                 cpu, CORTEX_M4_FAULT_UNSTACKING,
                 !cortex_m4_mpu_access_permitted(cpu, stack_pointer, 4,
-                                                 CORTEX_M4_ACCESS_DATA, false));
+                                                CORTEX_M4_ACCESS_DATA, false));
         } else {
             cortex_m4_raise_fault(cpu, 6u);
         }
@@ -147,8 +146,8 @@ bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value) {
     } else {
         cpu->msp = stack_pointer;
     }
-    cortex_m4_exception_advanced_commit_return(
-        cpu, current_exception, (value & (1u << 3)) != 0u);
+    cortex_m4_exception_advanced_commit_return(cpu, current_exception,
+                                               (value & (1u << 3)) != 0u);
     const bool fp_frame = (value & 0x10u) == 0;
     cortex_m4_debug_exception_cycles(cpu, fp_frame ? 27u : 10u);
     cortex_m4_timing_exception(cpu, fp_frame ? CORTEX_M4_TIMING_EXCEPTION_FP_RETURN
@@ -157,7 +156,7 @@ bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value) {
 }
 
 void cortex_m4_set_irq(CortexM4* cpu, uint16_t irq, bool pending) {
-    if (cpu == NULL || irq >= CORTEX_M4_IRQ_COUNT) {
+    if (cpu == NULL || irq >= cpu->external_irq_count) {
         return;
     }
     if (pending) {
@@ -168,7 +167,7 @@ void cortex_m4_set_irq(CortexM4* cpu, uint16_t irq, bool pending) {
 }
 
 void cortex_m4_set_irq_level(CortexM4* cpu, uint16_t irq, bool asserted) {
-    if (cpu == NULL || irq >= CORTEX_M4_IRQ_COUNT) {
+    if (cpu == NULL || irq >= cpu->external_irq_count) {
         return;
     }
     const uint32_t mask = 1u << (irq & 31u);
@@ -181,14 +180,14 @@ void cortex_m4_set_irq_level(CortexM4* cpu, uint16_t irq, bool asserted) {
 }
 
 bool cortex_m4_get_irq_pending(const CortexM4* cpu, uint16_t irq) {
-    if (cpu == NULL || irq >= CORTEX_M4_IRQ_COUNT) {
+    if (cpu == NULL || irq >= cpu->external_irq_count) {
         return false;
     }
     return (cpu->irq_pending[irq / 32] & (1u << (irq & 31u))) != 0;
 }
 
 bool cortex_m4_get_irq_active(const CortexM4* cpu, uint16_t irq) {
-    if (cpu == NULL || irq >= CORTEX_M4_IRQ_COUNT) {
+    if (cpu == NULL || irq >= cpu->external_irq_count) {
         return false;
     }
     return (cpu->irq_active[irq / 32] & (1u << (irq & 31u))) != 0;

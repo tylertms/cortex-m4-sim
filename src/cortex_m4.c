@@ -25,22 +25,86 @@ CortexM4* cortex_m4_create(CortexM4Bus bus) {
     }
     cpu->bus = bus;
     cpu->systick_calibration = 0;
+    cpu->external_irq_count = CORTEX_M4_IRQ_COUNT;
+    cpu->priority_bits = 8u;
+    cpu->mpu_region_count = CORTEX_M4_MPU_REGION_COUNT;
     return cpu;
 }
 
 void cortex_m4_destroy(CortexM4* cpu) { free(cpu); }
 
 bool cortex_m4_copy(CortexM4* destination, const CortexM4* source) {
-    if (destination == NULL || source == NULL) {
+    if (destination == NULL || source == NULL ||
+        destination->external_irq_count != source->external_irq_count ||
+        destination->priority_bits != source->priority_bits ||
+        destination->mpu_region_count != source->mpu_region_count) {
         return false;
     }
     const CortexM4Bus bus = destination->bus;
     const CortexM4Trace trace = destination->trace;
     void* const trace_context = destination->trace_context;
+    const CortexM4WaitStates wait_states = destination->wait_states;
+    void* const wait_state_context = destination->wait_state_context;
+    const uint16_t external_irq_count = destination->external_irq_count;
+    const uint8_t priority_bits = destination->priority_bits;
+    const uint8_t mpu_region_count = destination->mpu_region_count;
     *destination = *source;
     destination->bus = bus;
     destination->trace = trace;
     destination->trace_context = trace_context;
+    destination->wait_states = wait_states;
+    destination->wait_state_context = wait_state_context;
+    destination->external_irq_count = external_irq_count;
+    destination->priority_bits = priority_bits;
+    destination->mpu_region_count = mpu_region_count;
+    return true;
+}
+
+bool cortex_m4_configure_implementation(CortexM4* cpu, uint16_t external_irq_count,
+                                        uint8_t priority_bits, uint8_t mpu_region_count) {
+    if (cpu == NULL || external_irq_count == 0 ||
+        external_irq_count > CORTEX_M4_IRQ_COUNT || priority_bits < 3u ||
+        priority_bits > 8u || mpu_region_count > CORTEX_M4_MPU_REGION_COUNT) {
+        return false;
+    }
+    const uint8_t priority_mask = (uint8_t)(0xffu << (8u - priority_bits));
+    for (uint16_t irq = 0u; irq < CORTEX_M4_IRQ_COUNT; irq++) {
+        if (irq < external_irq_count) {
+            cpu->irq_priority[irq] &= priority_mask;
+        } else {
+            cpu->irq_priority[irq] = 0u;
+        }
+    }
+    const uint8_t word_count = (uint8_t)((external_irq_count + 31u) / 32u);
+    for (uint8_t word = 0u; word < CORTEX_M4_IRQ_WORD_COUNT; word++) {
+        if (word >= word_count) {
+            cpu->irq_enabled[word] = 0u;
+            cpu->irq_pending[word] = 0u;
+            cpu->irq_active[word] = 0u;
+            cpu->irq_level[word] = 0u;
+        }
+    }
+    const uint8_t remaining = (uint8_t)(external_irq_count & 31u);
+    if (remaining != 0u) {
+        const uint32_t mask = (1u << remaining) - 1u;
+        cpu->irq_enabled[word_count - 1u] &= mask;
+        cpu->irq_pending[word_count - 1u] &= mask;
+        cpu->irq_active[word_count - 1u] &= mask;
+        cpu->irq_level[word_count - 1u] &= mask;
+    }
+    for (uint8_t region = mpu_region_count; region < CORTEX_M4_MPU_REGION_COUNT; region++) {
+        cpu->mpu_region_base[region] = 0u;
+        cpu->mpu_region_attributes[region] = 0u;
+    }
+    if (mpu_region_count == 0u) {
+        cpu->mpu_control = 0u;
+        cpu->mpu_region_number = 0u;
+    } else if (cpu->mpu_region_number >= mpu_region_count) {
+        cpu->mpu_region_number = 0u;
+    }
+    cpu->external_irq_count = external_irq_count;
+    cpu->priority_bits = priority_bits;
+    cpu->mpu_region_count = mpu_region_count;
     return true;
 }
 
@@ -54,6 +118,9 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
     const CortexM4WaitStates wait_states = cpu->wait_states;
     void* const wait_state_context = cpu->wait_state_context;
     const uint32_t exclusive_granule = cpu->exclusive_granule;
+    const uint16_t external_irq_count = cpu->external_irq_count;
+    const uint8_t priority_bits = cpu->priority_bits;
+    const uint8_t mpu_region_count = cpu->mpu_region_count;
     uint32_t breakpoints[8];
     memcpy(breakpoints, cpu->breakpoints, sizeof(breakpoints));
     const uint8_t breakpoint_enabled = cpu->breakpoint_enabled;
@@ -61,6 +128,9 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
     cpu->bus = bus;
     cpu->trace = trace;
     cpu->trace_context = trace_context;
+    cpu->external_irq_count = external_irq_count;
+    cpu->priority_bits = priority_bits;
+    cpu->mpu_region_count = mpu_region_count;
     memcpy(cpu->breakpoints, breakpoints, sizeof(breakpoints));
     cpu->breakpoint_enabled = breakpoint_enabled;
     cortex_m4_system_reset(cpu);
@@ -102,6 +172,7 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         cpu->stop = CORTEX_M4_STOP_LIMIT;
         return cortex_m4_result(cpu);
     }
+    cpu->instruction_faulted = false;
     if (!cortex_m4_debug_execution_allowed(cpu)) {
         cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
         return cortex_m4_result(cpu);
@@ -188,8 +259,7 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
             supported = true;
         } else if (execute && disposition == CORTEX_M4_INSTRUCTION_EXECUTE) {
             supported = cortex_m4_execute_thumb16(cpu, first);
-            cortex_m4_it_preserve_flags(cpu, first, 0, false, in_it_block,
-                                        previous_xpsr);
+            cortex_m4_it_preserve_flags(cpu, first, 0, false, in_it_block, previous_xpsr);
         }
     }
     if (in_it_block) {
@@ -209,7 +279,7 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         }
         return cortex_m4_result(cpu);
     }
-    if (!supported && cpu->stop == CORTEX_M4_STOP_RUNNING) {
+    if (!supported && !cpu->instruction_faulted && cpu->stop == CORTEX_M4_STOP_RUNNING) {
         cpu->cfsr |= 1u << 16;
         cortex_m4_raise_fault(cpu, 6);
     }
@@ -515,4 +585,15 @@ uint32_t cortex_m4_shift(uint32_t value, uint8_t type, uint32_t amount, bool car
         *carry_out = carry;
     }
     return result;
+}
+
+uint32_t cortex_m4_shift_register(uint32_t value, uint8_t type, uint32_t amount,
+                                  bool carry_in, bool* carry_out) {
+    if ((amount & 0xffu) == 0u) {
+        if (carry_out != NULL) {
+            *carry_out = carry_in;
+        }
+        return value;
+    }
+    return cortex_m4_shift(value, type, amount & 0xffu, carry_in, carry_out);
 }

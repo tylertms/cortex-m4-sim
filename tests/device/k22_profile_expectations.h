@@ -27,6 +27,7 @@ typedef struct {
     uint32_t sim_sdid_reset;
     uint32_t sim_sdid_mask;
     uint32_t maximum_core_clock_hz;
+    uint16_t external_irq_count;
     const K22ExpectedBlock* blocks;
     size_t block_count;
 } K22ExpectedProfile;
@@ -276,6 +277,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0x680u,
      .sim_sdid_mask = 0x000f0f80u,
      .maximum_core_clock_hz = 100000000u,
+     .external_irq_count = 86u,
      .blocks = expected_mk22f12810_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f12810_blocks)},
     {.id = K22_PROFILE_MK22FN12812,
@@ -288,6 +290,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0xa80u,
      .sim_sdid_mask = 0x000f0f80u,
      .maximum_core_clock_hz = 120000000u,
+     .external_irq_count = 86u,
      .blocks = expected_mk22f25612_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f25612_blocks)},
     {.id = K22_PROFILE_MK22FN25612,
@@ -300,6 +303,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0xa80u,
      .sim_sdid_mask = 0x000f0f80u,
      .maximum_core_clock_hz = 120000000u,
+     .external_irq_count = 86u,
      .blocks = expected_mk22f25612_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f25612_blocks)},
     {.id = K22_PROFILE_MK22FN51212,
@@ -312,6 +316,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0xe80u,
      .sim_sdid_mask = 0x000f0f80u,
      .maximum_core_clock_hz = 120000000u,
+     .external_irq_count = 86u,
      .blocks = expected_mk22f51212_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f51212_blocks)},
     {.id = K22_PROFILE_MK22FN1M012,
@@ -326,6 +331,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0x300u,
      .sim_sdid_mask = 0xffff0f80u,
      .maximum_core_clock_hz = 120000000u,
+     .external_irq_count = 82u,
      .blocks = expected_mk22f12_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f12_blocks)},
     {.id = K22_PROFILE_MK22FX51212,
@@ -342,6 +348,7 @@ static const K22ExpectedProfile expected_k22_profiles[] = {
      .sim_sdid_reset = 0x300u,
      .sim_sdid_mask = 0xffff0f80u,
      .maximum_core_clock_hz = 120000000u,
+     .external_irq_count = 82u,
      .blocks = expected_mk22f12_blocks,
      .block_count = EXPECTED_COUNT(expected_mk22f12_blocks)},
 };

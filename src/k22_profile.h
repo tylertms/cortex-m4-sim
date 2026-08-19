@@ -95,6 +95,7 @@ typedef struct {
     uint8_t core_revision_major;
     uint8_t core_revision_minor;
     uint8_t nvic_priority_bits;
+    uint16_t external_irq_count;
     bool little_endian;
     bool has_fpu;
     bool has_mpu;

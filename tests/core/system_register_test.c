@@ -10,6 +10,8 @@ enum {
     NVIC_CLEAR_PENDING = 0xe000e280u,
     NVIC_PRIORITY = 0xe000e400u,
     SCB_CPUID = 0xe000ed00u,
+    SCB_ICTR = 0xe000e004u,
+    MPU_TYPE = 0xe000ed90u,
     SCB_ICSR = 0xe000ed04u,
     SCB_AIRCR = 0xe000ed0cu,
     SCB_SHPR = 0xe000ed18u,
@@ -46,7 +48,14 @@ int main(void) {
     CortexM4* cpu = kinetis_k22_cpu(device);
 
     TEST_EXPECT(&state, read_value(&state, cpu, SCB_CPUID, 4) == 0x410fc241u);
-    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_ENABLE + 1u, 1, 1));
+    TEST_EXPECT(&state, read_value(&state, cpu, SCB_ICTR, 4) == 2u);
+    TEST_EXPECT(&state, read_value(&state, cpu, MPU_TYPE, 4) == 0u);
+    cortex_m4_set_irq(cpu, 85, true);
+    cortex_m4_set_irq(cpu, 86, true);
+    TEST_EXPECT(&state, cortex_m4_get_irq_pending(cpu, 85));
+    TEST_EXPECT(&state, !cortex_m4_get_irq_pending(cpu, 86));
+    cortex_m4_set_irq(cpu, 85, false);
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_ENABLE, 4, 0x00000100u));
     TEST_EXPECT(&state, read_value(&state, cpu, NVIC_ENABLE, 4) == 0x00000100u);
 
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_PRIORITY + 8u, 4, 0x12345678u));
@@ -54,7 +63,7 @@ int main(void) {
     cortex_m4_set_irq(cpu, 8, true);
     TEST_EXPECT(&state, read_value(&state, cpu, NVIC_PENDING, 4) == 0x00000100u);
     TEST_EXPECT(&state, (read_value(&state, cpu, SCB_ICSR, 4) & 0x001ff000u) == 24u << 12);
-    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_CLEAR_PENDING + 1u, 1, 1));
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_CLEAR_PENDING, 4, 0x00000100u));
     TEST_EXPECT(&state, !cortex_m4_get_irq_pending(cpu, 8));
 
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_SOFTWARE_TRIGGER, 4, 33));

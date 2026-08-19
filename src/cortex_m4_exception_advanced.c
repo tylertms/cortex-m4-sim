@@ -44,23 +44,18 @@ bool cortex_m4_exception_advanced_active(const CortexM4* cpu, uint16_t exception
     return false;
 }
 
-static uint16_t selected_pending(const CortexM4* cpu, uint16_t target,
-                                 uint16_t returning) {
+static uint16_t selected_pending(const CortexM4* cpu, uint16_t target, uint16_t returning) {
     uint16_t selected = 0;
-    for (uint16_t exception = 2u; exception < CORTEX_M4_IRQ_COUNT + 16u;
-         exception++) {
-        if (exception == 7u || exception == 8u || exception == 9u ||
-            exception == 10u || exception == 13u ||
-            !exception_pending(cpu, exception) ||
+    for (uint16_t exception = 2u; exception < cpu->external_irq_count + 16u; exception++) {
+        if (exception == 7u || exception == 8u || exception == 9u || exception == 10u ||
+            exception == 13u || !exception_pending(cpu, exception) ||
             !cortex_m4_system_exception_can_preempt(cpu, exception, target)) {
             continue;
         }
-        if (cortex_m4_exception_advanced_active(cpu, exception) &&
-            exception != returning) {
+        if (cortex_m4_exception_advanced_active(cpu, exception) && exception != returning) {
             continue;
         }
-        if (selected == 0u ||
-            cortex_m4_system_exception_before(cpu, exception, selected)) {
+        if (selected == 0u || cortex_m4_system_exception_before(cpu, exception, selected)) {
             selected = exception;
         }
     }
@@ -131,8 +126,7 @@ void cortex_m4_exception_advanced_commit_entry(CortexM4* cpu, uint16_t exception
     cpu->ici_valid = false;
 }
 
-void cortex_m4_exception_advanced_commit_return(CortexM4* cpu,
-                                                uint16_t current_exception,
+void cortex_m4_exception_advanced_commit_return(CortexM4* cpu, uint16_t current_exception,
                                                 bool return_thread) {
     if (cpu == NULL || cpu->exception_depth == 0u ||
         cpu->active_exceptions[cpu->exception_depth - 1u] != current_exception) {
@@ -152,17 +146,15 @@ void cortex_m4_exception_advanced_commit_return(CortexM4* cpu,
 }
 
 bool cortex_m4_exception_advanced_valid_return(const CortexM4* cpu, uint32_t value) {
-    if (cpu == NULL || cpu->exception_depth == 0u ||
-        cpu->exception_frame_depth == 0u ||
+    if (cpu == NULL || cpu->exception_depth == 0u || cpu->exception_frame_depth == 0u ||
         (cpu->xpsr & XPSR_EXCEPTION_MASK) == 0u) {
         return false;
     }
     const bool canonical = value == 0xffffffe1u || value == 0xffffffe9u ||
                            value == 0xffffffedu || value == 0xfffffff1u ||
                            value == 0xfffffff9u || value == 0xfffffffdu;
-    if (!canonical ||
-        cpu->active_exceptions[cpu->exception_depth - 1u] !=
-            (cpu->xpsr & XPSR_EXCEPTION_MASK)) {
+    if (!canonical || cpu->active_exceptions[cpu->exception_depth - 1u] !=
+                          (cpu->xpsr & XPSR_EXCEPTION_MASK)) {
         return false;
     }
     const CortexM4ExceptionFrame* const frame =
@@ -172,14 +164,12 @@ bool cortex_m4_exception_advanced_valid_return(const CortexM4* cpu, uint32_t val
     }
     const bool return_thread = (value & (1u << 3)) != 0u;
     if (return_thread) {
-        return cpu->exception_depth == 1u ||
-               (cpu->ccr & CCR_NONBASETHRDENA) != 0u;
+        return cpu->exception_depth == 1u || (cpu->ccr & CCR_NONBASETHRDENA) != 0u;
     }
     return cpu->exception_depth > 1u && (value & (1u << 2)) == 0u;
 }
 
-bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu,
-                                                     uint32_t value,
+bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu, uint32_t value,
                                                      uint32_t exception_return) {
     if (cpu == NULL || (value & CORTEX_M4_XPSR_T) == 0u) {
         return false;
@@ -194,8 +184,7 @@ bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu,
         }
         const CortexM4ExceptionFrame* const frame =
             &cpu->exception_frames[cpu->exception_frame_depth - 1u];
-        if (!frame->ici_valid ||
-            frame->ici_register != (uint8_t)((value >> 12u) & 15u)) {
+        if (!frame->ici_valid || frame->ici_register != (uint8_t)((value >> 12u) & 15u)) {
             return false;
         }
     }
@@ -206,11 +195,9 @@ bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu,
            stacked_exception == cpu->active_exceptions[cpu->exception_depth - 2u];
 }
 
-static bool record_fault_status(CortexM4* cpu,
-                                CortexM4ExceptionFaultStage stage,
+static bool record_fault_status(CortexM4* cpu, CortexM4ExceptionFaultStage stage,
                                 bool memory_management) {
-    static const uint32_t memory_bits[] = {CFSR_MSTKERR, CFSR_MUNSTKERR,
-                                           CFSR_MLSPERR};
+    static const uint32_t memory_bits[] = {CFSR_MSTKERR, CFSR_MUNSTKERR, CFSR_MLSPERR};
     static const uint32_t bus_bits[] = {CFSR_STKERR, CFSR_UNSTKERR, CFSR_LSPERR};
     if (cpu == NULL || stage > CORTEX_M4_FAULT_LAZY_FP) {
         return false;
@@ -219,8 +206,7 @@ static bool record_fault_status(CortexM4* cpu,
     return true;
 }
 
-void cortex_m4_exception_advanced_fault(CortexM4* cpu,
-                                        CortexM4ExceptionFaultStage stage,
+void cortex_m4_exception_advanced_fault(CortexM4* cpu, CortexM4ExceptionFaultStage stage,
                                         bool memory_management) {
     if (!record_fault_status(cpu, stage, memory_management)) {
         return;
@@ -228,9 +214,9 @@ void cortex_m4_exception_advanced_fault(CortexM4* cpu,
     cortex_m4_raise_fault(cpu, memory_management ? 4u : 5u);
 }
 
-void cortex_m4_exception_advanced_entry_fault(
-    CortexM4* cpu, uint16_t entering_exception,
-    CortexM4ExceptionFaultStage stage, bool memory_management) {
+void cortex_m4_exception_advanced_entry_fault(CortexM4* cpu, uint16_t entering_exception,
+                                              CortexM4ExceptionFaultStage stage,
+                                              bool memory_management) {
     if (!record_fault_status(cpu, stage, memory_management)) {
         return;
     }
@@ -260,13 +246,11 @@ void cortex_m4_exception_advanced_vector_fault(CortexM4* cpu) {
     cortex_m4_system_set_pending(cpu, 3u, true);
 }
 
-bool cortex_m4_exception_advanced_hardfault_vector(CortexM4* cpu,
-                                                   uint32_t* vector) {
+bool cortex_m4_exception_advanced_hardfault_vector(CortexM4* cpu, uint32_t* vector) {
     if (cpu == NULL || vector == NULL || cpu->stop == CORTEX_M4_STOP_LOCKUP) {
         return false;
     }
-    if (!cortex_m4_bus_read(cpu, cpu->vtor + 12u, 4, CORTEX_M4_ACCESS_DATA,
-                            vector) ||
+    if (!cortex_m4_bus_read(cpu, cpu->vtor + 12u, 4, CORTEX_M4_ACCESS_DATA, vector) ||
         (*vector & 1u) == 0u) {
         cpu->stop = CORTEX_M4_STOP_LOCKUP;
         return false;
@@ -282,8 +266,9 @@ void cortex_m4_exception_advanced_imprecise_fault(CortexM4* cpu) {
     cortex_m4_raise_fault(cpu, 5u);
 }
 
-CortexM4ExceptionChain cortex_m4_exception_advanced_tail_chain(
-    CortexM4* cpu, uint32_t exception_return, uint16_t current_exception) {
+CortexM4ExceptionChain cortex_m4_exception_advanced_tail_chain(CortexM4* cpu,
+                                                               uint32_t exception_return,
+                                                               uint16_t current_exception) {
     if (!cortex_m4_exception_advanced_valid_return(cpu, exception_return)) {
         return CORTEX_M4_EXCEPTION_CHAIN_FAULT;
     }
@@ -295,8 +280,8 @@ CortexM4ExceptionChain cortex_m4_exception_advanced_tail_chain(
         return CORTEX_M4_EXCEPTION_CHAIN_NONE;
     }
     uint32_t vector = 0;
-    if (!cortex_m4_bus_read(cpu, cpu->vtor + selected * 4u, 4,
-                            CORTEX_M4_ACCESS_DATA, &vector) ||
+    if (!cortex_m4_bus_read(cpu, cpu->vtor + selected * 4u, 4, CORTEX_M4_ACCESS_DATA,
+                            &vector) ||
         (vector & 1u) == 0u) {
         cortex_m4_exception_advanced_vector_fault(cpu);
         if (!cortex_m4_exception_advanced_hardfault_vector(cpu, &vector)) {
@@ -334,8 +319,7 @@ uint32_t cortex_m4_exception_advanced_multiple_address(const CortexM4* cpu,
     return cpu != NULL && cpu->ici_valid ? cpu->ici_address : initial_address;
 }
 
-bool cortex_m4_exception_advanced_multiple_suspend(CortexM4* cpu,
-                                                   uint8_t next_register,
+bool cortex_m4_exception_advanced_multiple_suspend(CortexM4* cpu, uint8_t next_register,
                                                    uint8_t instruction_size,
                                                    uint32_t next_address) {
     if (cpu == NULL || next_register == 0u || next_register > 15u ||
@@ -379,8 +363,7 @@ void cortex_m4_exception_advanced_load_xpsr(CortexM4* cpu, uint32_t value) {
     if (ici && cpu->exception_frame_depth != 0u) {
         const CortexM4ExceptionFrame* const frame =
             &cpu->exception_frames[cpu->exception_frame_depth - 1u];
-        cpu->ici_address = frame->ici_valid &&
-                                   frame->ici_register == cpu->ici_register
+        cpu->ici_address = frame->ici_valid && frame->ici_register == cpu->ici_register
                                ? frame->ici_address
                                : 0u;
     } else if (!ici) {

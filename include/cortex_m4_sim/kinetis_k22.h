@@ -105,6 +105,13 @@ typedef enum {
     KINETIS_K22_I2C_STOP,
 } KinetisK22I2cTransferType;
 
+typedef enum {
+    KINETIS_K22_USB_CHARGER_NONE,
+    KINETIS_K22_USB_CHARGER_STANDARD_HOST,
+    KINETIS_K22_USB_CHARGER_CHARGING_PORT,
+    KINETIS_K22_USB_CHARGER_DEDICATED,
+} KinetisK22UsbCharger;
+
 typedef struct {
     KinetisK22I2cTransferType type;
     uint8_t value;
@@ -125,8 +132,8 @@ void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks);
 uint32_t kinetis_k22_core_clock_hz(const KinetisK22* device);
 uint32_t kinetis_k22_bus_clock_hz(const KinetisK22* device);
 bool kinetis_k22_next_event(KinetisK22* device, KinetisK22Event* event);
-bool kinetis_k22_set_adc_channel(KinetisK22* device, uint8_t instance,
-                                 uint8_t channel, uint16_t value);
+bool kinetis_k22_set_adc_channel(KinetisK22* device, uint8_t instance, uint8_t channel,
+                                 uint16_t value);
 void kinetis_k22_set_adc0_channel(KinetisK22* device, uint8_t channel, uint16_t value);
 bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t input,
                                uint8_t value);
@@ -143,8 +150,8 @@ bool kinetis_k22_spi_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpo
                               KinetisK22SpiTransfer* transfer);
 bool kinetis_k22_i2c_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                               KinetisK22I2cTransfer* transfer);
-bool kinetis_k22_i2c_acknowledge(KinetisK22* device,
-                                 KinetisK22SerialEndpoint endpoint, bool acknowledge);
+bool kinetis_k22_i2c_acknowledge(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                                 bool acknowledge);
 bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                              uint8_t value);
 bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
@@ -152,6 +159,7 @@ bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
 bool kinetis_k22_can_receive(KinetisK22* device, const KinetisK22CanFrame* frame);
 bool kinetis_k22_i2s_receive(KinetisK22* device, uint32_t sample);
 bool kinetis_k22_i2s_transmit(KinetisK22* device, uint32_t* sample);
+bool kinetis_k22_set_usb_charger(KinetisK22* device, KinetisK22UsbCharger charger);
 bool kinetis_k22_uart1_receive(KinetisK22* device, uint8_t value, uint8_t status);
 bool kinetis_k22_uart1_transmit(KinetisK22* device, uint8_t* value);
 bool kinetis_k22_spi0_receive(KinetisK22* device, uint16_t value);

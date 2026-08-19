@@ -45,6 +45,18 @@ int main(void) {
     execute(&state, device);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 3) == 16);
 
+    const uint16_t register_shifts[] = {0xfa01u, 0xfa21u, 0xfa41u, 0xfa61u};
+    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]);
+         index++) {
+        load_instruction(&state, device, register_shifts[index], 0xf003u);
+        cortex_m4_set_register(cpu, 1, 0x81234567u);
+        cortex_m4_set_register(cpu, 3, 0);
+        cortex_m4_set_xpsr(cpu, cortex_m4_get_xpsr(cpu) | (1u << 29));
+        execute(&state, device);
+        TEST_EXPECT(&state, cortex_m4_get_register(cpu, 0) == 0x81234567u);
+        TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & (1u << 29)) != 0);
+    }
+
     load_instruction(&state, device, 0xfbb2u, 0xf3f3u);
     cortex_m4_set_register(cpu, 2, 100);
     cortex_m4_set_register(cpu, 3, 7);

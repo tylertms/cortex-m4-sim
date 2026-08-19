@@ -33,8 +33,7 @@ typedef void (*CortexM4Reset)(void* context);
 typedef void (*CortexM4Trace)(void* context, uint32_t address, uint32_t opcode,
                               bool executed);
 typedef uint32_t (*CortexM4WaitStates)(void* context, uint32_t address, uint8_t size,
-                                      CortexM4Access access, bool write,
-                                      bool sequential);
+                                       CortexM4Access access, bool write, bool sequential);
 
 typedef struct {
     void* context;
@@ -59,6 +58,8 @@ typedef struct {
 
 CortexM4* cortex_m4_create(CortexM4Bus bus);
 void cortex_m4_destroy(CortexM4* cpu);
+bool cortex_m4_configure_implementation(CortexM4* cpu, uint16_t external_irq_count,
+                                        uint8_t priority_bits, uint8_t mpu_region_count);
 bool cortex_m4_copy(CortexM4* destination, const CortexM4* source);
 bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address);
 CortexM4Result cortex_m4_step(CortexM4* cpu);

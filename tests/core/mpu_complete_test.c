@@ -34,6 +34,9 @@ void cortex_m4_raise_fault(CortexM4* cpu, uint8_t exception) {
 static CortexM4 create_cpu(void) {
     CortexM4 cpu;
     memset(&cpu, 0, sizeof(cpu));
+    cpu.external_irq_count = CORTEX_M4_IRQ_COUNT;
+    cpu.priority_bits = 8u;
+    cpu.mpu_region_count = CORTEX_M4_MPU_REGION_COUNT;
     cpu.xpsr = CORTEX_M4_XPSR_T;
     cortex_m4_mpu_reset(&cpu);
     raised_faults = 0u;
@@ -47,8 +50,7 @@ static uint32_t rasr(uint8_t size_encoding, uint8_t permission, bool execute_nev
            ((uint32_t)subregions << 8u) | ((uint32_t)size_encoding << 1u) | 1u;
 }
 
-static void set_region(CortexM4* cpu, uint8_t region, uint32_t base,
-                       uint32_t attributes) {
+static void set_region(CortexM4* cpu, uint8_t region, uint32_t base, uint32_t attributes) {
     cpu->mpu_region_base[region] = base & 0xffffffe0u;
     cpu->mpu_region_attributes[region] = attributes;
 }
@@ -65,6 +67,7 @@ static void test_reset_and_copy(TestState* state) {
     cortex_m4_mpu_reset(NULL);
     CortexM4 cpu;
     memset(&cpu, 0xff, sizeof(cpu));
+    cpu.mpu_region_count = CORTEX_M4_MPU_REGION_COUNT;
     cortex_m4_mpu_reset(&cpu);
     TEST_EXPECT(state, cpu.mpu_control == 0u);
     TEST_EXPECT(state, cpu.mpu_region_number == 0u);
@@ -86,59 +89,69 @@ static void test_reset_and_copy(TestState* state) {
 
 static void test_register_access(TestState* state) {
     CortexM4 cpu = create_cpu();
-    TEST_EXPECT(state, read_register(state, &cpu, MPU_TYPE, CORTEX_M4_ACCESS_DATA) ==
-                           0x00000800u);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
-                                           0xffffffffu) ==
-                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
-    TEST_EXPECT(state, read_register(state, &cpu, MPU_TYPE, CORTEX_M4_ACCESS_DATA) ==
-                           0x00000800u);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA,
-                                           0xffffffffu) ==
-                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state,
+                read_register(state, &cpu, MPU_TYPE, CORTEX_M4_ACCESS_DATA) == 0x00000800u);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_write(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
+                                    0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state,
+                read_register(state, &cpu, MPU_TYPE, CORTEX_M4_ACCESS_DATA) == 0x00000800u);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA,
+                                    0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, read_register(state, &cpu, MPU_CTRL, CORTEX_M4_ACCESS_DATA) == 7u);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA,
-                                           0xffffffffu) ==
-                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA,
+                                    0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, read_register(state, &cpu, MPU_RNR, CORTEX_M4_ACCESS_DATA) == 7u);
 
     uint32_t value = 0u;
-    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE - 4u, 4u,
-                                          CORTEX_M4_ACCESS_DATA, &value) ==
-                           CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
-    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_RASR_A3 + 4u, 4u,
-                                          CORTEX_M4_ACCESS_DATA, &value) ==
-                           CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_TYPE - 4u, 4u,
-                                           CORTEX_M4_ACCESS_DATA, 0u) ==
-                           CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RASR_A3 + 4u, 4u,
-                                           CORTEX_M4_ACCESS_DATA, 0u) ==
-                           CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
+    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE - 4u, 4u, CORTEX_M4_ACCESS_DATA,
+                                          &value) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
+    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_RASR_A3 + 4u, 4u, CORTEX_M4_ACCESS_DATA,
+                                          &value) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_TYPE - 4u, 4u, CORTEX_M4_ACCESS_DATA,
+                                           0u) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_write(&cpu, MPU_RASR_A3 + 4u, 4u, CORTEX_M4_ACCESS_DATA,
+                                    0u) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE);
     TEST_EXPECT(state, cortex_m4_mpu_read(NULL, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
                                           &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
     TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
                                           NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
-    TEST_EXPECT(state, cortex_m4_mpu_write(NULL, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
-                                           0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
+    TEST_EXPECT(state, cortex_m4_mpu_write(NULL, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA, 0u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_REJECTED);
     TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE, 1u, CORTEX_M4_ACCESS_DATA,
                                           &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_TYPE, 1u, CORTEX_M4_ACCESS_DATA,
-                                           0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
-    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE + 2u, 4u,
-                                          CORTEX_M4_ACCESS_DATA, &value) ==
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_TYPE, 1u, CORTEX_M4_ACCESS_DATA, 0u) ==
                            CORTEX_M4_SYSTEM_ACCESS_REJECTED);
-    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE, 4u,
-                                          CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value) ==
-                           CORTEX_M4_SYSTEM_ACCESS_REJECTED);
+    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE + 2u, 4u, CORTEX_M4_ACCESS_DATA,
+                                          &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_read(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                                   &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
     cpu.control = CORTEX_M4_CONTROL_NPRIV;
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA,
-                                           0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA, 0u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_REJECTED);
     TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DEBUG,
                                           &value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     cpu.xpsr = CORTEX_M4_XPSR_T | 11u;
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA,
-                                           5u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA, 5u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+}
+
+static void test_absent_mpu(TestState* state) {
+    CortexM4 cpu = create_cpu();
+    cpu.mpu_region_count = 0u;
+    cortex_m4_mpu_reset(&cpu);
+    uint32_t value = UINT32_MAX;
+    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_TYPE, 4u, CORTEX_M4_ACCESS_DATA,
+                                          &value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, value == 0u);
+    TEST_EXPECT(state, cortex_m4_mpu_read(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA,
+                                          &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_CTRL, 4u, CORTEX_M4_ACCESS_DATA, 1u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_REJECTED);
 }
 
 static void test_region_registers(TestState* state) {
@@ -147,31 +160,27 @@ static void test_region_registers(TestState* state) {
         const uint32_t base = 0x10000000u + (uint32_t)region * 0x1000u;
         const uint32_t attributes = rasr((uint8_t)(7u + region), region & 7u,
                                          (region & 1u) != 0u, (uint8_t)(region * 17u));
-        TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RBAR, 4u,
-                                               CORTEX_M4_ACCESS_DATA,
+        TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RBAR, 4u, CORTEX_M4_ACCESS_DATA,
                                                base | 0x10u | region) ==
                                CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
         TEST_EXPECT(state, cpu.mpu_region_number == region);
-        TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RASR, 4u,
-                                               CORTEX_M4_ACCESS_DATA, attributes) ==
-                               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+        TEST_EXPECT(state,
+                    cortex_m4_mpu_write(&cpu, MPU_RASR, 4u, CORTEX_M4_ACCESS_DATA,
+                                        attributes) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     }
     for (uint8_t region = 0u; region < CORTEX_M4_MPU_REGION_COUNT; region++) {
-        TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u,
-                                               CORTEX_M4_ACCESS_DATA, region) ==
-                               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
-        TEST_EXPECT(state, (read_register(state, &cpu, MPU_RBAR,
-                                          CORTEX_M4_ACCESS_DATA) & 7u) == region);
-        TEST_EXPECT(state, (read_register(state, &cpu, MPU_RBAR,
-                                          CORTEX_M4_ACCESS_DATA) & 0xffffffe0u) ==
-                               cpu.mpu_region_base[region]);
-        TEST_EXPECT(state, read_register(state, &cpu, MPU_RASR,
-                                         CORTEX_M4_ACCESS_DATA) ==
+        TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA,
+                                               region) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+        TEST_EXPECT(state, (read_register(state, &cpu, MPU_RBAR, CORTEX_M4_ACCESS_DATA) &
+                            7u) == region);
+        TEST_EXPECT(state, (read_register(state, &cpu, MPU_RBAR, CORTEX_M4_ACCESS_DATA) &
+                            0xffffffe0u) == cpu.mpu_region_base[region]);
+        TEST_EXPECT(state, read_register(state, &cpu, MPU_RASR, CORTEX_M4_ACCESS_DATA) ==
                                cpu.mpu_region_attributes[region]);
     }
 
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA,
-                                           4u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA, 4u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     const uint32_t rbar_aliases[] = {MPU_RBAR_A1, MPU_RBAR_A2, MPU_RBAR_A3};
     const uint32_t rasr_aliases[] = {MPU_RASR_A1, MPU_RASR_A2, MPU_RASR_A3};
     for (uint8_t alias = 1u; alias <= 3u; alias++) {
@@ -179,8 +188,7 @@ static void test_region_registers(TestState* state) {
         const uint32_t base = 0x30000000u + (uint32_t)alias * 0x2000u;
         const uint32_t attributes = rasr(12u, alias, false, 0u);
         TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, rbar_aliases[alias - 1u], 4u,
-                                               CORTEX_M4_ACCESS_DATA,
-                                               base | 0x0fu) ==
+                                               CORTEX_M4_ACCESS_DATA, base | 0x0fu) ==
                                CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
         TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, rasr_aliases[alias - 1u], 4u,
                                                CORTEX_M4_ACCESS_DATA, attributes) ==
@@ -188,31 +196,30 @@ static void test_region_registers(TestState* state) {
         TEST_EXPECT(state, cpu.mpu_region_base[region] == (base & 0xffffffe0u));
         TEST_EXPECT(state, cpu.mpu_region_attributes[region] == attributes);
         TEST_EXPECT(state, (read_register(state, &cpu, rbar_aliases[alias - 1u],
-                                          CORTEX_M4_ACCESS_DATA) & 7u) == region);
+                                          CORTEX_M4_ACCESS_DATA) &
+                            7u) == region);
         TEST_EXPECT(state, read_register(state, &cpu, rasr_aliases[alias - 1u],
                                          CORTEX_M4_ACCESS_DATA) == attributes);
     }
     TEST_EXPECT(state, cpu.mpu_region_number == 4u);
 
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RBAR_A1, 4u,
-                                           CORTEX_M4_ACCESS_DATA,
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RBAR_A1, 4u, CORTEX_M4_ACCESS_DATA,
                                            0x44444000u | 0x10u | 2u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu.mpu_region_number == 2u);
     TEST_EXPECT(state, cpu.mpu_region_base[2] == 0x44444000u);
 
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA,
-                                           3u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
-    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RBAR_A1, 4u,
-                                           CORTEX_M4_ACCESS_DATA, 0x5555554fu) ==
+    TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RNR, 4u, CORTEX_M4_ACCESS_DATA, 3u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state,
+                cortex_m4_mpu_write(&cpu, MPU_RBAR_A1, 4u, CORTEX_M4_ACCESS_DATA,
+                                    0x5555554fu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu.mpu_region_base[1] == 0x55555540u);
     TEST_EXPECT(state, cpu.mpu_region_number == 3u);
 
     const uint32_t unmasked = 0xffffffffu;
     TEST_EXPECT(state, cortex_m4_mpu_write(&cpu, MPU_RASR, 4u, CORTEX_M4_ACCESS_DATA,
-                                           unmasked) ==
-                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+                                           unmasked) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu.mpu_region_attributes[3] == 0x173fff3fu);
 }
 
@@ -221,18 +228,16 @@ static void test_region_sizes_and_subregions(TestState* state) {
     cpu.mpu_control = MPU_ENABLE;
     set_region(&cpu, 0u, 0x20000000u, rasr(3u, 3u, false, 0u));
     for (uint32_t offset = 0u; offset < 64u; offset++) {
-        TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                               &cpu, 0x20000000u + offset, 1u, CORTEX_M4_ACCESS_DATA,
-                               false));
+        TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u + offset, 1u,
+                                                           CORTEX_M4_ACCESS_DATA, false));
     }
     set_region(&cpu, 0u, 0x2000001fu, rasr(4u, 3u, false, 0xffu));
     for (uint32_t offset = 0u; offset < 32u; offset++) {
-        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                               &cpu, 0x20000000u + offset, 1u, CORTEX_M4_ACCESS_DATA,
-                               false));
+        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000000u + offset, 1u,
+                                                          CORTEX_M4_ACCESS_DATA, false));
     }
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000020u, 1u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000020u, 1u,
+                                                       CORTEX_M4_ACCESS_DATA, false));
 
     set_region(&cpu, 0u, 0x200001e0u, rasr(7u, 3u, false, 0x24u));
     for (uint8_t subregion = 0u; subregion < 8u; subregion++) {
@@ -243,18 +248,18 @@ static void test_region_sizes_and_subregions(TestState* state) {
                                    1u, CORTEX_M4_ACCESS_DATA, false) == enabled);
         }
     }
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x2000013fu, 2u, CORTEX_M4_ACCESS_DATA, false));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x2000011fu, 2u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x2000013fu, 2u,
+                                                       CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x2000011fu, 2u,
+                                                      CORTEX_M4_ACCESS_DATA, false));
 
     set_region(&cpu, 7u, 0xffffffe0u, rasr(31u, 3u, false, 0u));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x00000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0xfffffffcu, 4u, CORTEX_M4_ACCESS_DATA, true));
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0xfffffffeu, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x00000000u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0xfffffffcu, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0xfffffffeu, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, true));
 }
 
 static void test_all_region_sizes(TestState* state) {
@@ -268,12 +273,11 @@ static void test_all_region_sizes(TestState* state) {
         const uint32_t end = (uint32_t)((uint64_t)base + size - 1u);
         set_region(&cpu, 0u, written_base, rasr(encoding, 3u, false, 0u));
         for (uint8_t access_size = 1u; access_size <= 4u; access_size *= 2u) {
-            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                                   &cpu, base, access_size, CORTEX_M4_ACCESS_DATA,
-                                   true));
-            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                                   &cpu, end - access_size + 1u, access_size,
-                                   CORTEX_M4_ACCESS_DATA, true));
+            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, base, access_size,
+                                                              CORTEX_M4_ACCESS_DATA, true));
+            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, end - access_size + 1u,
+                                                              access_size,
+                                                              CORTEX_M4_ACCESS_DATA, true));
         }
         if (base != 0u) {
             TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
@@ -288,19 +292,19 @@ static void test_all_region_sizes(TestState* state) {
 
 static bool expected_permission(uint8_t permission, bool privileged, bool write) {
     switch (permission) {
-        case 1u:
-            return privileged;
-        case 2u:
-            return privileged || !write;
-        case 3u:
-            return true;
-        case 5u:
-            return privileged && !write;
-        case 6u:
-        case 7u:
-            return !write;
-        default:
-            return false;
+    case 1u:
+        return privileged;
+    case 2u:
+        return privileged || !write;
+    case 3u:
+        return true;
+    case 5u:
+        return privileged && !write;
+    case 6u:
+    case 7u:
+        return !write;
+    default:
+        return false;
     }
 }
 
@@ -313,38 +317,36 @@ static void test_permissions(TestState* state) {
             cpu.control = privilege == 0u ? CORTEX_M4_CONTROL_NPRIV : 0u;
             const bool privileged = privilege != 0u;
             for (uint8_t write = 0u; write < 2u; write++) {
-                const bool expected = expected_permission(permission, privileged,
-                                                          write != 0u);
-                TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                                       &cpu, 0x20000080u, 4u, CORTEX_M4_ACCESS_DATA,
-                                       write != 0u) == expected);
+                const bool expected =
+                    expected_permission(permission, privileged, write != 0u);
+                TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000080u, 4u,
+                                                                  CORTEX_M4_ACCESS_DATA,
+                                                                  write != 0u) == expected);
                 TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
                                        &cpu, 0x20000080u, 4u,
-                                       CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
-                                       write != 0u) ==
-                                       expected_permission(permission, false,
-                                                           write != 0u));
+                                       CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, write != 0u) ==
+                                       expected_permission(permission, false, write != 0u));
             }
-            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                                   &cpu, 0x20000080u, 2u, CORTEX_M4_ACCESS_INSTRUCTION,
-                                   false) ==
+            TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000080u, 2u,
+                                                              CORTEX_M4_ACCESS_INSTRUCTION,
+                                                              false) ==
                                    expected_permission(permission, privileged, false));
         }
         cpu.xpsr = CORTEX_M4_XPSR_T | 16u;
         cpu.control = CORTEX_M4_CONTROL_NPRIV;
-        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                               &cpu, 0x20000080u, 4u, CORTEX_M4_ACCESS_DATA, true) ==
+        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000080u, 4u,
+                                                          CORTEX_M4_ACCESS_DATA, true) ==
                                expected_permission(permission, true, true));
         cpu.xpsr = CORTEX_M4_XPSR_T;
     }
     set_region(&cpu, 0u, 0x20000000u, rasr(7u, 3u, true, 0u));
     cpu.control = 0u;
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000080u, 4u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000080u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, false));
     TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
                            &cpu, 0x20000080u, 2u, CORTEX_M4_ACCESS_INSTRUCTION, false));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000080u, 2u, CORTEX_M4_ACCESS_DEBUG, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000080u, 2u,
+                                                      CORTEX_M4_ACCESS_DEBUG, true));
 }
 
 static void test_priority(TestState* state) {
@@ -352,72 +354,71 @@ static void test_priority(TestState* state) {
     cpu.mpu_control = MPU_ENABLE;
     set_region(&cpu, 0u, 0x20000000u, rasr(11u, 3u, false, 0u));
     set_region(&cpu, 3u, 0x20000400u, rasr(9u, 6u, false, 0u));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x200003fcu, 4u, CORTEX_M4_ACCESS_DATA, true));
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000400u, 4u, CORTEX_M4_ACCESS_DATA, true));
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000400u, 4u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x200003fcu, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000400u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000400u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, false));
     cpu.mpu_region_attributes[3] |= 1u << (8u + 2u);
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000500u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000500u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
 }
 
 static void test_background_and_fault_modes(TestState* state) {
     CortexM4 cpu = create_cpu();
     const uint32_t executable_addresses[] = {0x00000000u, 0x20000000u, 0x60000000u,
                                              0x80000000u};
-    const uint32_t execute_never_addresses[] = {0x40000000u, 0xa0000000u,
-                                                0xc0000000u, 0xe0000000u};
+    const uint32_t execute_never_addresses[] = {0x40000000u, 0xa0000000u, 0xc0000000u,
+                                                0xe0000000u};
     cpu.mpu_control = MPU_ENABLE | MPU_PRIVDEFENA;
     for (uint8_t index = 0u;
          index < sizeof(executable_addresses) / sizeof(executable_addresses[0]); index++) {
-        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                               &cpu, executable_addresses[index], 2u,
-                               CORTEX_M4_ACCESS_INSTRUCTION, false));
-        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                               &cpu, executable_addresses[index], 4u,
-                               CORTEX_M4_ACCESS_DATA, true));
+        TEST_EXPECT(state,
+                    cortex_m4_mpu_access_permitted(&cpu, executable_addresses[index], 2u,
+                                                   CORTEX_M4_ACCESS_INSTRUCTION, false));
+        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, executable_addresses[index],
+                                                          4u, CORTEX_M4_ACCESS_DATA, true));
     }
     for (uint8_t index = 0u;
          index < sizeof(execute_never_addresses) / sizeof(execute_never_addresses[0]);
          index++) {
-        TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                               &cpu, execute_never_addresses[index], 2u,
-                               CORTEX_M4_ACCESS_INSTRUCTION, false));
-        TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                               &cpu, execute_never_addresses[index], 4u,
-                               CORTEX_M4_ACCESS_DATA, true));
+        TEST_EXPECT(
+            state, !cortex_m4_mpu_access_permitted(&cpu, execute_never_addresses[index], 2u,
+                                                   CORTEX_M4_ACCESS_INSTRUCTION, false));
+        TEST_EXPECT(state,
+                    cortex_m4_mpu_access_permitted(&cpu, execute_never_addresses[index], 4u,
+                                                   CORTEX_M4_ACCESS_DATA, true));
     }
     cpu.control = CORTEX_M4_CONTROL_NPRIV;
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, false));
     cpu.control = 0u;
     cpu.mpu_control = MPU_ENABLE;
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, false));
     cpu.mpu_control = 0u;
     cpu.control = CORTEX_M4_CONTROL_NPRIV;
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
 
     cpu.mpu_control = MPU_ENABLE;
     cpu.xpsr = CORTEX_M4_XPSR_T | 2u;
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
     cpu.xpsr = CORTEX_M4_XPSR_T | 3u;
-    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                      CORTEX_M4_ACCESS_DATA, true));
     cpu.mpu_control |= MPU_HFNMIENA;
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, true));
     cpu.xpsr = CORTEX_M4_XPSR_T | 2u;
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, true));
     cpu.xpsr = CORTEX_M4_XPSR_T | 4u;
     cpu.mpu_control = MPU_ENABLE;
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0x20000000u, 4u, CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(&cpu, 0x20000000u, 4u,
+                                                       CORTEX_M4_ACCESS_DATA, true));
 }
 
 static void test_fault_metadata(TestState* state) {
@@ -435,28 +436,28 @@ static void test_fault_metadata(TestState* state) {
 
     cpu.cfsr = 0u;
     cpu.system_pending = 0u;
-    TEST_EXPECT(state, !cortex_m4_mpu_check(&cpu, 0x89abcdefu, 1u,
-                                            CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state,
+                !cortex_m4_mpu_check(&cpu, 0x89abcdefu, 1u, CORTEX_M4_ACCESS_DATA, true));
     TEST_EXPECT(state, cpu.cfsr == 0x82u);
     TEST_EXPECT(state, cpu.mmfar == 0x89abcdefu);
     TEST_EXPECT(state, raised_faults == 2u);
 
     set_region(&cpu, 0u, 0x89abcde0u, rasr(4u, 3u, false, 0u));
-    TEST_EXPECT(state, cortex_m4_mpu_check(&cpu, 0x89abcdefu, 1u,
-                                           CORTEX_M4_ACCESS_DATA, true));
+    TEST_EXPECT(state,
+                cortex_m4_mpu_check(&cpu, 0x89abcdefu, 1u, CORTEX_M4_ACCESS_DATA, true));
     TEST_EXPECT(state, raised_faults == 2u);
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           NULL, 0u, 1u, CORTEX_M4_ACCESS_DATA, false));
-    TEST_EXPECT(state, !cortex_m4_mpu_check(NULL, 0u, 1u, CORTEX_M4_ACCESS_DATA,
-                                            false));
-    TEST_EXPECT(state, !cortex_m4_mpu_access_permitted(
-                           &cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(
+        state, !cortex_m4_mpu_access_permitted(NULL, 0u, 1u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(state, !cortex_m4_mpu_check(NULL, 0u, 1u, CORTEX_M4_ACCESS_DATA, false));
+    TEST_EXPECT(
+        state, !cortex_m4_mpu_access_permitted(&cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, false));
 }
 
 int main(void) {
     TestState state = {0u};
     test_reset_and_copy(&state);
     test_register_access(&state);
+    test_absent_mpu(&state);
     test_region_registers(&state);
     test_region_sizes_and_subregions(&state);
     test_all_region_sizes(&state);

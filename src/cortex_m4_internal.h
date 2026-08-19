@@ -135,6 +135,9 @@ struct CortexM4 {
     void* trace_context;
     CortexM4WaitStates wait_states;
     void* wait_state_context;
+    uint16_t external_irq_count;
+    uint8_t priority_bits;
+    uint8_t mpu_region_count;
     uint32_t registers[CORTEX_M4_REGISTER_COUNT];
     uint32_t msp;
     uint32_t psp;
@@ -204,6 +207,7 @@ struct CortexM4 {
     bool sleeping;
     bool reset_requested;
     bool stop_requested;
+    bool instruction_faulted;
     CortexM4Stop stop;
     uint64_t instructions;
     uint64_t cycles;
@@ -228,8 +232,8 @@ bool cortex_m4_data_read(CortexM4* cpu, uint32_t address, uint8_t size,
 bool cortex_m4_data_write(CortexM4* cpu, uint32_t address, uint8_t size,
                           CortexM4Access access, uint32_t value);
 bool cortex_m4_require_alignment(CortexM4* cpu, uint32_t address, uint8_t alignment);
-bool cortex_m4_core_read(CortexM4* cpu, uint32_t address, uint8_t size, uint32_t* value);
-bool cortex_m4_core_write(CortexM4* cpu, uint32_t address, uint8_t size, uint32_t value);
+bool cortex_m4_configure_implementation(CortexM4* cpu, uint16_t external_irq_count,
+                                        uint8_t priority_bits, uint8_t mpu_region_count);
 void cortex_m4_advance(CortexM4* cpu, uint32_t cycles);
 bool cortex_m4_take_pending_exception(CortexM4* cpu);
 bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value);
@@ -237,32 +241,28 @@ void cortex_m4_raise_fault(CortexM4* cpu, uint8_t exception);
 void cortex_m4_exception_advanced_reset(CortexM4* cpu);
 uint16_t cortex_m4_exception_advanced_late_arrival(CortexM4* cpu,
                                                    uint16_t entering_exception);
-CortexM4ExceptionChain cortex_m4_exception_advanced_tail_chain(
-    CortexM4* cpu, uint32_t exception_return, uint16_t current_exception);
+CortexM4ExceptionChain cortex_m4_exception_advanced_tail_chain(CortexM4* cpu,
+                                                               uint32_t exception_return,
+                                                               uint16_t current_exception);
 void cortex_m4_exception_advanced_commit_entry(CortexM4* cpu, uint16_t exception);
-void cortex_m4_exception_advanced_commit_return(CortexM4* cpu,
-                                                uint16_t current_exception,
+void cortex_m4_exception_advanced_commit_return(CortexM4* cpu, uint16_t current_exception,
                                                 bool return_thread);
 bool cortex_m4_exception_advanced_active(const CortexM4* cpu, uint16_t exception);
 bool cortex_m4_exception_advanced_valid_return(const CortexM4* cpu, uint32_t value);
-bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu,
-                                                     uint32_t value,
+bool cortex_m4_exception_advanced_valid_stacked_xpsr(const CortexM4* cpu, uint32_t value,
                                                      uint32_t exception_return);
-void cortex_m4_exception_advanced_fault(CortexM4* cpu,
-                                        CortexM4ExceptionFaultStage stage,
+void cortex_m4_exception_advanced_fault(CortexM4* cpu, CortexM4ExceptionFaultStage stage,
                                         bool memory_management);
-void cortex_m4_exception_advanced_entry_fault(
-    CortexM4* cpu, uint16_t entering_exception,
-    CortexM4ExceptionFaultStage stage, bool memory_management);
+void cortex_m4_exception_advanced_entry_fault(CortexM4* cpu, uint16_t entering_exception,
+                                              CortexM4ExceptionFaultStage stage,
+                                              bool memory_management);
 void cortex_m4_exception_advanced_vector_fault(CortexM4* cpu);
-bool cortex_m4_exception_advanced_hardfault_vector(CortexM4* cpu,
-                                                   uint32_t* vector);
+bool cortex_m4_exception_advanced_hardfault_vector(CortexM4* cpu, uint32_t* vector);
 void cortex_m4_exception_advanced_imprecise_fault(CortexM4* cpu);
 uint8_t cortex_m4_exception_advanced_multiple_resume(const CortexM4* cpu);
 uint32_t cortex_m4_exception_advanced_multiple_address(const CortexM4* cpu,
                                                        uint32_t initial_address);
-bool cortex_m4_exception_advanced_multiple_suspend(CortexM4* cpu,
-                                                   uint8_t next_register,
+bool cortex_m4_exception_advanced_multiple_suspend(CortexM4* cpu, uint8_t next_register,
                                                    uint8_t instruction_size,
                                                    uint32_t next_address);
 void cortex_m4_exception_advanced_multiple_complete(CortexM4* cpu);
@@ -281,24 +281,24 @@ CortexM4InstructionDisposition cortex_m4_check_instruction_constraints(const Cor
 void cortex_m4_set_nz(CortexM4* cpu, uint32_t value);
 void cortex_m4_set_nzcv(CortexM4* cpu, uint32_t value, bool carry, bool overflow);
 bool cortex_m4_condition_passed(const CortexM4* cpu, uint8_t condition);
-CortexM4FlagWrite cortex_m4_it_flag_write(uint16_t first, uint16_t second,
-                                           bool wide);
+CortexM4FlagWrite cortex_m4_it_flag_write(uint16_t first, uint16_t second, bool wide);
 bool cortex_m4_it_condition_passed(const CortexM4* cpu);
 void cortex_m4_it_advance(CortexM4* cpu);
-void cortex_m4_it_preserve_flags(CortexM4* cpu, uint16_t first, uint16_t second,
-                                 bool wide, bool in_it_block,
-                                 uint32_t previous_xpsr);
+void cortex_m4_it_preserve_flags(CortexM4* cpu, uint16_t first, uint16_t second, bool wide,
+                                 bool in_it_block, uint32_t previous_xpsr);
 uint32_t cortex_m4_xpsr_value(const CortexM4* cpu);
 void cortex_m4_load_xpsr(CortexM4* cpu, uint32_t value);
 uint32_t cortex_m4_add_with_carry(uint32_t left, uint32_t right, bool carry,
                                   bool* carry_out, bool* overflow_out);
 uint32_t cortex_m4_shift(uint32_t value, uint8_t type, uint32_t amount, bool carry_in,
                          bool* carry_out);
+uint32_t cortex_m4_shift_register(uint32_t value, uint8_t type, uint32_t amount,
+                                  bool carry_in, bool* carry_out);
 void cortex_m4_system_reset(CortexM4* cpu);
 CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint8_t size,
-                                           uint32_t* value);
+                                           CortexM4Access access, uint32_t* value);
 CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uint8_t size,
-                                            uint32_t value);
+                                            CortexM4Access access, uint32_t value);
 CortexM4Priority cortex_m4_system_priority(const CortexM4* cpu, uint8_t priority);
 bool cortex_m4_system_exception_masked(const CortexM4* cpu, uint16_t exception);
 bool cortex_m4_system_exception_can_preempt(const CortexM4* cpu, uint16_t candidate,

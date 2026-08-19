@@ -12,6 +12,7 @@ static void expect_cpu(TestState* state, const K22Profile* profile,
     TEST_EXPECT(state, profile->cpu.core_revision_major == 0);
     TEST_EXPECT(state, profile->cpu.core_revision_minor == 1);
     TEST_EXPECT(state, profile->cpu.nvic_priority_bits == 4);
+    TEST_EXPECT(state, profile->cpu.external_irq_count == expected->external_irq_count);
     TEST_EXPECT(state, profile->cpu.little_endian);
     TEST_EXPECT(state, profile->cpu.has_fpu);
     TEST_EXPECT(state, !profile->cpu.has_mpu);

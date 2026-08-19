@@ -31,6 +31,10 @@ struct KinetisK22 {
     uint8_t* peripheral;
     uint32_t sram_base;
     uint64_t cycles;
+    uint64_t cmt_cycles;
+    uint64_t usbdcd_cycles;
+    bool cmt_eoc_read;
+    KinetisK22UsbCharger usb_charger;
     K22Data* data;
     K22Io io;
     K22Serial serial;

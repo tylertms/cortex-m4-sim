@@ -159,6 +159,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(device_k22_integration_complete
                      tests/device/k22_integration_complete_test.c
                      "device;integration")
+  cortex_m4_add_test(device_k22_infrastructure
+                     tests/device/k22_infrastructure_test.c
+                     "device;integration")
   cortex_m4_add_test(device_gpio tests/device/gpio_test.c "device;integration")
   cortex_m4_add_test(device_pit tests/device/pit_test.c "device;integration")
   cortex_m4_add_test(device_adc tests/device/adc_test.c "device;integration")

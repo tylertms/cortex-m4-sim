@@ -46,8 +46,32 @@
 #define SCR_SEVONPEND (1u << 4)
 
 static bool valid_access(uint32_t address, uint8_t size) {
-    return (size == 1 || size == 2 || size == 4) && (address & (size - 1u)) == 0 &&
-           (address & 3u) + size <= 4;
+    if ((size != 1 && size != 2 && size != 4) || (address & (size - 1u)) != 0 ||
+        (address & 3u) + size > 4u) {
+        return false;
+    }
+    if (size == 4u) {
+        return (address & 3u) == 0u;
+    }
+    return (address >= SCB_SHPR && address + size <= SCB_SHPR + 12u) ||
+           (address >= SCB_CFSR && address + size <= SCB_CFSR + 4u) ||
+           (address >= NVIC_IPR && address + size <= NVIC_IPR + CORTEX_M4_IRQ_COUNT);
+}
+
+static bool privileged_access(const CortexM4* cpu, CortexM4Access access) {
+    return access == CORTEX_M4_ACCESS_DEBUG ||
+           (access == CORTEX_M4_ACCESS_DATA &&
+            ((cpu->xpsr & 0x1ffu) != 0u || (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0u));
+}
+
+static uint8_t irq_word_count(const CortexM4* cpu) {
+    return (uint8_t)((cpu->external_irq_count + 31u) / 32u);
+}
+
+static uint32_t irq_word_mask(const CortexM4* cpu, uint8_t index) {
+    const uint16_t first_irq = (uint16_t)index * 32u;
+    const uint16_t remaining = cpu->external_irq_count - first_irq;
+    return remaining >= 32u ? UINT32_MAX : (1u << remaining) - 1u;
 }
 
 static uint32_t read_partial(uint32_t value, uint32_t address, uint8_t size) {
@@ -74,7 +98,7 @@ static uint32_t write_partial(uint32_t previous, uint32_t address, uint8_t size,
 }
 
 static uint8_t exception_priority(const CortexM4* cpu, uint16_t exception) {
-    if (exception >= 16 && exception < CORTEX_M4_IRQ_COUNT + 16u) {
+    if (exception >= 16 && exception < cpu->external_irq_count + 16u) {
         return cpu->irq_priority[exception - 16u];
     }
     if (exception >= 4 && exception <= 15) {
@@ -99,9 +123,12 @@ CortexM4Priority cortex_m4_system_priority(const CortexM4* cpu, uint8_t priority
         return result;
     }
     const uint8_t group = (uint8_t)((cpu->aircr >> 8) & 7u);
-    const uint8_t preemption_bits = group < 3 ? 4 : (uint8_t)(7u - group);
-    const uint8_t subpriority_bits = (uint8_t)(4u - preemption_bits);
-    const uint8_t logical = priority >> 4;
+    const uint8_t available_preemption = (uint8_t)(7u - group);
+    const uint8_t preemption_bits = cpu->priority_bits < available_preemption
+                                        ? cpu->priority_bits
+                                        : available_preemption;
+    const uint8_t subpriority_bits = (uint8_t)(cpu->priority_bits - preemption_bits);
+    const uint8_t logical = priority >> (8u - cpu->priority_bits);
     result.preemption = logical >> subpriority_bits;
     result.subpriority = logical & (uint8_t)((1u << subpriority_bits) - 1u);
     return result;
@@ -165,7 +192,7 @@ bool cortex_m4_system_exception_before(const CortexM4* cpu, uint16_t left, uint1
 }
 
 static bool external_pending_enabled(const CortexM4* cpu) {
-    for (uint8_t index = 0; index < CORTEX_M4_IRQ_WORD_COUNT; index++) {
+    for (uint8_t index = 0; index < irq_word_count(cpu); index++) {
         if ((cpu->irq_pending[index] & cpu->irq_enabled[index]) != 0) {
             return true;
         }
@@ -184,7 +211,7 @@ void cortex_m4_system_wait_for_interrupt(CortexM4* cpu) {
 }
 
 void cortex_m4_system_set_pending(CortexM4* cpu, uint16_t exception, bool pending) {
-    if (cpu == NULL || exception < 2 || exception >= CORTEX_M4_IRQ_COUNT + 16u) {
+    if (cpu == NULL || exception < 2 || exception >= cpu->external_irq_count + 16u) {
         return;
     }
     bool was_pending = false;
@@ -231,7 +258,7 @@ static uint16_t pending_vector(const CortexM4* cpu) {
             selected = exception;
         }
     }
-    for (uint16_t irq = 0; irq < CORTEX_M4_IRQ_COUNT; irq++) {
+    for (uint16_t irq = 0; irq < cpu->external_irq_count; irq++) {
         const uint32_t mask = 1u << (irq & 31u);
         if ((cpu->irq_pending[irq / 32u] & cpu->irq_enabled[irq / 32u] & mask) != 0 &&
             cortex_m4_system_exception_before(cpu, irq + 16u, selected)) {
@@ -246,8 +273,7 @@ static uint32_t shcsr_value(const CortexM4* cpu) {
     const uint8_t active_exceptions[] = {4, 5, 6, 11, 12, 14, 15};
     const uint8_t active_bits[] = {0, 1, 3, 7, 8, 10, 11};
     for (uint8_t index = 0; index < sizeof(active_exceptions); index++) {
-        if (cortex_m4_exception_advanced_active(cpu,
-                                                active_exceptions[index])) {
+        if (cortex_m4_exception_advanced_active(cpu, active_exceptions[index])) {
             value |= 1u << active_bits[index];
         }
     }
@@ -276,9 +302,10 @@ static uint32_t read_priority_bytes(const uint8_t* priorities, uint32_t offset,
 }
 
 static void write_priority_bytes(uint8_t* priorities, uint32_t offset, uint8_t size,
-                                 uint32_t value) {
+                                 uint32_t value, uint8_t priority_bits) {
+    const uint8_t mask = (uint8_t)(0xffu << (8u - priority_bits));
     for (uint8_t index = 0; index < size; index++) {
-        priorities[offset + index] = (uint8_t)(value >> (index * 8u)) & 0xf0u;
+        priorities[offset + index] = (uint8_t)(value >> (index * 8u)) & mask;
     }
 }
 
@@ -300,10 +327,11 @@ static uint32_t read_system_priority(const CortexM4* cpu, uint32_t offset, uint8
 
 static void write_system_priority(CortexM4* cpu, uint32_t offset, uint8_t size,
                                   uint32_t value) {
+    const uint8_t mask = (uint8_t)(0xffu << (8u - cpu->priority_bits));
     for (uint8_t index = 0; index < size; index++) {
         const uint8_t exception = (uint8_t)(offset + index + 4u);
         if (configurable_system_exception(exception)) {
-            cpu->system_priority[offset + index] = (uint8_t)(value >> (index * 8u)) & 0xf0u;
+            cpu->system_priority[offset + index] = (uint8_t)(value >> (index * 8u)) & mask;
         }
     }
 }
@@ -315,19 +343,20 @@ static CortexM4SystemAccess accepted_read(uint32_t data, uint32_t address, uint8
 }
 
 CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint8_t size,
-                                           uint32_t* value) {
+                                           CortexM4Access access, uint32_t* value) {
     if (address >= 0xe0080000u && address < 0xe00a0000u) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
     if (address < PPB_START || address >= PPB_END) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
-    if (cpu == NULL || value == NULL || !valid_access(address, size)) {
+    if (cpu == NULL || value == NULL || !valid_access(address, size) ||
+        !privileged_access(cpu, access)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     const uint32_t aligned = address & ~3u;
     if (aligned == ICTR) {
-        return accepted_read(7u, address, size, value);
+        return accepted_read((cpu->external_irq_count - 1u) / 32u, address, size, value);
     }
     if (aligned == SYST_CSR) {
         const uint32_t data = cpu->systick_control;
@@ -343,27 +372,32 @@ CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint
     if (aligned == SYST_CALIB) {
         return accepted_read(cpu->systick_calibration, address, size, value);
     }
-    if (aligned >= NVIC_ISER && aligned < NVIC_ISER + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        return accepted_read(cpu->irq_enabled[(aligned - NVIC_ISER) / 4u], address, size,
-                             value);
+    if (aligned >= NVIC_ISER && aligned < NVIC_ISER + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ISER) / 4u);
+        return accepted_read(cpu->irq_enabled[index] & irq_word_mask(cpu, index), address,
+                             size, value);
     }
-    if (aligned >= NVIC_ICER && aligned < NVIC_ICER + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        return accepted_read(cpu->irq_enabled[(aligned - NVIC_ICER) / 4u], address, size,
-                             value);
+    if (aligned >= NVIC_ICER && aligned < NVIC_ICER + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ICER) / 4u);
+        return accepted_read(cpu->irq_enabled[index] & irq_word_mask(cpu, index), address,
+                             size, value);
     }
-    if (aligned >= NVIC_ISPR && aligned < NVIC_ISPR + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        return accepted_read(cpu->irq_pending[(aligned - NVIC_ISPR) / 4u], address, size,
-                             value);
+    if (aligned >= NVIC_ISPR && aligned < NVIC_ISPR + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ISPR) / 4u);
+        return accepted_read(cpu->irq_pending[index] & irq_word_mask(cpu, index), address,
+                             size, value);
     }
-    if (aligned >= NVIC_ICPR && aligned < NVIC_ICPR + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        return accepted_read(cpu->irq_pending[(aligned - NVIC_ICPR) / 4u], address, size,
-                             value);
+    if (aligned >= NVIC_ICPR && aligned < NVIC_ICPR + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ICPR) / 4u);
+        return accepted_read(cpu->irq_pending[index] & irq_word_mask(cpu, index), address,
+                             size, value);
     }
-    if (aligned >= NVIC_IABR && aligned < NVIC_IABR + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        return accepted_read(cpu->irq_active[(aligned - NVIC_IABR) / 4u], address, size,
-                             value);
+    if (aligned >= NVIC_IABR && aligned < NVIC_IABR + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_IABR) / 4u);
+        return accepted_read(cpu->irq_active[index] & irq_word_mask(cpu, index), address,
+                             size, value);
     }
-    if (address >= NVIC_IPR && address + size <= NVIC_IPR + CORTEX_M4_IRQ_COUNT) {
+    if (address >= NVIC_IPR && address + size <= NVIC_IPR + cpu->external_irq_count) {
         *value = read_priority_bytes(cpu->irq_priority, address - NVIC_IPR, size);
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
@@ -480,14 +514,14 @@ static void write_shcsr(CortexM4* cpu, uint32_t address, uint8_t size, uint32_t 
 }
 
 CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uint8_t size,
-                                            uint32_t value) {
+                                            CortexM4Access access, uint32_t value) {
     if (address >= 0xe0080000u && address < 0xe00a0000u) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
     if (address < PPB_START || address >= PPB_END) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
-    if (cpu == NULL || !valid_access(address, size)) {
+    if (cpu == NULL || !valid_access(address, size) || !privileged_access(cpu, access)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     const uint32_t aligned = address & ~3u;
@@ -506,39 +540,46 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         cpu->systick_control &= ~(1u << 16);
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (aligned >= NVIC_ISER && aligned < NVIC_ISER + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        cpu->irq_enabled[(aligned - NVIC_ISER) / 4u] |= access_value(address, size, value);
+    if (aligned >= NVIC_ISER && aligned < NVIC_ISER + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ISER) / 4u);
+        cpu->irq_enabled[index] |=
+            access_value(address, size, value) & irq_word_mask(cpu, index);
         if (wakeup_pending(cpu)) {
             cpu->sleeping = false;
         }
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (aligned >= NVIC_ICER && aligned < NVIC_ICER + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
-        cpu->irq_enabled[(aligned - NVIC_ICER) / 4u] &= ~access_value(address, size, value);
+    if (aligned >= NVIC_ICER && aligned < NVIC_ICER + irq_word_count(cpu) * 4u) {
+        const uint8_t index = (uint8_t)((aligned - NVIC_ICER) / 4u);
+        cpu->irq_enabled[index] &=
+            ~(access_value(address, size, value) & irq_word_mask(cpu, index));
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (aligned >= NVIC_ISPR && aligned < NVIC_ISPR + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
+    if (aligned >= NVIC_ISPR && aligned < NVIC_ISPR + irq_word_count(cpu) * 4u) {
         const uint16_t first_irq = (uint16_t)(((aligned - NVIC_ISPR) / 4u) * 32u);
         const uint32_t bits = access_value(address, size, value);
-        for (uint8_t bit = 0; bit < 32 && first_irq + bit < CORTEX_M4_IRQ_COUNT; bit++) {
+        for (uint8_t bit = 0; bit < 32 && first_irq + bit < cpu->external_irq_count;
+             bit++) {
             if ((bits & (1u << bit)) != 0) {
                 cortex_m4_system_set_pending(cpu, first_irq + bit + 16u, true);
             }
         }
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (aligned >= NVIC_ICPR && aligned < NVIC_ICPR + CORTEX_M4_IRQ_WORD_COUNT * 4u) {
+    if (aligned >= NVIC_ICPR && aligned < NVIC_ICPR + irq_word_count(cpu) * 4u) {
         const uint16_t first_irq = (uint16_t)(((aligned - NVIC_ICPR) / 4u) * 32u);
         const uint32_t bits = access_value(address, size, value);
-        for (uint8_t bit = 0; bit < 32 && first_irq + bit < CORTEX_M4_IRQ_COUNT; bit++) {
+        for (uint8_t bit = 0; bit < 32 && first_irq + bit < cpu->external_irq_count;
+             bit++) {
             if ((bits & (1u << bit)) != 0) {
                 cortex_m4_system_set_pending(cpu, first_irq + bit + 16u, false);
             }
         }
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (address >= NVIC_IPR && address + size <= NVIC_IPR + CORTEX_M4_IRQ_COUNT) {
-        write_priority_bytes(cpu->irq_priority, address - NVIC_IPR, size, value);
+    if (address >= NVIC_IPR && address + size <= NVIC_IPR + cpu->external_irq_count) {
+        write_priority_bytes(cpu->irq_priority, address - NVIC_IPR, size, value,
+                             cpu->priority_bits);
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
     if (aligned == SCB_ICSR) {
@@ -619,7 +660,7 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
     }
     if (aligned == NVIC_STIR) {
         const uint16_t irq = (uint16_t)(value & 0x1ffu);
-        if (size != 4 || irq >= CORTEX_M4_IRQ_COUNT) {
+        if (size != 4 || irq >= cpu->external_irq_count) {
             return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
         }
         cortex_m4_system_set_pending(cpu, irq + 16u, true);
@@ -640,7 +681,7 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
     if (aligned == ICTR || aligned == SYST_CALIB ||
-        (aligned >= NVIC_IABR && aligned < NVIC_IABR + CORTEX_M4_IRQ_WORD_COUNT * 4u) ||
+        (aligned >= NVIC_IABR && aligned < NVIC_IABR + irq_word_count(cpu) * 4u) ||
         aligned == SCB_CPUID || (aligned >= SCB_ID_PFR0 && aligned <= SCB_ID_ISAR5) ||
         aligned == FPU_MVFR0 || aligned == FPU_MVFR1 || aligned == FPU_MVFR2) {
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
@@ -813,8 +854,7 @@ bool cortex_m4_system_unstack_exception_frame(CortexM4* cpu, uint32_t* stack_poi
     if (cpu != NULL) {
         cpu->exception_unstack_memory_fault = false;
     }
-    if (!cortex_m4_exception_advanced_valid_return(cpu, value) ||
-        stack_pointer == NULL) {
+    if (!cortex_m4_exception_advanced_valid_return(cpu, value) || stack_pointer == NULL) {
         if (cpu != NULL) {
             cpu->cfsr |= 1u << 18;
         }
@@ -830,8 +870,7 @@ bool cortex_m4_system_unstack_exception_frame(CortexM4* cpu, uint32_t* stack_poi
         }
     }
     const bool return_thread = (value & (1u << 3)) != 0;
-    if (!cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, core_frame[7],
-                                                         value)) {
+    if (!cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, core_frame[7], value)) {
         cpu->cfsr |= (core_frame[7] & CORTEX_M4_XPSR_T) == 0 ? 1u << 17 : 1u << 18;
         return false;
     }

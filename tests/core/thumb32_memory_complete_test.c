@@ -140,8 +140,7 @@ static void test_register_offset(TestState* state, KinetisK22* device) {
 
     const uint32_t branch = 0x00000141u;
     load_instruction(state, device, 0xf852u, 0xf023u);
-    TEST_EXPECT(state,
-                kinetis_k22_write(device, 0x200000ecu, &branch, sizeof(branch)));
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x200000ecu, &branch, sizeof(branch)));
     cortex_m4_set_register(cpu, 2, 0x200000e0u);
     cortex_m4_set_register(cpu, 3, 3u);
     TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
@@ -162,6 +161,39 @@ static void test_unprivileged(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 11, 0x200000d0u);
     execute(state, device);
     TEST_EXPECT(state, read_word(state, device, 0x200000dcu) == 0x5aa55aa5u);
+
+    uint32_t byte_value = 0;
+    TEST_EXPECT(state, !cortex_m4_read_memory(cpu, 0xe000ed00u, 1u, &byte_value));
+    load_instruction(state, device, 0xf851u, 0x0e0cu);
+    cortex_m4_set_register(cpu, 0, 0xa5a5a5a5u);
+    cortex_m4_set_register(cpu, 1, 0xe000ecf4u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0xa5a5a5a5u);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 16)) == 0);
+
+    load_instruction(state, device, 0xf84bu, 0xae0cu);
+    cortex_m4_set_register(cpu, 10, 0x5aa55aa5u);
+    cortex_m4_set_register(cpu, 11, 0xe000ecf4u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 16)) == 0);
+
+    load_instruction(state, device, 0x6808u, 0xbe00u);
+    cortex_m4_set_control(cpu, 1u);
+    cortex_m4_set_register(cpu, 0, 0xa5a5a5a5u);
+    cortex_m4_set_register(cpu, 1, 0xe000ed00u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0xa5a5a5a5u);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 16)) == 0);
+
+    load_instruction(state, device, 0x6008u, 0xbe00u);
+    cortex_m4_set_register(cpu, 0, 0x5aa55aa5u);
+    cortex_m4_set_register(cpu, 1, 0xe000ecf4u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 16)) == 0);
 }
 
 static void test_alignment_faults(TestState* state, KinetisK22* device) {
@@ -220,8 +252,8 @@ static void test_unprivileged_access_type(TestState* state) {
     memcpy(bus.memory, vectors, sizeof(vectors));
     memcpy(bus.memory + 0x100, program, sizeof(program));
     memcpy(bus.memory + 0x20c, &value, sizeof(value));
-    CortexM4* cpu = cortex_m4_create(
-        (CortexM4Bus){&bus, tracking_read, tracking_write, NULL, NULL});
+    CortexM4* cpu =
+        cortex_m4_create((CortexM4Bus){&bus, tracking_read, tracking_write, NULL, NULL});
     TEST_EXPECT(state, cpu != NULL);
     TEST_EXPECT(state, cortex_m4_reset(cpu, 0));
     TEST_CONNECT_DEBUGGER(state, cpu);

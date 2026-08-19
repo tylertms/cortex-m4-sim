@@ -14,7 +14,6 @@
 #define MPU_RBAR_A3 0xe000edb4u
 #define MPU_RASR_A3 0xe000edb8u
 
-#define MPU_TYPE_VALUE 0x00000800u
 #define MPU_CTRL_MASK 0x00000007u
 #define MPU_CTRL_ENABLE 0x00000001u
 #define MPU_CTRL_HFNMIENA 0x00000002u
@@ -43,8 +42,7 @@ static bool privileged_access(const CortexM4* cpu, CortexM4Access access) {
     if (access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA) {
         return false;
     }
-    return (cpu->xpsr & 0x1ffu) != 0u ||
-           (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0u;
+    return (cpu->xpsr & 0x1ffu) != 0u || (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0u;
 }
 
 static uint8_t alias_number(uint32_t address) {
@@ -95,8 +93,11 @@ CortexM4SystemAccess cortex_m4_mpu_read(CortexM4* cpu, uint32_t address, uint8_t
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     if (address == MPU_TYPE) {
-        *value = MPU_TYPE_VALUE;
+        *value = (uint32_t)cpu->mpu_region_count << 8u;
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
+    }
+    if (cpu->mpu_region_count == 0u) {
+        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     if (address == MPU_CTRL) {
         *value = cpu->mpu_control;
@@ -127,6 +128,9 @@ CortexM4SystemAccess cortex_m4_mpu_write(CortexM4* cpu, uint32_t address, uint8_
     if (address == MPU_TYPE) {
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
+    if (cpu->mpu_region_count == 0u) {
+        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    }
     if (address == MPU_CTRL) {
         cpu->mpu_control = value & MPU_CTRL_MASK;
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
@@ -149,7 +153,7 @@ CortexM4SystemAccess cortex_m4_mpu_write(CortexM4* cpu, uint32_t address, uint8_
 }
 
 static bool mpu_active(const CortexM4* cpu) {
-    if ((cpu->mpu_control & MPU_CTRL_ENABLE) == 0u) {
+    if (cpu->mpu_region_count == 0u || (cpu->mpu_control & MPU_CTRL_ENABLE) == 0u) {
         return false;
     }
     const uint16_t exception = (uint16_t)(cpu->xpsr & 0x1ffu);
@@ -180,7 +184,7 @@ static bool region_contains(const CortexM4* cpu, uint8_t region, uint32_t addres
 }
 
 static int8_t matching_region(const CortexM4* cpu, uint32_t address) {
-    for (int8_t region = CORTEX_M4_MPU_REGION_COUNT - 1; region >= 0; region--) {
+    for (int8_t region = (int8_t)cpu->mpu_region_count - 1; region >= 0; region--) {
         if (region_contains(cpu, (uint8_t)region, address)) {
             return region;
         }
@@ -195,19 +199,19 @@ static bool region_permission(uint32_t attributes, bool privileged, bool write,
     }
     const uint8_t permission = (uint8_t)((attributes & MPU_RASR_AP_MASK) >> 24u);
     switch (permission) {
-        case 1u:
-            return privileged;
-        case 2u:
-            return privileged || !write;
-        case 3u:
-            return true;
-        case 5u:
-            return privileged && !write;
-        case 6u:
-        case 7u:
-            return !write;
-        default:
-            return false;
+    case 1u:
+        return privileged;
+    case 2u:
+        return privileged || !write;
+    case 3u:
+        return true;
+    case 5u:
+        return privileged && !write;
+    case 6u:
+    case 7u:
+        return !write;
+    default:
+        return false;
     }
 }
 
@@ -215,8 +219,7 @@ static bool background_permission(uint32_t address, bool instruction) {
     if (!instruction) {
         return true;
     }
-    return address < 0x40000000u ||
-           (address >= 0x60000000u && address < 0xa0000000u);
+    return address < 0x40000000u || (address >= 0x60000000u && address < 0xa0000000u);
 }
 
 static bool byte_access_permitted(const CortexM4* cpu, uint32_t address,

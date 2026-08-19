@@ -127,11 +127,12 @@ static const K22PeripheralBlock mk22f12_blocks[] = {
 };
 
 #define COUNT(array) (sizeof(array) / sizeof((array)[0]))
-#define CPU(clock)                                                                         \
+#define CPU(clock, irqs)                                                                   \
     {.architecture = K22_CPU_ARCHITECTURE_ARMV7E_M,                                        \
      .core_revision_major = 0,                                                             \
      .core_revision_minor = 1,                                                             \
      .nvic_priority_bits = 4,                                                              \
+     .external_irq_count = irqs,                                                           \
      .little_endian = true,                                                                \
      .has_fpu = true,                                                                      \
      .has_mpu = false,                                                                     \
@@ -149,7 +150,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .sram_upper_size = 0x4000u,
      .sim_sdid_reset = 0x680u,
      .sim_sdid_mask = 0x000f0f80u,
-     .cpu = CPU(100000000u),
+     .cpu = CPU(100000000u, 86u),
      .peripheral_blocks = mk22f12810_blocks,
      .peripheral_block_count = COUNT(mk22f12810_blocks)},
     {.id = K22_PROFILE_MK22FN12812,
@@ -161,7 +162,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .sram_upper_size = 0x8000u,
      .sim_sdid_reset = 0xa80u,
      .sim_sdid_mask = 0x000f0f80u,
-     .cpu = CPU(120000000u),
+     .cpu = CPU(120000000u, 86u),
      .peripheral_blocks = mk22f25612_blocks,
      .peripheral_block_count = COUNT(mk22f25612_blocks)},
     {.id = K22_PROFILE_MK22FN25612,
@@ -173,7 +174,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .sram_upper_size = 0x8000u,
      .sim_sdid_reset = 0xa80u,
      .sim_sdid_mask = 0x000f0f80u,
-     .cpu = CPU(120000000u),
+     .cpu = CPU(120000000u, 86u),
      .peripheral_blocks = mk22f25612_blocks,
      .peripheral_block_count = COUNT(mk22f25612_blocks)},
     {.id = K22_PROFILE_MK22FN51212,
@@ -185,7 +186,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .sram_upper_size = 0x10000u,
      .sim_sdid_reset = 0xe80u,
      .sim_sdid_mask = 0x000f0f80u,
-     .cpu = CPU(120000000u),
+     .cpu = CPU(120000000u, 86u),
      .peripheral_blocks = mk22f51212_blocks,
      .peripheral_block_count = COUNT(mk22f51212_blocks)},
     {.id = K22_PROFILE_MK22FN1M012,
@@ -199,7 +200,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .flexram_size = 0x1000u,
      .sim_sdid_reset = 0x300u,
      .sim_sdid_mask = 0xffff0f80u,
-     .cpu = CPU(120000000u),
+     .cpu = CPU(120000000u, 82u),
      .peripheral_blocks = mk22f12_blocks,
      .peripheral_block_count = COUNT(mk22f12_blocks)},
     {.id = K22_PROFILE_MK22FX51212,
@@ -215,7 +216,7 @@ static const K22Profile profiles[K22_PROFILE_COUNT] = {
      .flexram_size = 0x1000u,
      .sim_sdid_reset = 0x300u,
      .sim_sdid_mask = 0xffff0f80u,
-     .cpu = CPU(120000000u),
+     .cpu = CPU(120000000u, 82u),
      .peripheral_blocks = mk22f12_blocks,
      .peripheral_block_count = COUNT(mk22f12_blocks)},
 };

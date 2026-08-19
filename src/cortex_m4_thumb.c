@@ -113,17 +113,17 @@ static bool execute_data_processing(CortexM4* cpu, uint16_t opcode) {
         cortex_m4_set_nz(cpu, result);
         break;
     case 2:
-        result = cortex_m4_shift(left, 0, right & 0xffu, carry, &carry);
+        result = cortex_m4_shift_register(left, 0, right, carry, &carry);
         cpu->registers[destination] = result;
         set_logic_flags(cpu, result, carry);
         break;
     case 3:
-        result = cortex_m4_shift(left, 1, right & 0xffu, carry, &carry);
+        result = cortex_m4_shift_register(left, 1, right, carry, &carry);
         cpu->registers[destination] = result;
         set_logic_flags(cpu, result, carry);
         break;
     case 4:
-        result = cortex_m4_shift(left, 2, right & 0xffu, carry, &carry);
+        result = cortex_m4_shift_register(left, 2, right, carry, &carry);
         cpu->registers[destination] = result;
         set_logic_flags(cpu, result, carry);
         break;
@@ -134,7 +134,7 @@ static bool execute_data_processing(CortexM4* cpu, uint16_t opcode) {
         cpu->registers[destination] = add_flags(cpu, left, ~right, carry);
         break;
     case 7:
-        result = cortex_m4_shift(left, 3, right & 0xffu, carry, &carry);
+        result = cortex_m4_shift_register(left, 3, right, carry, &carry);
         cpu->registers[destination] = result;
         set_logic_flags(cpu, result, carry);
         break;
@@ -326,8 +326,7 @@ static bool execute_push_pop(CortexM4* cpu, uint16_t opcode) {
                     return true;
                 address += 4;
                 uint8_t next = 0;
-                for (uint8_t candidate = index + 1u; candidate < 8u;
-                     candidate++) {
+                for (uint8_t candidate = index + 1u; candidate < 8u; candidate++) {
                     if ((list & (1u << candidate)) != 0) {
                         next = candidate;
                         break;
@@ -336,8 +335,7 @@ static bool execute_push_pop(CortexM4* cpu, uint16_t opcode) {
                 if (next == 0u && extra) {
                     next = 14u;
                 }
-                if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u,
-                                                                  address))
+                if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u, address))
                     return true;
             }
         }
@@ -349,8 +347,7 @@ static bool execute_push_pop(CortexM4* cpu, uint16_t opcode) {
         cortex_m4_exception_advanced_multiple_complete(cpu);
         return true;
     }
-    stack_pointer =
-        cortex_m4_exception_advanced_multiple_address(cpu, stack_pointer);
+    stack_pointer = cortex_m4_exception_advanced_multiple_address(cpu, stack_pointer);
     for (uint8_t index = 0; index < 8; index++) {
         if (index < resume)
             continue;
@@ -370,8 +367,7 @@ static bool execute_push_pop(CortexM4* cpu, uint16_t opcode) {
             if (next == 0u && extra) {
                 next = 15u;
             }
-            if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u,
-                                                              stack_pointer))
+            if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u, stack_pointer))
                 return true;
         }
     }
@@ -391,8 +387,8 @@ static bool execute_multiple(CortexM4* cpu, uint16_t opcode) {
     const bool load = (opcode & (1u << 11)) != 0;
     const uint8_t base = (uint8_t)((opcode >> 8) & 7u);
     const uint8_t list = (uint8_t)opcode;
-    uint32_t address = cortex_m4_exception_advanced_multiple_address(
-        cpu, cpu->registers[base]);
+    uint32_t address =
+        cortex_m4_exception_advanced_multiple_address(cpu, cpu->registers[base]);
     const uint8_t resume = cortex_m4_exception_advanced_multiple_resume(cpu);
     for (uint8_t index = 0; index < 8; index++) {
         if (index < resume)
@@ -415,8 +411,7 @@ static bool execute_multiple(CortexM4* cpu, uint16_t opcode) {
                 break;
             }
         }
-        if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u,
-                                                          address))
+        if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 2u, address))
             return true;
     }
     if (!load || (list & (1u << base)) == 0) {
@@ -483,8 +478,8 @@ static bool execute_miscellaneous(CortexM4* cpu, uint16_t opcode) {
         return true;
     }
     if ((opcode & 0xffe0u) == 0xb660u) {
-        const bool privileged = (cpu->xpsr & 0x1ffu) != 0 ||
-                                (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0;
+        const bool privileged =
+            (cpu->xpsr & 0x1ffu) != 0 || (cpu->control & CORTEX_M4_CONTROL_NPRIV) == 0;
         if (!privileged) {
             return true;
         }
@@ -895,9 +890,9 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         const uint8_t amount_register = (uint8_t)(second & 15u);
         const uint8_t shift_type = (uint8_t)((first >> 5) & 3u);
         const bool carry_in = (cpu->xpsr & CORTEX_M4_XPSR_C) != 0;
-        const uint32_t result = cortex_m4_shift(
+        const uint32_t result = cortex_m4_shift_register(
             cortex_m4_read_register_internal(cpu, source), shift_type,
-            cortex_m4_read_register_internal(cpu, amount_register) & 0xffu, carry_in, NULL);
+            cortex_m4_read_register_internal(cpu, amount_register), carry_in, NULL);
         cortex_m4_write_register_internal(cpu, destination, result);
         return true;
     }
@@ -1168,15 +1163,13 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
             }
             address += 4;
             uint8_t next = 0;
-            for (uint8_t candidate = index + 1u; candidate < 16u;
-                 candidate++) {
+            for (uint8_t candidate = index + 1u; candidate < 16u; candidate++) {
                 if ((second & (1u << candidate)) != 0) {
                     next = candidate;
                     break;
                 }
             }
-            if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 4u,
-                                                              address)) {
+            if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 4u, address)) {
                 return true;
             }
         }

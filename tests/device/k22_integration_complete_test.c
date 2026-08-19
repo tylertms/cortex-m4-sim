@@ -24,6 +24,17 @@ enum {
 
 static const uint32_t MCM_PLASC = 0xe0080008u;
 
+typedef struct {
+    uint32_t calls;
+} WaitFixture;
+
+static uint32_t wait_states(void* context, uint32_t address, uint8_t size,
+                            CortexM4Access access, bool write, bool sequential) {
+    WaitFixture* fixture = context;
+    fixture->calls++;
+    return (address & 1u) + size + access + (write ? 1u : 0u) + (sequential ? 1u : 0u);
+}
+
 static bool read8(KinetisK22* device, uint32_t address, uint8_t* value) {
     return kinetis_k22_read(device, address, value, sizeof(*value));
 }
@@ -86,8 +97,7 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, !read32(device, FMC_PFB0CR + 0x0cu, &value));
     TEST_EXPECT(state, !write32(device, FMC_PFB0CR + 0x0cu, UINT32_MAX));
 
-    const uint32_t alias = 0x42000000u +
-                           (FMC_TAGVDW0S0 - 0x40000000u) * 32u + 5u * 4u;
+    const uint32_t alias = 0x42000000u + (FMC_TAGVDW0S0 - 0x40000000u) * 32u + 5u * 4u;
     TEST_EXPECT(state, write32(device, alias, 1));
     TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
     TEST_EXPECT(state, value == 0x20u);
@@ -108,8 +118,7 @@ static void expect_clock_gates(TestState* state, KinetisK22* device) {
     CortexM4* cpu = kinetis_k22_cpu(device);
     TEST_EXPECT(state, read32(device, SIM_SCGC4, &value));
     TEST_EXPECT(state, (value & (1u << 11)) == 0);
-    TEST_EXPECT(state,
-                cortex_m4_write_memory(cpu, SIM_SCGC4, 4, 0xf0100830u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC4, 4, 0xf0100830u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, UART1_C2, 1, 0x24u));
     TEST_EXPECT(state,
                 kinetis_k22_serial_receive(device, KINETIS_K22_SERIAL_UART1, 0x5au, 0));
@@ -163,14 +172,23 @@ static void expect_copy(TestState* state, KinetisK22* source) {
     configuration.package = KINETIS_K22_PACKAGE_DC_121_XFBGA;
     KinetisK22* destination = kinetis_k22_create(configuration);
     TEST_EXPECT(state, destination != NULL);
+    WaitFixture source_wait = {0};
+    WaitFixture destination_wait = {0};
+    cortex_m4_set_wait_states(kinetis_k22_cpu(source), wait_states, &source_wait);
+    cortex_m4_set_wait_states(kinetis_k22_cpu(destination), wait_states, &destination_wait);
     TEST_EXPECT(state, kinetis_k22_copy(destination, source));
     uint32_t value = 0;
     TEST_EXPECT(state, read32(destination, 0x20000040u, &value));
     TEST_EXPECT(state, value == 0x5aa53cc3u);
     TEST_EXPECT(state, kinetis_k22_core_clock_hz(destination) ==
                            kinetis_k22_core_clock_hz(source));
-    TEST_EXPECT(state, kinetis_k22_bus_clock_hz(destination) ==
-                           kinetis_k22_bus_clock_hz(source));
+    TEST_EXPECT(state,
+                kinetis_k22_bus_clock_hz(destination) == kinetis_k22_bus_clock_hz(source));
+    TEST_CONNECT_DEBUGGER(state, kinetis_k22_cpu(destination));
+    TEST_EXPECT(state, cortex_m4_step(kinetis_k22_cpu(destination)).stop ==
+                           CORTEX_M4_STOP_BREAKPOINT);
+    TEST_EXPECT(state, destination_wait.calls != 0u);
+    TEST_EXPECT(state, source_wait.calls == 0u);
     kinetis_k22_destroy(destination);
 }
 
