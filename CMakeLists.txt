@@ -168,6 +168,12 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(device_k22_integration_complete
                      tests/device/k22_integration_complete_test.c
                      "device;integration")
+  cortex_m4_add_test(device_k22_host_api_complete
+                     tests/device/k22_host_api_complete_test.c
+                     "device;integration")
+  cortex_m4_add_test(device_k22_clock_gate_complete
+                     tests/device/k22_clock_gate_complete_test.c
+                     "device;integration")
   cortex_m4_add_test(device_k22_sysmpu_integration
                      tests/device/k22_sysmpu_integration_test.c
                      "device;integration")

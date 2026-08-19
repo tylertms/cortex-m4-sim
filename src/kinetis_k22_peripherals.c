@@ -287,7 +287,8 @@ static bool package_serial_extension(K22PeripheralId id) {
 }
 
 static bool manifest_extension(K22PeripheralId id) {
-    return package_serial_extension(id) || id == K22_PERIPHERAL_SDHC;
+    return package_serial_extension(id) || id == K22_PERIPHERAL_SDHC ||
+           id == K22_PERIPHERAL_DAC1;
 }
 
 static K22PeripheralId serial_endpoint_peripheral(KinetisK22SerialEndpoint endpoint) {
@@ -468,7 +469,9 @@ static bool peripheral_clock_enabled(const KinetisK22* device, K22PeripheralId i
         return device->profile->id >= K22_PROFILE_MK22FN1M012 ? gate(scgc3, 27)
                                                               : gate(scgc6, 7);
     case K22_PERIPHERAL_DAC0:
-        return gate(scgc6, 31);
+        return device->profile->id >= K22_PROFILE_MK22FN1M012
+                   ? gate(raw_load(device, K22_SIM_SCGC2, 4), 12)
+                   : gate(scgc6, 31);
     case K22_PERIPHERAL_DAC1:
         return device->profile->id >= K22_PROFILE_MK22FN1M012
                    ? gate(raw_load(device, K22_SIM_SCGC2, 4), 13)
