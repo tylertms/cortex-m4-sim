@@ -84,7 +84,7 @@ The `tests` directory has this structure:
 
 - `core` contains instruction, exception, fault, power, and trace tests.
 - `device` contains memory, register, interrupt, and peripheral tests.
-- `system` contains firmware image and runner tests.
+- `system` contains firmware image tests.
 - `support` contains the small assertion helper.
 
 Each ordinary test has a 60-second deadline.
