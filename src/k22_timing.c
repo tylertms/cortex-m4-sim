@@ -733,6 +733,12 @@ static bool ftm_crossed_phase(uint32_t phase, uint64_t ticks, uint32_t period,
     return ticks >= distance;
 }
 
+static uint64_t ftm_phase_crossing_count(uint32_t phase, uint64_t ticks,
+                                         uint32_t period, uint32_t target) {
+    const uint32_t distance = target > phase ? target - phase : period - (phase - target);
+    return ticks < distance ? 0u : 1u + (ticks - distance) / period;
+}
+
 static void ftm_channel_event(K22Timing* timing, uint8_t index, uint8_t channel) {
     K22FtmState* ftm = &timing->ftm[index];
     ftm->channel_sc[channel] |= 1u << 7u;
@@ -744,6 +750,24 @@ static void ftm_channel_event(K22Timing* timing, uint8_t index, uint8_t channel)
         ftm_trigger(timing, index);
 }
 
+static void ftm_overflow(K22Timing* timing, uint8_t index, uint64_t count) {
+    if (count == 0u)
+        return;
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint8_t cycle = (uint8_t)((ftm->registers[12] & 0x1fu) + 1u);
+    const uint8_t first_set = ftm->overflow_count == 0u
+                                  ? 1u
+                                  : (uint8_t)(cycle - ftm->overflow_count + 1u);
+    if (count >= first_set) {
+        ftm->sc |= 1u << 7u;
+        ftm->overflow_flag_read = false;
+    }
+    ftm->overflow_count =
+        (uint8_t)((ftm->overflow_count + count % cycle) % cycle);
+    if ((ftm->registers[6] & (1u << 6u)) != 0u)
+        ftm_trigger(timing, index);
+}
+
 static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks) {
     K22FtmState* ftm = &timing->ftm[index];
     const uint32_t first = ftm->initial;
@@ -751,10 +775,7 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
     if (last <= first) {
         ftm->counter = (uint16_t)first;
         ftm->counting_down = false;
-        ftm->sc |= 1u << 7u;
-        ftm->overflow_flag_read = false;
-        if ((ftm->registers[6] & (1u << 6u)) != 0u)
-            ftm_trigger(timing, index);
+        ftm_overflow(timing, index, ticks);
         update_ftm_irq(timing, index);
         return;
     }
@@ -779,12 +800,8 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
             ftm_crossed_phase(phase, ticks, period, down_phase))
             ftm_channel_event(timing, index, channel);
     }
-    if (ftm_crossed_phase(phase, ticks, period, span + 1u)) {
-        ftm->sc |= 1u << 7u;
-        ftm->overflow_flag_read = false;
-        if ((ftm->registers[6] & (1u << 6u)) != 0u)
-            ftm_trigger(timing, index);
-    }
+    ftm_overflow(timing, index,
+                 ftm_phase_crossing_count(phase, ticks, period, span + 1u));
     phase = (uint32_t)(((uint64_t)phase + ticks) % period);
     if (phase <= span) {
         ftm->counter = (uint16_t)(first + phase);
@@ -824,7 +841,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     const uint32_t start =
         ftm->counter < first || ftm->counter > last ? first : ftm->counter;
     const uint64_t relative = (uint64_t)(start - first) + ticks;
-    const bool overflow = relative >= period;
+    const uint64_t overflows = relative / period;
     const uint8_t channels = ftm_channel_count(index);
     for (uint8_t channel = 0; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
@@ -835,12 +852,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
             ftm_channel_event(timing, index, channel);
     }
     ftm->counter = (uint16_t)(first + relative % period);
-    if (overflow) {
-        ftm->sc |= 1u << 7u;
-        ftm->overflow_flag_read = false;
-        if ((ftm->registers[6] & (1u << 6u)) != 0u)
-            ftm_trigger(timing, index);
-    }
+    ftm_overflow(timing, index, overflows);
     update_ftm_irq(timing, index);
 }
 
@@ -1075,6 +1087,7 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
     } else if (offset == 4) {
         ftm->counter = ftm->initial;
         ftm->counting_down = false;
+        ftm->overflow_count = 0u;
     } else if (offset == 8)
         ftm->modulo = (uint16_t)value;
     else if (offset >= 0x0cu && offset < 0x4cu) {

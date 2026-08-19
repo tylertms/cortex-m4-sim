@@ -124,8 +124,8 @@ run_mutation(
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_center_aligned_overflow src/k22_timing.c
-  "ftm_crossed_phase(phase, ticks, period, span + 1u)"
-  "ftm_crossed_phase(phase, ticks, period, span)"
+  "ftm_phase_crossing_count(phase, ticks, period, span + 1u)"
+  "ftm_phase_crossing_count(phase, ticks, period, span)"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_center_aligned_duty_boundary src/k22_timing.c
@@ -136,4 +136,14 @@ run_mutation(
   ftm_debug_freeze src/k22_timing.c
   "|| clock_select == 0 || timing->debug_halted)"
   "|| clock_select == 0 || false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_periodic_overflow src/k22_timing.c
+  "if (count >= first_set)"
+  "if (count > first_set)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_overflow_counter_reset src/k22_timing.c
+  "ftm->overflow_count = 0u;"
+  "ftm->overflow_count = ftm->overflow_count;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

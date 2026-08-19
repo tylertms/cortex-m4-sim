@@ -47,6 +47,7 @@ typedef struct {
     bool overflow_flag_read;
     bool channel_flag_read[8];
     bool counting_down;
+    uint8_t overflow_count;
 } K22FtmState;
 
 typedef struct {

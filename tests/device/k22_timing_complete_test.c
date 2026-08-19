@@ -65,6 +65,7 @@ enum {
     FTM0_C1V = 0x40038018u,
     FTM0_STATUS = 0x40038050u,
     FTM0_EXTTRIG = 0x4003806cu,
+    FTM0_CONF = 0x40038084u,
     FTM1_EXTTRIG = 0x4003906cu,
     WDOG_STCTRLH = 0x40052000u,
     WDOG_TOVALH = 0x40052004u,
@@ -692,6 +693,24 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     TEST_EXPECT(state, observations->alternate_triggers == redundant_trigger_before + 1u);
     expect_read(state, timing, FTM0_CNT, 4, 3u);
     expect_read(state, timing, FTM0_SC, 4, 0xe8u);
+    expect_write(state, timing, FTM0_SC, 4, 0u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0u);
+    expect_write(state, timing, FTM0_SC + 0x4cu, 4, 0u);
+    expect_write(state, timing, FTM0_MOD, 4, 1u);
+    expect_write(state, timing, FTM0_CONF, 4, 2u);
+    expect_write(state, timing, FTM0_CNT, 4, 0u);
+    expect_write(state, timing, FTM0_SC, 4, 0x48u);
+    k22_timing_advance(timing, 2u);
+    expect_read(state, timing, FTM0_SC, 4, 0xc8u);
+    expect_write(state, timing, FTM0_SC, 4, 0x48u);
+    k22_timing_advance(timing, 4u);
+    expect_read(state, timing, FTM0_SC, 4, 0x48u);
+    k22_timing_advance(timing, 2u);
+    expect_read(state, timing, FTM0_SC, 4, 0xc8u);
+    expect_write(state, timing, FTM0_SC, 4, 0x48u);
+    expect_write(state, timing, FTM0_CNT, 4, 0xffffu);
+    k22_timing_advance(timing, 2u);
+    expect_read(state, timing, FTM0_SC, 4, 0xc8u);
     expect_write(state, timing, FTM1_EXTTRIG, 4, UINT32_MAX);
     expect_read(state, timing, FTM1_EXTTRIG, 4, 0x70u);
 }
