@@ -417,6 +417,37 @@ static void expect_fmc_cache(TestState* state) {
     kinetis_k22_destroy(device);
 }
 
+static void expect_fmc_invalidation_and_locking(TestState* state) {
+    KinetisK22* device = create_device(state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
+    TEST_EXPECT(state, kinetis_k22_reset(device));
+    uint8_t byte = 0x5au;
+    uint32_t control = 0u;
+    uint32_t tag = 0u;
+    uint32_t value = 0u;
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x100u, &byte, sizeof(byte)));
+    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &control));
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, control | 0x0ef00000u));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &tag));
+    TEST_EXPECT(state, write32(device, FMC_TAGVDW1S0, tag));
+    device->fmc_bank[1][0] = 0u;
+    TEST_EXPECT(
+        state, kinetis_k22_memory_write(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, 0xa5u));
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
+    TEST_EXPECT(state, value == 0u);
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW1S0, &value));
+    TEST_EXPECT(state, value == 0u);
+
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, control | 0x0ff00000u));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0xa5u);
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
+    TEST_EXPECT(state, value == 0u);
+    kinetis_k22_destroy(device);
+}
+
 static void expect_clock_gates(TestState* state, KinetisK22* device) {
     uint32_t value = 0;
     uint8_t status = 0;
@@ -850,6 +881,7 @@ int main(void) {
     expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
     expect_fmc_cache(&state);
+    expect_fmc_invalidation_and_locking(&state);
     expect_integrated_flash_swap(&state);
     KinetisK22* device = create_device(&state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
     TEST_EXPECT(&state, kinetis_k22_reset(device));

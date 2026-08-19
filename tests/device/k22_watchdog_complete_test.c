@@ -285,6 +285,10 @@ static void test_byte_access_and_control(TestState* state) {
     TEST_EXPECT(state, read_register(state, &timing, WDOG_STCTRLH) == 0x7cffu);
     TEST_EXPECT(state, read_register(state, &timing, WDOG_PRESC) == 0x0700u);
     TEST_EXPECT(state, read_register(state, &timing, WDOG_STCTRLL) == 1u);
+    write_byte(state, &timing, WDOG_STCTRLL + 1u, 0x80u);
+    TEST_EXPECT(state, (read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) == 0u);
+    write_byte(state, &timing, WDOG_RSTCNT, 1u);
+    TEST_EXPECT(state, read_register(state, &timing, WDOG_RSTCNT) == 0u);
     k22_timing_watchdog_advance(&timing, 0x44u);
     TEST_EXPECT(state, !observations.irq);
 

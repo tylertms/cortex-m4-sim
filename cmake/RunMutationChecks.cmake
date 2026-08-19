@@ -873,8 +873,8 @@ run_mutation(
   cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
 run_mutation(
   ewm_input_polarity src/k22_timing.c
-  "timing->ewm_input ==\n                                            ((timing->ewm_ctrl & 2u) != 0u);"
-  "timing->ewm_input !=\n                                            ((timing->ewm_ctrl & 2u) != 0u);"
+  "timing->ewm_input == ((timing->ewm_ctrl & 2u) != 0u);"
+  "timing->ewm_input != ((timing->ewm_ctrl & 2u) != 0u);"
   cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
 run_mutation(
   ewm_output_latch src/k22_timing.c
@@ -1003,7 +1003,7 @@ run_mutation(
   cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
 run_mutation(
   fmc_cache_geometry src/kinetis_k22_peripherals.c
-  "const uint8_t sets = 4u;" "const uint8_t sets = 8u;"
+  "const uint8_t sets = 4u;" "const uint8_t sets = 2u;"
   cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
 run_mutation(
   fmc_tag_invalidation src/kinetis_k22_peripherals.c

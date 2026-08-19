@@ -1,13 +1,15 @@
-kinetis_k22.c:335|Allocation cleanup after a device-memory allocation failure
-kinetis_k22.c:336|Return after a device-memory allocation failure
-kinetis_k22.c:345|Allocation cleanup after a subsystem initialization failure
-kinetis_k22.c:346|Return after a subsystem initialization failure
-kinetis_k22.c:350|Allocation cleanup after a data-model allocation failure
-kinetis_k22.c:351|Return after a data-model allocation failure
-kinetis_k22.c:360|Allocation cleanup after a CPU allocation failure
-kinetis_k22.c:361|Return after a CPU allocation failure
-k22_data.c:935|Defensive fallback for a partition code rejected before storage
-k22_data.c:936|Return for a partition code rejected before storage
-k22_data.c:1464|Allocation cleanup after a FlexNVM or FlexRAM allocation failure
-k22_data.c:1465|Return after a FlexNVM or FlexRAM allocation failure
-k22_timing.c:177|Defensive clamp for an impossible clock value in a valid profile
+kinetis_k22.c@@if (device->flash == NULL || device->sram == NULL || device->peripheral == NULL) {@@1@@Allocation cleanup after a device-memory allocation failure
+kinetis_k22.c@@if (device->flash == NULL || device->sram == NULL || device->peripheral == NULL) {@@2@@Return after a device-memory allocation failure
+kinetis_k22.c@@!k22_io_init(&device->io, kinetis_k22_io_configuration(device))) {@@1@@Allocation cleanup after a subsystem initialization failure
+kinetis_k22.c@@!k22_io_init(&device->io, kinetis_k22_io_configuration(device))) {@@2@@Return after a subsystem initialization failure
+kinetis_k22.c@@if (device->data == NULL) {@@1@@Allocation cleanup after a data-model allocation failure
+kinetis_k22.c@@if (device->data == NULL) {@@2@@Return after a data-model allocation failure
+kinetis_k22.c@@profile->cpu.has_mpu ? 8u : 0u)) {@@1@@Allocation cleanup after a CPU allocation failure
+kinetis_k22.c@@profile->cpu.has_mpu ? 8u : 0u)) {@@2@@Return after a CPU allocation failure
+k22_data.c@@static uint32_t flash_data_size(const K22Data* data) {@@18@@Defensive fallback for a partition code rejected before storage
+k22_data.c@@static uint32_t flash_data_size(const K22Data* data) {@@19@@Return for a partition code rejected before storage
+k22_data.c@@static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {@@23@@Defensive fallback for a command rejected before timing starts
+k22_data.c@@static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {@@24@@Return for a command rejected before timing starts
+k22_data.c@@(profile->flexram_size != 0 && data->flexram == NULL)) {@@1@@Allocation cleanup after a FlexNVM or FlexRAM allocation failure
+k22_data.c@@(profile->flexram_size != 0 && data->flexram == NULL)) {@@2@@Return after a FlexNVM or FlexRAM allocation failure
+k22_timing.c@@if (timing->core_clock_hz == 0) {@@1@@Defensive clamp for an impossible clock value in a valid profile

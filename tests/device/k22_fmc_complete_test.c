@@ -13,11 +13,13 @@ enum {
     FLEXNVM = 0x10000000u,
     FLEXRAM = 0x14000000u,
     TAG_W0_S0 = 0x4001f100u,
+    TAG_W0_S3 = 0x4001f10cu,
     TAG_W1_S0 = 0x4001f110u,
     TAG_W2_S0 = 0x4001f120u,
     TAG_W3_S0 = 0x4001f130u,
     DATA_W0_S0_UM = 0x4001f200u,
     DATA_W0_S0_LM = 0x4001f20cu,
+    DATA_W0_S3_UM = 0x4001f230u,
     INVALIDATE_ALL = 0x00f00000u,
 };
 
@@ -110,11 +112,15 @@ static void test_visible_cache_and_invalidation(TestState* state) {
     TEST_EXPECT(state, (read_register(state, device, DATA_W0_S0_LM) & 0xffu) == 0x5au);
     TEST_EXPECT(state, kinetis_k22_flash_controller_write(device, 0x100u, 1u, 0xa5u));
     TEST_EXPECT(state, read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x5au);
+    write_register(state, device, TAG_W0_S3, 0x301u);
+    write_register(state, device, DATA_W0_S3_UM, 0x12345678u);
     const uint32_t control = read_register(state, device, PFB0CR);
     write_register(state, device, PFB0CR, control | (1u << 20u));
     TEST_EXPECT(state, read_register(state, device, TAG_W0_S0) == 0u);
+    TEST_EXPECT(state, read_register(state, device, TAG_W0_S3) == 0u);
     TEST_EXPECT(state, read_register(state, device, DATA_W0_S0_UM) == 0u);
     TEST_EXPECT(state, read_register(state, device, DATA_W0_S0_LM) == 0u);
+    TEST_EXPECT(state, read_register(state, device, DATA_W0_S3_UM) == 0u);
     TEST_EXPECT(state, read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == 0xa5u);
     kinetis_k22_destroy(device);
 }
