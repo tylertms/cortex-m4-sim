@@ -151,7 +151,7 @@ static void test_clock_tree_and_power(TestState* state, K22Timing* timing) {
     expect_write(state, timing, MCG_C1, 1, 0);
     TEST_EXPECT(state, k22_timing_core_clock_hz(timing) == 96000000u / 2u);
     expect_read(state, timing, MCG_S, 1, 0x6cu);
-    expect_write(state, timing, SMC_PMPROT, 1, 0x22u);
+    expect_write(state, timing, SMC_PMPROT, 1, 0x80u);
     expect_write(state, timing, SMC_PMCTRL, 1, 0x60u);
     expect_read(state, timing, SMC_PMSTAT, 1, 0x80u);
     expect_write(state, timing, SMC_PMCTRL, 1, 0);

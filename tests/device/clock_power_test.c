@@ -32,7 +32,7 @@ int main(void) {
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
 
-    write_value(&state, device, SMC_PMPROT, 1, 0x02u);
+    write_value(&state, device, SMC_PMPROT, 1, 0x80u);
     write_value(&state, device, SMC_PMCTRL, 1, 0x60u);
     TEST_EXPECT(&state, read_value(&state, device, SMC_PMSTAT, 1) == 0x80u);
     write_value(&state, device, SMC_PMCTRL, 1, 0);

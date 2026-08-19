@@ -1191,13 +1191,13 @@ static bool write_control_register(K22Timing* timing, uint32_t address, uint8_t 
     if (contains(timing, K22_PERIPHERAL_SMC, address, size)) {
         const uint8_t offset = (uint8_t)(address - SMC_BASE);
         if (offset == 0u)
-            timing->smc[0] |= (uint8_t)value & 0x2au;
+            timing->smc[0] |= (uint8_t)value & 0xaau;
         else if (offset == 1u) {
             timing->smc[1] = (uint8_t)value & 0xe7u;
             const uint8_t mode = (uint8_t)value & 0x60u;
             if (mode == 0x40u && (timing->smc[0] & 0x20u) != 0)
                 timing->smc[3] = 4u;
-            else if (mode == 0x60u && (timing->smc[0] & 2u) != 0)
+            else if (mode == 0x60u && (timing->smc[0] & 0x80u) != 0)
                 timing->smc[3] = 0x80u;
             else
                 timing->smc[3] = 1u;
