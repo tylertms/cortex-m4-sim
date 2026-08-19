@@ -100,6 +100,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   endfunction()
 
   cortex_m4_add_test(core_reset tests/core/reset_test.c "core;unit")
+  cortex_m4_add_test(core_api_complete tests/core/api_complete_test.c
+                     "core;unit;integration")
   cortex_m4_add_test(core_thumb tests/core/thumb_test.c "core;integration")
   cortex_m4_add_test(core_thumb16_arithmetic
                      tests/core/thumb16_arithmetic_test.c "core;unit")

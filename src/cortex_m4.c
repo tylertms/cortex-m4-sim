@@ -244,10 +244,7 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         cortex_m4_timing_prepare_instruction(cpu, first, second, true);
         const CortexM4InstructionDisposition disposition =
             cortex_m4_check_instruction_constraints(cpu, first, second, true);
-        if (disposition == CORTEX_M4_INSTRUCTION_BREAKPOINT) {
-            cortex_m4_debug_breakpoint(cpu);
-            supported = true;
-        } else if (execute && disposition == CORTEX_M4_INSTRUCTION_EXECUTE) {
+        if (execute && disposition == CORTEX_M4_INSTRUCTION_EXECUTE) {
             supported = cortex_m4_execute_thumb32(cpu, first, second);
             cortex_m4_it_preserve_flags(cpu, first, second, true, in_it_block,
                                         previous_xpsr);
