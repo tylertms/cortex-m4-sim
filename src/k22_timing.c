@@ -697,6 +697,19 @@ static uint8_t ftm_trigger_bit(uint8_t channel) {
     return channel < 6u ? bits[channel] : UINT8_MAX;
 }
 
+static uint8_t ftm_channel_count(uint8_t index) {
+    return index == 0u || index == 3u ? 8u : 2u;
+}
+
+static void update_ftm_irq(const K22Timing* timing, uint8_t index) {
+    const K22FtmState* ftm = &timing->ftm[index];
+    bool asserted = (ftm->sc & 0xc0u) == 0xc0u;
+    const uint8_t channels = ftm_channel_count(index);
+    for (uint8_t channel = 0u; channel < channels; channel++)
+        asserted = asserted || (ftm->channel_sc[channel] & 0xc0u) == 0xc0u;
+    set_irq(timing, ftm_irq(index), asserted);
+}
+
 static void ftm_trigger(K22Timing* timing, uint8_t index) {
     K22FtmState* ftm = &timing->ftm[index];
     ftm->registers[6] |= 0x80u;
@@ -739,16 +752,15 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
         ftm->counter < first || ftm->counter > last ? first : ftm->counter;
     const uint64_t relative = (uint64_t)(start - first) + ticks;
     const bool overflow = relative >= period;
-    const uint8_t channels = index == 0u || index == 3u ? 8u : 2u;
+    const uint8_t channels = ftm_channel_count(index);
     for (uint8_t channel = 0; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
         const uint32_t distance =
             compare > start ? compare - start : period - (start - compare);
-        if (compare >= first && compare <= last && ticks >= distance) {
+        if ((ftm->channel_sc[channel] & 0x3cu) != 0u && compare >= first &&
+            compare <= last && ticks >= distance) {
             ftm->channel_sc[channel] |= 1u << 7u;
-            if ((ftm->channel_sc[channel] & (1u << 6u)) != 0) {
-                set_irq(timing, ftm_irq(index), true);
-            }
+            ftm->channel_flag_read[channel] = false;
             if ((ftm->channel_sc[channel] & 1u) != 0) {
                 request_dma(timing, ftm_dma_source(index, channel));
             }
@@ -761,12 +773,11 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     ftm->counter = (uint16_t)(first + relative % period);
     if (overflow) {
         ftm->sc |= 1u << 7u;
-        if ((ftm->sc & (1u << 6u)) != 0) {
-            set_irq(timing, ftm_irq(index), true);
-        }
+        ftm->overflow_flag_read = false;
         if ((ftm->registers[6] & (1u << 6u)) != 0u)
             ftm_trigger(timing, index);
     }
+    update_ftm_irq(timing, index);
 }
 
 static uint32_t wdog_timeout(const K22Timing* timing) {
@@ -947,23 +958,30 @@ static bool ftm_read(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t 
         return false;
     }
     K22FtmState* ftm = &timing->ftm[index];
-    if (offset == 0)
+    if (offset == 0) {
         *value = ftm->sc;
-    else if (offset == 4)
+        if ((*value & 0x80u) != 0u)
+            ftm->overflow_flag_read = true;
+    } else if (offset == 4)
         *value = ftm->counter;
     else if (offset == 8)
         *value = ftm->modulo;
     else if (offset >= 0x0cu && offset < 0x4cu) {
         const uint8_t channel = (uint8_t)((offset - 0x0cu) / 8u);
-        if (channel >= (index == 0u || index == 3u ? 8u : 2u))
+        if (channel >= ftm_channel_count(index))
             return false;
-        *value = ((offset - 0x0cu) & 4u) == 0 ? ftm->channel_sc[channel]
-                                              : ftm->channel_value[channel];
+        if (((offset - 0x0cu) & 4u) == 0u) {
+            *value = ftm->channel_sc[channel];
+            if ((*value & 0x80u) != 0u)
+                ftm->channel_flag_read[channel] = true;
+        } else {
+            *value = ftm->channel_value[channel];
+        }
     } else if (offset == 0x4cu)
         *value = ftm->initial;
     else if (offset == 0x50u) {
         uint32_t status = 0;
-        const uint8_t channels = index == 0u || index == 3u ? 8u : 2u;
+        const uint8_t channels = ftm_channel_count(index);
         for (uint8_t channel = 0; channel < channels; channel++) {
             status |= ((ftm->channel_sc[channel] >> 7u) & 1u) << channel;
         }
@@ -984,30 +1002,40 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
     }
     K22FtmState* ftm = &timing->ftm[index];
     if (offset == 0) {
-        ftm->sc = (ftm->sc & 0x80u & value) | (value & 0x7fu);
+        uint32_t flag = ftm->sc & 0x80u;
+        if ((value & 0x80u) == 0u && ftm->overflow_flag_read)
+            flag = 0u;
+        ftm->sc = flag | (value & 0x7fu);
+        ftm->overflow_flag_read = false;
+        update_ftm_irq(timing, index);
     } else if (offset == 4)
         ftm->counter = (uint16_t)value;
     else if (offset == 8)
         ftm->modulo = (uint16_t)value;
     else if (offset >= 0x0cu && offset < 0x4cu) {
         const uint8_t channel = (uint8_t)((offset - 0x0cu) / 8u);
-        if (channel >= (index == 0u || index == 3u ? 8u : 2u))
+        if (channel >= ftm_channel_count(index))
             return false;
         if (((offset - 0x0cu) & 4u) == 0) {
-            ftm->channel_sc[channel] =
-                (ftm->channel_sc[channel] & value & 0x80u) | (value & 0x7fu);
-            if ((ftm->channel_sc[channel] & 0x80u) == 0)
-                set_irq(timing, ftm_irq(index), false);
+            uint32_t flag = ftm->channel_sc[channel] & 0x80u;
+            if ((value & 0x80u) == 0u && ftm->channel_flag_read[channel])
+                flag = 0u;
+            ftm->channel_sc[channel] = flag | (value & 0x7fu);
+            ftm->channel_flag_read[channel] = false;
+            update_ftm_irq(timing, index);
         } else
             ftm->channel_value[channel] = (uint16_t)value;
     } else if (offset == 0x4cu)
         ftm->initial = (uint16_t)value;
     else if (offset == 0x50u) {
-        const uint8_t channels = index == 0u || index == 3u ? 8u : 2u;
+        const uint8_t channels = ftm_channel_count(index);
         for (uint8_t channel = 0; channel < channels; channel++) {
-            if ((value & (1u << channel)) == 0)
+            if ((value & (1u << channel)) == 0) {
                 ftm->channel_sc[channel] &= ~0x80u;
+                ftm->channel_flag_read[channel] = false;
+            }
         }
+        update_ftm_irq(timing, index);
     } else if (offset >= 0x54u && offset <= 0x98u) {
         const uint8_t register_index = (uint8_t)((offset - 0x54u) / 4u);
         if (offset == 0x6cu) {

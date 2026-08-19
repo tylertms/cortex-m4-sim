@@ -24,6 +24,7 @@ enum {
     PIT_TFLG0 = 0x4003710cu,
     FTM0_SC = 0x40038000u,
     FTM0_MOD = 0x40038008u,
+    FTM0_C0SC = 0x4003800cu,
     FTM0_C0V = 0x40038010u,
     FTM0_EXTTRIG = 0x4003806cu,
     LPTMR_CSR = 0x40040000u,
@@ -457,6 +458,7 @@ static void expect_adc_alternate_triggers(TestState* state) {
     TEST_EXPECT(state, cpu_write8(device, ADC0_SC1A, 5u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_MOD, 4u, 3u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_C0V, 4u, 2u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_C0SC, 4u, 0x10u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_EXTTRIG, 4u, 0x10u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_SC, 4u, 0x08u));
     kinetis_k22_advance(device, 20u);

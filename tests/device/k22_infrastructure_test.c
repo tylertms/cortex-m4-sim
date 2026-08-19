@@ -152,7 +152,7 @@ static void test_timing_dma(TestState* state, KinetisK22* device) {
     write32(state, device, SIM_SCGC6, read32(state, device, SIM_SCGC6) | (1u << 24u));
     write32(state, device, FTM0_MOD, 7u);
     write32(state, device, FTM0_C0V, 1u);
-    write32(state, device, FTM0_C0SC, 1u);
+    write32(state, device, FTM0_C0SC, 0x11u);
     write32(state, device, FTM0_SC, 8u);
     kinetis_k22_advance(device, 2u);
     TEST_EXPECT(state, (read32(state, device, FTM0_C0SC) & (1u << 7u)) != 0u);

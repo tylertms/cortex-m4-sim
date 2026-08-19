@@ -44,6 +44,8 @@ typedef struct {
     uint32_t registers[20];
     uint64_t remainder;
     bool trigger_flag_read;
+    bool overflow_flag_read;
+    bool channel_flag_read[8];
 } K22FtmState;
 
 typedef struct {

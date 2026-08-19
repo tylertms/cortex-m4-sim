@@ -102,3 +102,18 @@ run_mutation(
   "(timing->rtc_cr & 0x100u) == 0u ||"
   "false ||"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_irq_aggregation src/k22_timing.c
+  "asserted = asserted || (ftm->channel_sc[channel] & 0xc0u) == 0xc0u;"
+  "asserted = asserted || false;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_disabled_channel src/k22_timing.c
+  "if ((ftm->channel_sc[channel] & 0x3cu) != 0u && compare >= first &&"
+  "if (compare >= first &&"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_channel_clear_sequence src/k22_timing.c
+  "(value & 0x80u) == 0u && ftm->channel_flag_read[channel]"
+  "(value & 0x80u) == 0u && true"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
