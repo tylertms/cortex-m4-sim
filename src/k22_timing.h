@@ -55,8 +55,10 @@ typedef struct {
     bool channel_input[8];
     bool channel_filtered_input[8];
     bool channel_output[8];
+    bool channel_deadtime_output[8];
     bool channel_value_pending[8];
     uint32_t channel_input_age[8];
+    uint32_t channel_deadtime_remaining[8];
     bool outmask_pending;
     bool invctrl_pending;
     bool swoctrl_pending;
@@ -68,6 +70,7 @@ typedef struct {
     bool counting_down;
     uint8_t hardware_trigger_pending_mask;
     uint8_t overflow_count;
+    uint64_t deadtime_remainder;
 } K22FtmState;
 
 typedef struct {

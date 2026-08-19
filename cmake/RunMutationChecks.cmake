@@ -408,3 +408,43 @@ run_mutation(
   "            ftm_center_aligned_pwm_mode(ftm, channel) || ftm_combine_mode(ftm, channel))"
   "            ftm_center_aligned_pwm_mode(ftm, channel))"
   cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_deadtime_enable src/k22_timing.c
+  "           (ftm->registers[4] & (1u << (pair_shift + 4u))) != 0u &&"
+  "           (ftm->registers[4] & (1u << (pair_shift + 4u))) == 0u &&"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_nonzero src/k22_timing.c
+  "           (ftm->registers[5] & 0x3fu) != 0u;"
+  "           (ftm->registers[5] & 0x3fu) == 0u;"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_output src/k22_timing.c
+  "                      ? ftm->channel_deadtime_output[channel]"
+  "                      ? ftm_pre_deadtime_output(ftm, channel)"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_divider src/k22_timing.c
+  "const uint8_t shift = divider < 2u ? 0u : divider == 2u ? 2u : 4u;"
+  "const uint8_t shift = divider <= 2u ? 0u : divider == 2u ? 2u : 4u;"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_start src/k22_timing.c
+  "ftm->channel_deadtime_remaining[channel] = ftm->registers[5] & 0x3fu;"
+  "ftm->channel_deadtime_remaining[channel] = (ftm->registers[5] & 0x3fu) + 1u;"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_cancel src/k22_timing.c
+  "        } else if (!raw) {"
+  "        } else if (raw) {"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_completion src/k22_timing.c
+  "            if (ticks >= remaining) {"
+  "            if (ticks > remaining) {"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_deadtime_segmentation src/k22_timing.c
+  "uint32_t segment = ftm_has_deadtime(ftm, channels) ? 1u : remaining;"
+  "uint32_t segment = ftm_has_deadtime(ftm, channels) ? remaining : remaining;"
+  cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)

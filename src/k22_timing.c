@@ -744,15 +744,7 @@ bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_
     return true;
 }
 
-bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
-                               bool* high) {
-    if (timing == NULL || high == NULL || timing->profile == NULL || instance >= 4u ||
-        channel >= ftm_channel_count(instance))
-        return false;
-    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
-    if (!has(timing, peripheral))
-        return false;
-    const K22FtmState* ftm = &timing->ftm[instance];
+static bool ftm_pre_deadtime_output(const K22FtmState* ftm, uint8_t channel) {
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
     const uint32_t pair = ftm->registers[4] >> pair_shift;
     const bool combined = ftm_combine_mode(ftm, channel);
@@ -775,6 +767,28 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
             (ftm->registers[16] & (1u << (first_channel + 8u))) != 0u)
             output = false;
     }
+    return output;
+}
+
+static bool ftm_deadtime_enabled(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    return ftm_complementary_mode(ftm, channel) &&
+           (ftm->registers[4] & (1u << (pair_shift + 4u))) != 0u &&
+           (ftm->registers[5] & 0x3fu) != 0u;
+}
+
+bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
+                               bool* high) {
+    if (timing == NULL || high == NULL || timing->profile == NULL || instance >= 4u ||
+        channel >= ftm_channel_count(instance))
+        return false;
+    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
+    if (!has(timing, peripheral))
+        return false;
+    const K22FtmState* ftm = &timing->ftm[instance];
+    bool output = ftm_deadtime_enabled(ftm, channel)
+                      ? ftm->channel_deadtime_output[channel]
+                      : ftm_pre_deadtime_output(ftm, channel);
     if ((ftm->registers[3] & (1u << channel)) != 0u)
         output = false;
     if ((ftm->registers[7] & (1u << channel)) != 0u)
@@ -1317,6 +1331,47 @@ static void ftm_process_hardware_triggers(K22Timing* timing, uint8_t index) {
     ftm_apply_hardware_sync(ftm);
 }
 
+static bool ftm_has_deadtime(const K22FtmState* ftm, uint8_t channels) {
+    for (uint8_t channel = 0u; channel < channels; channel += 2u) {
+        if (ftm_deadtime_enabled(ftm, channel))
+            return true;
+    }
+    return false;
+}
+
+static void ftm_advance_deadtime(K22Timing* timing, uint8_t index, uint32_t cycles) {
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint8_t channels = ftm_channel_count(index);
+    if (!ftm_gate(timing, index))
+        return;
+    const uint8_t divider = (uint8_t)(ftm->registers[5] >> 6u);
+    const uint8_t shift = divider < 2u ? 0u : divider == 2u ? 2u : 4u;
+    const uint64_t ticks =
+        clock_ticks(&ftm->deadtime_remainder, cycles, timing->bus_clock_hz >> shift,
+                    timing->core_clock_hz);
+    for (uint8_t channel = 0u; channel < channels; channel++) {
+        const bool raw = ftm_pre_deadtime_output(ftm, channel);
+        if (!ftm_deadtime_enabled(ftm, channel)) {
+            ftm->channel_deadtime_output[channel] = raw;
+            ftm->channel_deadtime_remaining[channel] = 0u;
+        } else if (!raw) {
+            ftm->channel_deadtime_output[channel] = false;
+            ftm->channel_deadtime_remaining[channel] = 0u;
+        } else if (!ftm->channel_deadtime_output[channel] &&
+                   ftm->channel_deadtime_remaining[channel] == 0u) {
+            ftm->channel_deadtime_remaining[channel] = ftm->registers[5] & 0x3fu;
+        } else if (!ftm->channel_deadtime_output[channel] && ticks != 0u) {
+            const uint32_t remaining = ftm->channel_deadtime_remaining[channel];
+            if (ticks >= remaining) {
+                ftm->channel_deadtime_remaining[channel] = 0u;
+                ftm->channel_deadtime_output[channel] = true;
+            } else {
+                ftm->channel_deadtime_remaining[channel] -= (uint32_t)ticks;
+            }
+        }
+    }
+}
+
 static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     K22FtmState* ftm = &timing->ftm[index];
     ftm_apply_system_clock_updates(ftm);
@@ -1324,7 +1379,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     const uint8_t channels = ftm_channel_count(index);
     uint32_t remaining = cycles;
     while (remaining != 0u) {
-        uint32_t segment = remaining;
+        uint32_t segment = ftm_has_deadtime(ftm, channels) ? 1u : remaining;
         for (uint8_t channel = 0u; channel < channels; channel++) {
             if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
                 continue;
@@ -1336,6 +1391,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
                 segment = until_event;
         }
         advance_ftm_counter(timing, index, segment);
+        ftm_advance_deadtime(timing, index, segment);
         remaining -= segment;
         for (uint8_t channel = 0u; channel < channels; channel++) {
             if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
