@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define MASKS(a, b, c, d, e) {a, b, c, d, e}
-#define SELECTION(profile_id, package_id, a, b, c, d, e)                                  \
+#define SELECTION(profile_id, package_id, a, b, c, d, e)                                   \
     {profile_id, package_id, MASKS(a, b, c, d, e)}
 
 struct K22PackageSelection {
@@ -29,66 +29,66 @@ static const K22Package packages[K22_PACKAGE_COUNT] = {
 };
 
 static const K22PackageSelection selections[] = {
-    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-              0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu,
-              0x00ff0f0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22FN12812, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu,
-              0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-              0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu,
-              0x00ff0fcfu, 0x000fffffu, 0x000000ffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu,
-              0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_BP_80_WLCSP, 0x000ff03fu,
-              0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_FX_88_HVQFN, 0x000ff03fu,
-              0x000f0fcfu, 0x000ff1ffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-              0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_DC_121_XFBGA, 0x200ffc3fu,
-              0x00ff0fcfu, 0x000fffffu, 0x0000ffffu, 0x07000000u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu,
-              0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000038u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-              0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000078u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu,
-              0x00ff3fcfu, 0x000fffffu, 0x0000ffffu, 0x07000078u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu,
-              0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
-    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu,
-              0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-              0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu,
-              0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000038u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-              0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000078u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu,
-              0x00ff3fcfu, 0x000fffffu, 0x0000ffffu, 0x07000078u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu,
-              0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
-    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu,
-              0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
+    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu, 0x00ff0f0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22FN12812, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+              0x00030fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22FN25612, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu, 0x00ff0fcfu,
+              0x000fffffu, 0x000000ffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+              0x00030fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_BP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+              0x00030fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_FX_88_HVQFN, 0x000ff03fu, 0x000f0fcfu,
+              0x000ff1ffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22FN51212, K22_PACKAGE_DC_121_XFBGA, 0x200ffc3fu, 0x00ff0fcfu,
+              0x000fffffu, 0x0000ffffu, 0x07000000u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu, 0x000f0c0fu,
+              0x00030fffu, 0x000000ffu, 0x00000038u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000078u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu, 0x00ff3fcfu,
+              0x000fffffu, 0x0000ffffu, 0x07000078u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu, 0x00ff0fffu,
+              0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
+    SELECTION(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu, 0x00ff0fffu,
+              0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu, 0x000f0c0fu,
+              0x00030fffu, 0x000000ffu, 0x00000038u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+              0x0007ffffu, 0x000000ffu, 0x07000078u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu, 0x00ff3fcfu,
+              0x000fffffu, 0x0000ffffu, 0x07000078u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu, 0x00ff0fffu,
+              0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
+    SELECTION(K22_PROFILE_MK22FX51212, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu, 0x00ff0fffu,
+              0x000fffffu, 0x0000ffffu, 0x1f001ff8u),
 };
 
 static size_t selection_count(void) { return sizeof(selections) / sizeof(selections[0]); }
@@ -109,8 +109,7 @@ const K22Package* k22_package_find(const char* code) {
     return NULL;
 }
 
-const K22PackageSelection* k22_package_select(const K22Profile* profile,
-                                              K22PackageId id) {
+const K22PackageSelection* k22_package_select(const K22Profile* profile, K22PackageId id) {
     if (profile == NULL || (unsigned)profile->id >= K22_PROFILE_COUNT ||
         (unsigned)id >= K22_PACKAGE_COUNT)
         return NULL;
@@ -157,11 +156,9 @@ bool k22_package_has_peripheral(const K22PackageSelection* selected,
     const K22Profile* profile = k22_profile_get(selected->profile);
     if (!k22_profile_has_peripheral(profile, peripheral))
         return false;
-    if (selected->profile == K22_PROFILE_MK22FN51212 &&
-        peripheral == K22_PERIPHERAL_DAC1)
+    if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)
         return selected->package == K22_PACKAGE_DC_121_XFBGA;
-    if (selected->profile == K22_PROFILE_MK22FN51212 &&
-        peripheral == K22_PERIPHERAL_FB)
+    if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_FB)
         return selected->package != K22_PACKAGE_FX_88_HVQFN;
     return true;
 }

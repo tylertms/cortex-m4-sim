@@ -7,7 +7,7 @@
 #include "test.h"
 
 #define MASKS(a, b, c, d, e) {a, b, c, d, e}
-#define EXPECTED(profile_id, package_id, a, b, c, d, e, dac1_value, flexbus_value)          \
+#define EXPECTED(profile_id, package_id, a, b, c, d, e, dac1_value, flexbus_value)         \
     {profile_id, package_id, MASKS(a, b, c, d, e), dac1_value, flexbus_value}
 
 typedef struct {
@@ -41,66 +41,66 @@ static const ExpectedPackage expected_packages[] = {
 };
 
 static const ExpectedSelection expected_selections[] = {
-    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-             0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu,
-             0x00ff0f0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN12812, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu,
-             0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-             0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu,
-             0x00ff0fcfu, 0x000fffffu, 0x000000ffu, 0x07000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu,
-             0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_BP_80_WLCSP, 0x000ff03fu,
-             0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_FX_88_HVQFN, 0x000ff03fu,
-             0x000f0fcfu, 0x000ff1ffu, 0x000000ffu, 0x00000000u, false, false),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-             0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_DC_121_XFBGA, 0x200ffc3fu,
-             0x00ff0fcfu, 0x000fffffu, 0x0000ffffu, 0x07000000u, true, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu,
-             0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000038u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-             0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000078u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu,
-             0x00ff3fcfu, 0x000fffffu, 0x0000ffffu, 0x07000078u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu,
-             0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
-    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu,
-             0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu,
-             0x000f000fu, 0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu,
-             0x000f0c0fu, 0x00030fffu, 0x000000ffu, 0x00000038u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu,
-             0x00ff0e0fu, 0x0007ffffu, 0x000000ffu, 0x07000078u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu,
-             0x00ff3fcfu, 0x000fffffu, 0x0000ffffu, 0x07000078u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu,
-             0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
-    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu,
-             0x00ff0fffu, 0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
+    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu, 0x00ff0f0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN12812, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_AH_64_WLCSP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+             0x00030fffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu, 0x00ff0fcfu,
+             0x000fffffu, 0x000000ffu, 0x07000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+             0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_BP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
+             0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_FX_88_HVQFN, 0x000ff03fu, 0x000f0fcfu,
+             0x000ff1ffu, 0x000000ffu, 0x00000000u, false, false),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_DC_121_XFBGA, 0x200ffc3fu, 0x00ff0fcfu,
+             0x000fffffu, 0x0000ffffu, 0x07000000u, true, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu, 0x000f0c0fu,
+             0x00030fffu, 0x000000ffu, 0x00000038u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000078u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu, 0x00ff3fcfu,
+             0x000fffffu, 0x0000ffffu, 0x07000078u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu, 0x00ff0fffu,
+             0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
+    EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu, 0x00ff0fffu,
+             0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
+             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LK_80_LQFP, 0x000ff03fu, 0x000f0c0fu,
+             0x00030fffu, 0x000000ffu, 0x00000038u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
+             0x0007ffffu, 0x000000ffu, 0x07000078u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_MC_121_MAPBGA, 0x200ffc3fu, 0x00ff3fcfu,
+             0x000fffffu, 0x0000ffffu, 0x07000078u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_LQ_144_LQFP, 0x3f0fffffu, 0x00ff0fffu,
+             0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
+    EXPECTED(K22_PROFILE_MK22FX51212, K22_PACKAGE_MD_144_MAPBGA, 0x3f0fffffu, 0x00ff0fffu,
+             0x000fffffu, 0x0000ffffu, 0x1f001ff8u, false, true),
 };
 
 static size_t expected_package_count(void) {
@@ -139,15 +139,12 @@ static void expect_selection_data(TestState* state, const ExpectedSelection* exp
                                   const K22PackageSelection* selected) {
     TEST_EXPECT(state, selected != NULL);
     TEST_EXPECT(state, k22_package_selection_profile(selected) == expected->profile);
-    TEST_EXPECT(state,
-                k22_package_selection_package(selected)->id == expected->package);
+    TEST_EXPECT(state, k22_package_selection_package(selected)->id == expected->package);
     for (uint8_t port = 0; port < K22_PACKAGE_PORT_COUNT; port++) {
-        TEST_EXPECT(state,
-                    k22_package_port_pin_mask(selected, port) ==
-                        expected->port_pin_mask[port]);
+        TEST_EXPECT(state, k22_package_port_pin_mask(selected, port) ==
+                               expected->port_pin_mask[port]);
         for (uint8_t pin = 0; pin < K22_PACKAGE_PIN_COUNT; pin++) {
-            const bool exists = (expected->port_pin_mask[port] &
-                                 (UINT32_C(1) << pin)) != 0;
+            const bool exists = (expected->port_pin_mask[port] & (UINT32_C(1) << pin)) != 0;
             TEST_EXPECT(state, k22_package_pin_exists(selected, port, pin) == exists);
         }
     }
@@ -158,9 +155,8 @@ static void expect_selection_data(TestState* state, const ExpectedSelection* exp
             exists = expected->dac1;
         if (peripheral == K22_PERIPHERAL_FB)
             exists = expected->flexbus;
-        TEST_EXPECT(state,
-                    k22_package_has_peripheral(selected, (K22PeripheralId)peripheral) ==
-                        exists);
+        TEST_EXPECT(state, k22_package_has_peripheral(
+                               selected, (K22PeripheralId)peripheral) == exists);
     }
 }
 
@@ -169,10 +165,10 @@ static void expect_all_combinations(TestState* state) {
         const K22Profile* profile = k22_profile_get((K22ProfileId)profile_id);
         TEST_EXPECT(state, profile != NULL);
         for (int package_id = 0; package_id < K22_PACKAGE_COUNT; package_id++) {
-            const ExpectedSelection* expected = expected_selection(
-                (K22ProfileId)profile_id, (K22PackageId)package_id);
-            const K22PackageSelection* selected = k22_package_select(
-                profile, (K22PackageId)package_id);
+            const ExpectedSelection* expected =
+                expected_selection((K22ProfileId)profile_id, (K22PackageId)package_id);
+            const K22PackageSelection* selected =
+                k22_package_select(profile, (K22PackageId)package_id);
             TEST_EXPECT(state, (selected != NULL) == (expected != NULL));
             if (expected != NULL)
                 expect_selection_data(state, expected, selected);
@@ -210,20 +206,16 @@ static void expect_fail_closed(TestState* state) {
     TEST_EXPECT(state, k22_package_select(profile, K22_PACKAGE_COUNT) == NULL);
     TEST_EXPECT(state, k22_package_default(NULL) == NULL);
     TEST_EXPECT(state, k22_package_default(&invalid_profile) == NULL);
-    TEST_EXPECT(state,
-                k22_package_selection_profile(NULL) == K22_PROFILE_COUNT);
+    TEST_EXPECT(state, k22_package_selection_profile(NULL) == K22_PROFILE_COUNT);
     TEST_EXPECT(state, k22_package_selection_package(NULL) == NULL);
     TEST_EXPECT(state, k22_package_port_pin_mask(NULL, 0) == 0);
-    TEST_EXPECT(state,
-                k22_package_port_pin_mask(selected, K22_PACKAGE_PORT_COUNT) == 0);
+    TEST_EXPECT(state, k22_package_port_pin_mask(selected, K22_PACKAGE_PORT_COUNT) == 0);
     TEST_EXPECT(state, !k22_package_pin_exists(NULL, 0, 0));
     TEST_EXPECT(state, !k22_package_pin_exists(selected, K22_PACKAGE_PORT_COUNT, 0));
     TEST_EXPECT(state, !k22_package_pin_exists(selected, 0, K22_PACKAGE_PIN_COUNT));
     TEST_EXPECT(state, !k22_package_has_peripheral(NULL, K22_PERIPHERAL_DMA));
-    TEST_EXPECT(state,
-                !k22_package_has_peripheral(selected, (K22PeripheralId)-1));
-    TEST_EXPECT(state,
-                !k22_package_has_peripheral(selected, K22_PERIPHERAL_COUNT));
+    TEST_EXPECT(state, !k22_package_has_peripheral(selected, (K22PeripheralId)-1));
+    TEST_EXPECT(state, !k22_package_has_peripheral(selected, K22_PERIPHERAL_COUNT));
 }
 
 int main(void) {

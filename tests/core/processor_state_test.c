@@ -18,13 +18,12 @@ static KinetisK22* create_device(TestState* state) {
     vectors[6] = 0x00000201u;
     const uint16_t usage_fault[] = {0xbe00u};
     TEST_EXPECT(state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
-    TEST_EXPECT(state,
-                kinetis_k22_load(device, 0x200, usage_fault, sizeof(usage_fault)));
+    TEST_EXPECT(state, kinetis_k22_load(device, 0x200, usage_fault, sizeof(usage_fault)));
     return device;
 }
 
-static void load_program(TestState* state, KinetisK22* device,
-                         const uint16_t* program, size_t size) {
+static void load_program(TestState* state, KinetisK22* device, const uint16_t* program,
+                         size_t size) {
     TEST_EXPECT(state, kinetis_k22_load(device, 0x100, program, size));
     TEST_EXPECT(state, kinetis_k22_reset(device));
 }
@@ -37,8 +36,7 @@ int main(void) {
     load_program(&state, device, mask_program, sizeof(mask_program));
     TEST_EXPECT(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
     const uint16_t read_masks[] = {0xf3efu, 0x8010u, 0xf3efu, 0x8113u};
-    TEST_EXPECT(&state,
-                kinetis_k22_load(device, 0x180, read_masks, sizeof(read_masks)));
+    TEST_EXPECT(&state, kinetis_k22_load(device, 0x180, read_masks, sizeof(read_masks)));
     cortex_m4_set_register(cpu, 15, 0x180u);
     TEST_EXPECT(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 0) == 1);

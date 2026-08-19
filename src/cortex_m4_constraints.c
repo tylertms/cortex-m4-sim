@@ -31,10 +31,9 @@ static bool invalid_cps(uint16_t opcode) {
 static bool writes_pc_thumb16(uint16_t opcode) {
     if ((opcode & 0xfc00u) == 0x4400u) {
         const uint8_t operation = (uint8_t)((opcode >> 8) & 3u);
-        const uint8_t destination =
-            (uint8_t)((opcode & 7u) | ((opcode >> 4) & 8u));
-        return operation == 3u || ((operation == 0u || operation == 2u) &&
-                                   destination == 15u);
+        const uint8_t destination = (uint8_t)((opcode & 7u) | ((opcode >> 4) & 8u));
+        return operation == 3u ||
+               ((operation == 0u || operation == 2u) && destination == 15u);
     }
     if ((opcode & 0xfe00u) == 0xbc00u && (opcode & 0x0100u) != 0) {
         return true;
@@ -65,8 +64,7 @@ static bool invalid_thumb16_registers(uint16_t opcode) {
     return false;
 }
 
-static CortexM4InstructionDisposition check_thumb16(const CortexM4* cpu,
-                                                     uint16_t opcode) {
+static CortexM4InstructionDisposition check_thumb16(const CortexM4* cpu, uint16_t opcode) {
     if ((opcode & 0xff00u) == 0xbe00u) {
         return CORTEX_M4_INSTRUCTION_BREAKPOINT;
     }
@@ -83,8 +81,7 @@ static CortexM4InstructionDisposition check_thumb16(const CortexM4* cpu,
         return CORTEX_M4_INSTRUCTION_EXECUTE;
     }
     if (((opcode & 0xff00u) == 0xbf00u && (opcode & 15u) != 0) ||
-        (opcode & 0xf500u) == 0xb100u ||
-        (opcode & 0xffe0u) == 0xb660u ||
+        (opcode & 0xf500u) == 0xb100u || (opcode & 0xffe0u) == 0xb660u ||
         (opcode & 0xff00u) == 0xdf00u) {
         return CORTEX_M4_INSTRUCTION_UNDEFINED;
     }
@@ -103,16 +100,13 @@ static bool invalid_modified_immediate(uint16_t first, uint16_t second) {
     const uint8_t source = (uint8_t)(first & 15u);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint16_t immediate = (uint16_t)((((first >> 10) & 1u) << 11) |
-                                          (((second >> 12) & 7u) << 8) |
-                                          (second & 0xffu));
-    const bool invalid_replicate = (immediate & 0xc00u) == 0 &&
-                                   (immediate & 0x300u) != 0 &&
-                                   (immediate & 0xffu) == 0;
-    const bool comparison = operation == 0u || operation == 4u || operation == 8u ||
-                            operation == 13u;
+                                          (((second >> 12) & 7u) << 8) | (second & 0xffu));
+    const bool invalid_replicate =
+        (immediate & 0xc00u) == 0 && (immediate & 0x300u) != 0 && (immediate & 0xffu) == 0;
+    const bool comparison =
+        operation == 0u || operation == 4u || operation == 8u || operation == 13u;
     const bool source_alias = operation == 2u || operation == 3u;
-    return invalid_replicate ||
-           (destination == 15u && (!set_flags || !comparison)) ||
+    return invalid_replicate || (destination == 15u && (!set_flags || !comparison)) ||
            (source == 15u && !source_alias) || destination == 13u;
 }
 
@@ -125,8 +119,8 @@ static bool invalid_shifted_register(uint16_t first, uint16_t second) {
     const uint8_t source = (uint8_t)(first & 15u);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t shifted = (uint8_t)(second & 15u);
-    const bool comparison = operation == 0u || operation == 4u || operation == 8u ||
-                            operation == 13u;
+    const bool comparison =
+        operation == 0u || operation == 4u || operation == 8u || operation == 13u;
     const bool source_alias = operation == 2u || operation == 3u;
     return stack_or_pc(shifted) || destination == 13u ||
            (destination == 15u && (!set_flags || !comparison)) ||
@@ -174,8 +168,7 @@ static bool invalid_bitfield(uint16_t first, uint16_t second) {
 
 static bool invalid_divide_or_multiply(uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
-    if ((operation == 0xfbb0u || operation == 0xfb90u) &&
-        (second & 0xf0f0u) == 0xf0f0u) {
+    if ((operation == 0xfbb0u || operation == 0xfb90u) && (second & 0xf0f0u) == 0xf0f0u) {
         return stack_or_pc((uint8_t)(first & 15u)) ||
                stack_or_pc((uint8_t)((second >> 8) & 15u)) ||
                stack_or_pc((uint8_t)(second & 15u));
@@ -187,14 +180,13 @@ static bool invalid_divide_or_multiply(uint16_t first, uint16_t second) {
                stack_or_pc((uint8_t)(second & 15u)) ||
                (accumulator != 15u && stack_or_pc(accumulator));
     }
-    if ((operation == 0xfba0u || operation == 0xfb80u ||
-         operation == 0xfbe0u || operation == 0xfbc0u) &&
+    if ((operation == 0xfba0u || operation == 0xfb80u || operation == 0xfbe0u ||
+         operation == 0xfbc0u) &&
         (second & 0x00f0u) == 0) {
         const uint8_t low = (uint8_t)(second >> 12);
         const uint8_t high = (uint8_t)((second >> 8) & 15u);
         return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc(low) ||
-               stack_or_pc(high) || stack_or_pc((uint8_t)(second & 15u)) ||
-               low == high;
+               stack_or_pc(high) || stack_or_pc((uint8_t)(second & 15u)) || low == high;
     }
     return false;
 }
@@ -227,9 +219,8 @@ static bool invalid_multiple(uint16_t first, uint16_t second) {
     const bool load = (first & 0x0010u) != 0;
     const bool write_back = (first & 0x0020u) != 0;
     const uint8_t base = (uint8_t)(first & 15u);
-    if (base == 15u || (second & (1u << 13)) != 0 ||
-        register_count(second) < 2u || (!load && (second & (1u << 15)) != 0) ||
-        (load && (second & 0xc000u) == 0xc000u)) {
+    if (base == 15u || (second & (1u << 13)) != 0 || register_count(second) < 2u ||
+        (!load && (second & (1u << 15)) != 0) || (load && (second & 0xc000u) == 0xc000u)) {
         return true;
     }
     if (!write_back || (second & (1u << base)) == 0) {
@@ -241,8 +232,7 @@ static bool invalid_multiple(uint16_t first, uint16_t second) {
 static bool invalid_exclusive(uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if (operation == 0xe850u && (second & 0x0f00u) == 0x0f00u) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)(second >> 12));
+        return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc((uint8_t)(second >> 12));
     }
     if (operation == 0xe840u && (second & 0x0800u) == 0) {
         const uint8_t base = (uint8_t)(first & 15u);
@@ -252,8 +242,7 @@ static bool invalid_exclusive(uint16_t first, uint16_t second) {
                status == base || status == target;
     }
     if (operation == 0xe8d0u && (second & 0x0f0fu) == 0x0f0fu) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)(second >> 12));
+        return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc((uint8_t)(second >> 12));
     }
     if (operation == 0xe8c0u && (second & 0x0f00u) == 0x0f00u) {
         const uint8_t base = (uint8_t)(first & 15u);
@@ -266,14 +255,12 @@ static bool invalid_exclusive(uint16_t first, uint16_t second) {
 }
 
 static bool memory_operation(uint16_t operation) {
-    return operation == 0xf800u || operation == 0xf810u ||
-           operation == 0xf820u || operation == 0xf830u ||
-           operation == 0xf840u || operation == 0xf850u ||
-           operation == 0xf880u || operation == 0xf890u ||
-           operation == 0xf8a0u || operation == 0xf8b0u ||
-           operation == 0xf8c0u || operation == 0xf8d0u ||
-           operation == 0xf910u || operation == 0xf930u ||
-           operation == 0xf990u || operation == 0xf9b0u;
+    return operation == 0xf800u || operation == 0xf810u || operation == 0xf820u ||
+           operation == 0xf830u || operation == 0xf840u || operation == 0xf850u ||
+           operation == 0xf880u || operation == 0xf890u || operation == 0xf8a0u ||
+           operation == 0xf8b0u || operation == 0xf8c0u || operation == 0xf8d0u ||
+           operation == 0xf910u || operation == 0xf930u || operation == 0xf990u ||
+           operation == 0xf9b0u;
 }
 
 static bool invalid_memory(uint16_t first, uint16_t second) {
@@ -310,8 +297,8 @@ static bool invalid_memory(uint16_t first, uint16_t second) {
     }
     const bool pre_index = (second & 0x0400u) != 0;
     const bool write_back = (second & 0x0100u) != 0;
-    return (!pre_index && !write_back) ||
-           (write_back && base == target) || (target == 15u && !word);
+    return (!pre_index && !write_back) || (write_back && base == target) ||
+           (target == 15u && !word);
 }
 
 static bool invalid_system_encoding(uint16_t first, uint16_t second) {
@@ -323,8 +310,7 @@ static bool invalid_system_encoding(uint16_t first, uint16_t second) {
     }
     if (first == 0xf3bfu && (second & 0xff0fu) == 0x8f0fu) {
         const uint8_t operation = (uint8_t)((second >> 4) & 15u);
-        return operation != 2u && operation != 4u && operation != 5u &&
-               operation != 6u;
+        return operation != 2u && operation != 4u && operation != 5u && operation != 6u;
     }
     return false;
 }
@@ -372,18 +358,15 @@ static bool writes_pc_thumb32(uint16_t first, uint16_t second) {
     return false;
 }
 
-static CortexM4InstructionDisposition check_thumb32(const CortexM4* cpu,
-                                                     uint16_t first,
-                                                     uint16_t second) {
+static CortexM4InstructionDisposition check_thumb32(const CortexM4* cpu, uint16_t first,
+                                                    uint16_t second) {
     if (invalid_modified_immediate(first, second) ||
         invalid_shifted_register(first, second) ||
         invalid_plain_register_operation(first, second) ||
-        invalid_bitfield(first, second) ||
-        invalid_divide_or_multiply(first, second) ||
+        invalid_bitfield(first, second) || invalid_divide_or_multiply(first, second) ||
         invalid_doubleword(first, second) || invalid_multiple(first, second) ||
         invalid_exclusive(first, second) || invalid_memory(first, second) ||
-        invalid_system_encoding(first, second) ||
-        invalid_wide_registers(first, second)) {
+        invalid_system_encoding(first, second) || invalid_wide_registers(first, second)) {
         return CORTEX_M4_INSTRUCTION_UNDEFINED;
     }
     if (nonfinal_it_instruction(cpu) && writes_pc_thumb32(first, second)) {
@@ -392,8 +375,10 @@ static CortexM4InstructionDisposition check_thumb32(const CortexM4* cpu,
     return CORTEX_M4_INSTRUCTION_EXECUTE;
 }
 
-CortexM4InstructionDisposition cortex_m4_check_instruction_constraints(
-    const CortexM4* cpu, uint16_t first, uint16_t second, bool wide) {
+CortexM4InstructionDisposition cortex_m4_check_instruction_constraints(const CortexM4* cpu,
+                                                                       uint16_t first,
+                                                                       uint16_t second,
+                                                                       bool wide) {
     if (cpu == NULL) {
         return CORTEX_M4_INSTRUCTION_UNDEFINED;
     }

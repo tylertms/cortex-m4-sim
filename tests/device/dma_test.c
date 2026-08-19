@@ -45,10 +45,8 @@ int main(void) {
     write(&state, device, SIM_SCGC4, &scgc4, sizeof(scgc4));
     const uint8_t transmitter_enable = 0x08u;
     const uint8_t transmit_dma_enable = 0x80u;
-    write(&state, device, UART1_C2, &transmitter_enable,
-          sizeof(transmitter_enable));
-    write(&state, device, UART1_C5, &transmit_dma_enable,
-          sizeof(transmit_dma_enable));
+    write(&state, device, UART1_C2, &transmitter_enable, sizeof(transmitter_enable));
+    write(&state, device, UART1_C5, &transmit_dma_enable, sizeof(transmit_dma_enable));
     const uint32_t source = 0x20000000u;
     const uint32_t destination = UART1_D;
     const int16_t source_offset = 1;
@@ -69,16 +67,16 @@ int main(void) {
     write(&state, device, DMA_TCD0 + 0x1c, &control, sizeof(control));
     write(&state, device, DMAMUX_CHCFG0, &mux, sizeof(mux));
     TEST_EXPECT(&state, cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ,
-                                                sizeof(channel), channel));
+                                               sizeof(channel), channel));
     uint16_t output = 0;
-    TEST_EXPECT(&state, !kinetis_k22_serial_transmit(
-                             device, KINETIS_K22_SERIAL_UART1, &output));
+    TEST_EXPECT(&state,
+                !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
     kinetis_k22_advance(device, UINT32_MAX);
-    TEST_EXPECT(&state, kinetis_k22_serial_transmit(
-                            device, KINETIS_K22_SERIAL_UART1, &output));
+    TEST_EXPECT(&state,
+                kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
     TEST_EXPECT(&state, output == payload);
-    TEST_EXPECT(&state, !kinetis_k22_serial_transmit(
-                            device, KINETIS_K22_SERIAL_UART1, &output));
+    TEST_EXPECT(&state,
+                !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
     TEST_EXPECT(&state, read8(&state, device, DMA_TCD0 + 0x16) == 0);
     kinetis_k22_destroy(device);
     return test_finish(&state);

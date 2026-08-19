@@ -123,9 +123,7 @@ static uint16_t dma_iteration_count(uint16_t value) {
     return (value & 0x8000u) != 0 ? value & 0x01ffu : value & 0x7fffu;
 }
 
-static uint8_t dma_link_channel(uint16_t value) {
-    return (uint8_t)((value >> 9) & 15u);
-}
+static uint8_t dma_link_channel(uint16_t value) { return (uint8_t)((value >> 9) & 15u); }
 
 static uint32_t dma_advance_address(uint32_t address, int16_t offset, uint8_t modulo) {
     const uint32_t advanced = (uint32_t)((int64_t)address + offset);
@@ -135,8 +133,7 @@ static uint32_t dma_advance_address(uint32_t address, int16_t offset, uint8_t mo
     return (address & ~mask) | (advanced & mask);
 }
 
-static void dma_set_iteration_count(uint8_t* descriptor, uint32_t offset,
-                                    uint16_t value) {
+static void dma_set_iteration_count(uint8_t* descriptor, uint32_t offset, uint16_t value) {
     uint16_t current = (uint16_t)load_bytes(descriptor, offset, 2);
     const uint16_t mask = (current & 0x8000u) != 0 ? 0x01ffu : 0x7fffu;
     current = (uint16_t)((current & ~mask) | (value & mask));
@@ -165,11 +162,13 @@ static void dma_error(K22Data* data, uint8_t channel, uint32_t reason) {
 }
 
 static bool dma_bus_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
-    return data->bus.read != NULL && data->bus.read(data->bus.context, address, size, value);
+    return data->bus.read != NULL &&
+           data->bus.read(data->bus.context, address, size, value);
 }
 
 static bool dma_bus_write(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
-    return data->bus.write != NULL && data->bus.write(data->bus.context, address, size, value);
+    return data->bus.write != NULL &&
+           data->bus.write(data->bus.context, address, size, value);
 }
 
 static void dma_queue_channel(K22Data* data, uint8_t channel) {
@@ -301,8 +300,8 @@ static void dma_service_channel(K22Data* data, uint8_t channel) {
     if ((current & 0x8000u) != 0)
         dma_queue_channel(data, dma_link_channel(current));
     const uint16_t control = (uint16_t)load_bytes(descriptor, 0x1c, 2);
-    if (beginning > 1 && count == beginning / 2u &&
-        (control & 0x04u) != 0 && (data->dma_half & (1u << channel)) == 0) {
+    if (beginning > 1 && count == beginning / 2u && (control & 0x04u) != 0 &&
+        (data->dma_half & (1u << channel)) == 0) {
         data->dma_half |= (uint16_t)(1u << channel);
         uint16_t pending = (uint16_t)load_bytes(data->dma, 0x24, 2);
         store_bytes(data->dma, 0x24, 2, pending | (1u << channel));
@@ -388,8 +387,8 @@ static bool dma_write(K22Data* data, uint32_t address, uint8_t size, uint32_t va
         if (tcd_offset == 0x1c && (size == 1 || size == 2)) {
             const uint16_t previous = (uint16_t)load_bytes(data->dma, offset, 2);
             const uint16_t status = previous & 0x00c0u;
-            const uint16_t writable = size == 1 ? (previous & 0xff00u) | (value & 0x3eu)
-                                                : value & 0xcf3eu;
+            const uint16_t writable =
+                size == 1 ? (previous & 0xff00u) | (value & 0x3eu) : value & 0xcf3eu;
             store_bytes(data->dma, offset, 2, writable | status);
             if ((value & 1u) != 0)
                 dma_queue_channel(data, channel);
@@ -599,10 +598,9 @@ static void cmp_evaluate(K22Data* data, uint8_t instance) {
         cmp->registers[3] |= 4u;
     if (previous && !output)
         cmp->registers[3] |= 2u;
-    const bool pending = ((cmp->registers[3] & 0x08u) != 0 &&
-                          (cmp->registers[3] & 4u) != 0) ||
-                         ((cmp->registers[3] & 0x10u) != 0 &&
-                          (cmp->registers[3] & 2u) != 0);
+    const bool pending =
+        ((cmp->registers[3] & 0x08u) != 0 && (cmp->registers[3] & 4u) != 0) ||
+        ((cmp->registers[3] & 0x10u) != 0 && (cmp->registers[3] & 2u) != 0);
     interrupt(data, (K22DataInterrupt)(K22_DATA_INTERRUPT_CMP0 + instance), pending);
     if (pending && (cmp->registers[3] & 0x40u) != 0)
         k22_data_dma_request(data, (uint8_t)(42u + instance));
@@ -776,16 +774,17 @@ static uint32_t flash_address(const uint8_t* flash) {
 }
 
 static bool flash_store(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
-    return data->bus.write != NULL && data->bus.write(data->bus.context, address, size, value);
+    return data->bus.write != NULL &&
+           data->bus.write(data->bus.context, address, size, value);
 }
 
 static bool flash_load(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
-    return data->bus.read != NULL && data->bus.read(data->bus.context, address, size, value);
+    return data->bus.read != NULL &&
+           data->bus.read(data->bus.context, address, size, value);
 }
 
 static bool flash_protected(const K22Data* data, uint32_t address) {
-    const uint32_t segment =
-        ((uint64_t)address * 32u) / data->profile->program_flash_size;
+    const uint32_t segment = ((uint64_t)address * 32u) / data->profile->program_flash_size;
     const uint8_t protection = data->flash[0x10u + segment / 8u];
     return (protection & (1u << (segment & 7u))) == 0;
 }
@@ -803,9 +802,9 @@ static void flash_execute(K22Data* data) {
         uint32_t previous = 0;
         valid = flash_load(data, address, 4, &previous) &&
                 flash_store(data, address, 4, previous & value);
-    } else if ((command == 0x09u || command == 0x08u) && valid &&
-               !protection_failure) {
-        const uint32_t sector = command == 0x08u ? data->profile->program_flash_size : 2048u;
+    } else if ((command == 0x09u || command == 0x08u) && valid && !protection_failure) {
+        const uint32_t sector =
+            command == 0x08u ? data->profile->program_flash_size : 2048u;
         const uint32_t start = command == 0x08u ? 0 : address & ~(sector - 1u);
         if (command == 0x08u) {
             for (uint8_t index = 0x10; index <= 0x13; index++)
@@ -907,8 +906,7 @@ K22Data* k22_data_create(const K22Profile* profile, K22DataBus bus) {
     if (profile_block(data, K22_PERIPHERAL_DAC1, &base, NULL))
         data->dac_base[data->dac_count++] = base;
     for (uint8_t index = 0; index < 3; index++) {
-        if (profile_block(data, (K22PeripheralId)(K22_PERIPHERAL_CMP0 + index), NULL,
-                          NULL))
+        if (profile_block(data, (K22PeripheralId)(K22_PERIPHERAL_CMP0 + index), NULL, NULL))
             data->cmp_count++;
     }
     if (profile->flexnvm_size != 0)
@@ -1134,8 +1132,7 @@ bool k22_data_set_adc_input(K22Data* data, uint8_t instance, uint8_t channel,
     return true;
 }
 
-bool k22_data_set_cmp_input(K22Data* data, uint8_t instance, uint8_t input,
-                            uint8_t value) {
+bool k22_data_set_cmp_input(K22Data* data, uint8_t instance, uint8_t input, uint8_t value) {
     if (data == NULL || instance >= data->cmp_count || input >= 8)
         return false;
     data->cmp[instance].inputs[input] = value;

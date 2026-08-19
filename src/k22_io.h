@@ -107,7 +107,7 @@ bool k22_io_usb_token(K22Io* io, uint8_t endpoint, uint8_t token, bool transmit)
 bool k22_io_can_receive(K22Io* io, const K22CanFrame* frame);
 bool k22_io_i2s_receive(K22Io* io, uint32_t sample);
 bool k22_io_i2s_transmit(K22Io* io, uint32_t* sample);
-bool k22_io_sysmpu_access(K22Io* io, uint32_t address, uint8_t master,
-                          bool supervisor, K22SysMpuAccess access);
+bool k22_io_sysmpu_access(K22Io* io, uint32_t address, uint8_t master, bool supervisor,
+                          K22SysMpuAccess access);
 
 #endif

@@ -107,10 +107,9 @@ static void write_tcd(TestState* state, K22Data* data, uint32_t base, uint32_t s
     write_value(state, data, base + 0x1e, 2, iterations);
 }
 
-static void store_tcd(TestBus* bus, uint32_t base, uint32_t source,
-                      int16_t source_offset, uint16_t attributes, uint32_t bytes,
-                      int32_t source_last, uint32_t destination,
-                      int16_t destination_offset, uint16_t iterations,
+static void store_tcd(TestBus* bus, uint32_t base, uint32_t source, int16_t source_offset,
+                      uint16_t attributes, uint32_t bytes, int32_t source_last,
+                      uint32_t destination, int16_t destination_offset, uint16_t iterations,
                       int32_t destination_last, uint16_t control) {
     const uint32_t offset = base - RAM_BASE;
     store(bus->ram, offset, 4, source);
@@ -148,8 +147,8 @@ static void test_dma(TestState* state) {
     K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
     for (uint8_t index = 0; index < 8; index++)
         bus.ram[index] = (uint8_t)(0x80u + index);
-    write_tcd(state, data, TCD0, RAM_BASE, 2, 0x0101u, 4, -8, RAM_BASE + 0x100,
-              2, 2, -8, 0x0eu);
+    write_tcd(state, data, TCD0, RAM_BASE, 2, 0x0101u, 4, -8, RAM_BASE + 0x100, 2, 2, -8,
+              0x0eu);
     write_value(state, data, DMAMUX, 1, 0x80u | 17u);
     write_value(state, data, DMA + 0x1b, 1, 0);
     k22_data_dma_request(data, 17);
@@ -166,8 +165,7 @@ static void test_dma(TestState* state) {
     TEST_EXPECT(state, read_value(state, data, TCD0, 4) == RAM_BASE);
     TEST_EXPECT(state, read_value(state, data, TCD0 + 0x10, 4) == RAM_BASE + 0x100);
 
-    write_tcd(state, data, TCD1, 0xffff0000u, 1, 0, 1, 0, RAM_BASE, 1, 1, 0,
-              0x02u);
+    write_tcd(state, data, TCD1, 0xffff0000u, 1, 0, 1, 0, RAM_BASE, 1, 1, 0, 0x02u);
     write_value(state, data, DMA + 0x1b, 1, 1);
     write_value(state, data, DMA + 0x1d, 1, 1);
     k22_data_advance(data, 1);
@@ -184,10 +182,9 @@ static void test_dma_advanced(TestState* state) {
     K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
     bus.ram[0x10] = 0x5au;
     bus.ram[0x20] = 0xa5u;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x10, 1, 0, 1, 0,
-              RAM_BASE + 0x110, 1, 0x8201u, 0, 0);
-    write_tcd(state, data, TCD1, RAM_BASE + 0x20, 1, 0, 1, 0,
-              RAM_BASE + 0x120, 1, 1, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x10, 1, 0, 1, 0, RAM_BASE + 0x110, 1, 0x8201u,
+              0, 0);
+    write_tcd(state, data, TCD1, RAM_BASE + 0x20, 1, 0, 1, 0, RAM_BASE + 0x120, 1, 1, 0, 0);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     TEST_EXPECT(state, bus.ram[0x110] == 0x5au);
@@ -196,10 +193,9 @@ static void test_dma_advanced(TestState* state) {
     const uint32_t next = RAM_BASE + 0x300;
     bus.ram[0x30] = 0x11u;
     bus.ram[0x31] = 0x22u;
-    store_tcd(&bus, next, RAM_BASE + 0x31, 1, 0, 1, 0,
-              RAM_BASE + 0x131, 1, 1, 0, 0);
-    write_tcd(state, data, TCD0, RAM_BASE + 0x30, 1, 0, 1, 0,
-              RAM_BASE + 0x130, 1, 1, (int32_t)next, 0x10u);
+    store_tcd(&bus, next, RAM_BASE + 0x31, 1, 0, 1, 0, RAM_BASE + 0x131, 1, 1, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x30, 1, 0, 1, 0, RAM_BASE + 0x130, 1, 1,
+              (int32_t)next, 0x10u);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     TEST_EXPECT(state, bus.ram[0x130] == 0x11u);
@@ -212,8 +208,8 @@ static void test_dma_advanced(TestState* state) {
     bus.ram[0x600] = 0;
     bus.ram[0x601] = 1;
     bus.ram[0x602] = 2;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x603, 1, 2u << 11, 2, 0,
-              RAM_BASE + 0x700, 1, 2, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x603, 1, 2u << 11, 2, 0, RAM_BASE + 0x700, 1,
+              2, 0, 0);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     write_value(state, data, DMA + 0x1d, 1, 0);
@@ -223,8 +219,8 @@ static void test_dma_advanced(TestState* state) {
     for (uint8_t index = 0; index < 8; index++)
         bus.ram[0x800 + index] = index;
     write_value(state, data, DMA, 4, 0x80u);
-    write_tcd(state, data, TCD0, RAM_BASE + 0x800, 1, 0,
-              0x80000000u | (2u << 10) | 2u, 0, RAM_BASE + 0x900, 1, 2, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x800, 1, 0, 0x80000000u | (2u << 10) | 2u, 0,
+              RAM_BASE + 0x900, 1, 2, 0, 0);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     write_value(state, data, DMA + 0x1d, 1, 0);
@@ -354,9 +350,8 @@ static void test_flash_flex_copy(TestState* state) {
     memset(configuration, 0xff, sizeof(configuration));
     configuration[8] = 0xfeu;
     configuration[0x0c] = 0xfeu;
-    TEST_EXPECT(state,
-                k22_data_set_flash_configuration(data, configuration,
-                                                 sizeof(configuration)));
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, configuration,
+                                                        sizeof(configuration)));
     TEST_EXPECT(state, read_value(state, data, 0x408u, 1) == 0xfeu);
     k22_data_reset(data);
     TEST_EXPECT(state, read_value(state, data, FTFA + 0x10, 1) == 0xfeu);

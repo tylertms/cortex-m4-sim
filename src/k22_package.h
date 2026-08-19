@@ -38,8 +38,7 @@ typedef struct K22PackageSelection K22PackageSelection;
 
 const K22Package* k22_package_get(K22PackageId id);
 const K22Package* k22_package_find(const char* code);
-const K22PackageSelection* k22_package_select(const K22Profile* profile,
-                                              K22PackageId id);
+const K22PackageSelection* k22_package_select(const K22Profile* profile, K22PackageId id);
 const K22PackageSelection* k22_package_default(const K22Profile* profile);
 K22ProfileId k22_package_selection_profile(const K22PackageSelection* selection);
 const K22Package* k22_package_selection_package(const K22PackageSelection* selection);

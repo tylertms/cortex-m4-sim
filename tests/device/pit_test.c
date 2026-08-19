@@ -29,8 +29,7 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
-    write32(&state, device, SIM_SCGC6,
-            read32(&state, device, SIM_SCGC6) | (1u << 23));
+    write32(&state, device, SIM_SCGC6, read32(&state, device, SIM_SCGC6) | (1u << 23));
     write32(&state, device, PIT_MCR, 0);
     write32(&state, device, PIT0_LDVAL, 2);
     write32(&state, device, PIT0_TCTRL, 3);

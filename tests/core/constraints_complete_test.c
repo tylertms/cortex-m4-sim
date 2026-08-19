@@ -98,11 +98,11 @@ static void test_opcode_matrix(TestState* state, CortexM4* cpu) {
     for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
         cpu->it_state = cases[index].it_state;
         const CortexM4InstructionDisposition actual =
-            cortex_m4_check_instruction_constraints(
-                cpu, cases[index].first, cases[index].second, cases[index].wide);
+            cortex_m4_check_instruction_constraints(cpu, cases[index].first,
+                                                    cases[index].second, cases[index].wide);
         if (actual != cases[index].expected) {
-            fprintf(stderr, "constraint case %zu: %04x %04x expected %u got %u\n",
-                    index, cases[index].first, cases[index].second,
+            fprintf(stderr, "constraint case %zu: %04x %04x expected %u got %u\n", index,
+                    cases[index].first, cases[index].second,
                     (unsigned)cases[index].expected, (unsigned)actual);
         }
         TEST_EXPECT(state, actual == cases[index].expected);
@@ -113,8 +113,7 @@ int main(void) {
     TestState state = {0};
     CortexM4 cpu = {0};
     test_opcode_matrix(&state, &cpu);
-    TEST_EXPECT(&state, cortex_m4_check_instruction_constraints(
-                            NULL, 0, 0, false) ==
+    TEST_EXPECT(&state, cortex_m4_check_instruction_constraints(NULL, 0, 0, false) ==
                             CORTEX_M4_INSTRUCTION_UNDEFINED);
     return test_finish(&state);
 }

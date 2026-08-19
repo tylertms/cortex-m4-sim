@@ -1,8 +1,6 @@
 #include "cortex_m4_internal.h"
 
-static bool valid_core_register(uint8_t index) {
-    return index != 13u && index != 15u;
-}
+static bool valid_core_register(uint8_t index) { return index != 13u && index != 15u; }
 
 static uint32_t sign_extend(uint32_t value, uint8_t width) {
     const uint32_t sign = 1u << (width - 1u);
@@ -34,13 +32,10 @@ static bool execute_reverse(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint32_t value = cpu->registers[source];
     uint32_t result = 0;
     if (operation == 8u) {
-        result = ((value & 0x000000ffu) << 24) |
-                 ((value & 0x0000ff00u) << 8) |
-                 ((value & 0x00ff0000u) >> 8) |
-                 ((value & 0xff000000u) >> 24);
+        result = ((value & 0x000000ffu) << 24) | ((value & 0x0000ff00u) << 8) |
+                 ((value & 0x00ff0000u) >> 8) | ((value & 0xff000000u) >> 24);
     } else if (operation == 9u) {
-        result = ((value & 0x00ff00ffu) << 8) |
-                 ((value & 0xff00ff00u) >> 8);
+        result = ((value & 0x00ff00ffu) << 8) | ((value & 0xff00ff00u) >> 8);
     } else {
         const uint32_t halfword = ((value & 0xffu) << 8) | ((value >> 8) & 0xffu);
         result = sign_extend(halfword, 16);
@@ -89,22 +84,20 @@ static bool execute_preload_hint(uint16_t first, uint16_t second) {
     return (second & 0x0fc0u) == 0 || (second & 0x0f00u) == 0x0c00u;
 }
 
-static bool execute_negative_literal(CortexM4* cpu, uint16_t first,
-                                     uint16_t second) {
+static bool execute_negative_literal(CortexM4* cpu, uint16_t first, uint16_t second) {
     if ((first & 15u) != 15u) {
         return false;
     }
     const uint16_t operation = first & 0xfff0u;
-    if (operation != 0xf850u && operation != 0xf810u &&
-        operation != 0xf830u && operation != 0xf910u &&
-        operation != 0xf930u) {
+    if (operation != 0xf850u && operation != 0xf810u && operation != 0xf830u &&
+        operation != 0xf910u && operation != 0xf930u) {
         return false;
     }
     const uint8_t target = (uint8_t)(second >> 12);
     if (target == 15u && operation != 0xf850u) {
         return false;
     }
-    const uint8_t size = operation == 0xf850u ? 4u
+    const uint8_t size = operation == 0xf850u                           ? 4u
                          : operation == 0xf830u || operation == 0xf930u ? 2u
                                                                         : 1u;
     const uint32_t address = (cpu->registers[15] & ~3u) - (second & 0x0fffu);
@@ -123,10 +116,8 @@ static bool execute_negative_literal(CortexM4* cpu, uint16_t first,
     return true;
 }
 
-bool cortex_m4_execute_remaining(CortexM4* cpu, uint16_t first,
-                                 uint16_t second) {
-    return execute_reverse(cpu, first, second) ||
-           execute_hint(cpu, first, second) ||
+bool cortex_m4_execute_remaining(CortexM4* cpu, uint16_t first, uint16_t second) {
+    return execute_reverse(cpu, first, second) || execute_hint(cpu, first, second) ||
            execute_preload_hint(first, second) ||
            execute_negative_literal(cpu, first, second);
 }

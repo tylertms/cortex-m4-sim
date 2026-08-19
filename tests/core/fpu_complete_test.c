@@ -41,8 +41,7 @@ static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first,
     TEST_EXPECT(state, kinetis_k22_reset(device));
     CortexM4* cpu = kinetis_k22_cpu(device);
     TEST_CONNECT_DEBUGGER(state, cpu);
-    TEST_EXPECT(state,
-                cortex_m4_write_memory(cpu, 0xe000ed88u, 4, 0x00f00000u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0xe000ed88u, 4, 0x00f00000u));
     return cpu;
 }
 
@@ -253,12 +252,10 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     run(state, cpu);
     uint32_t double_word = 0;
     TEST_EXPECT(state,
-                kinetis_k22_read(device, 0x20000038u, &double_word,
-                                  sizeof(double_word)));
+                kinetis_k22_read(device, 0x20000038u, &double_word, sizeof(double_word)));
     TEST_EXPECT(state, double_word == 0xabcdef01u);
     TEST_EXPECT(state,
-                kinetis_k22_read(device, 0x2000003cu, &double_word,
-                                  sizeof(double_word)));
+                kinetis_k22_read(device, 0x2000003cu, &double_word, sizeof(double_word)));
     TEST_EXPECT(state, double_word == 0x23456789u);
 
     cpu = prepare(state, device, 0xed94u, 0x2b04u);
@@ -279,8 +276,8 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 7) == 0x20000030u);
     for (uint8_t index = 0; index < 4; index++) {
         uint32_t value = 0;
-        TEST_EXPECT(state, kinetis_k22_read(device, 0x20000020u + index * 4u,
-                                            &value, sizeof(value)));
+        TEST_EXPECT(state, kinetis_k22_read(device, 0x20000020u + index * 4u, &value,
+                                            sizeof(value)));
         TEST_EXPECT(state, value == 0x10000008u + index);
     }
 
@@ -288,15 +285,14 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 6, 0x20000020u);
     for (uint8_t index = 0; index < 4; index++) {
         const uint32_t value = 0x10000008u + index;
-        TEST_EXPECT(state, kinetis_k22_write(device, 0x20000020u + index * 4u,
-                                             &value, sizeof(value)));
+        TEST_EXPECT(state, kinetis_k22_write(device, 0x20000020u + index * 4u, &value,
+                                             sizeof(value)));
     }
     run(state, cpu);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 6) == 0x20000030u);
     for (uint8_t index = 0; index < 4; index++) {
         TEST_EXPECT(state,
-                    cortex_m4_get_fp_register(cpu, 4u + index) ==
-                        0x10000008u + index);
+                    cortex_m4_get_fp_register(cpu, 4u + index) == 0x10000008u + index);
     }
 
     cpu = prepare(state, device, 0xed2du, 0x6a04u);
@@ -308,8 +304,8 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 13) == 0x200000f0u);
     for (uint8_t index = 0; index < 4; index++) {
         uint32_t value = 0;
-        TEST_EXPECT(state, kinetis_k22_read(device, 0x200000f0u + index * 4u,
-                                            &value, sizeof(value)));
+        TEST_EXPECT(state, kinetis_k22_read(device, 0x200000f0u + index * 4u, &value,
+                                            sizeof(value)));
         TEST_EXPECT(state, value == 0x2000000cu + index);
     }
 
@@ -317,15 +313,14 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 13, 0x200000f0u);
     for (uint8_t index = 0; index < 4; index++) {
         const uint32_t value = 0x30000010u + index;
-        TEST_EXPECT(state, kinetis_k22_write(device, 0x200000f0u + index * 4u,
-                                             &value, sizeof(value)));
+        TEST_EXPECT(state, kinetis_k22_write(device, 0x200000f0u + index * 4u, &value,
+                                             sizeof(value)));
     }
     run(state, cpu);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 13) == 0x20000100u);
     for (uint8_t index = 0; index < 4; index++) {
         TEST_EXPECT(state,
-                    cortex_m4_get_fp_register(cpu, 16u + index) ==
-                        0x30000010u + index);
+                    cortex_m4_get_fp_register(cpu, 16u + index) == 0x30000010u + index);
     }
 }
 
@@ -345,14 +340,11 @@ static void test_lazy_context(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, (cpu->fpccr & 1u) == 0);
     TEST_EXPECT(state, !cpu->exception_frames[0].lazy);
     uint32_t value = 0;
-    TEST_EXPECT(state,
-                kinetis_k22_read(device, 0x20000200u, &value, sizeof(value)));
+    TEST_EXPECT(state, kinetis_k22_read(device, 0x20000200u, &value, sizeof(value)));
     TEST_EXPECT(state, value == 0xdeadbeefu);
-    TEST_EXPECT(state,
-                kinetis_k22_read(device, 0x20000204u, &value, sizeof(value)));
+    TEST_EXPECT(state, kinetis_k22_read(device, 0x20000204u, &value, sizeof(value)));
     TEST_EXPECT(state, value == 0xc0600000u);
-    TEST_EXPECT(state,
-                kinetis_k22_read(device, 0x20000240u, &value, sizeof(value)));
+    TEST_EXPECT(state, kinetis_k22_read(device, 0x20000240u, &value, sizeof(value)));
     TEST_EXPECT(state, value == FPSCR_DN);
 
     cpu = prepare(state, device, 0xeeb0u, 0x0ae0u);

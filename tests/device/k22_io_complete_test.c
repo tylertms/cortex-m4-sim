@@ -117,8 +117,7 @@ static void test_gpio_mux_pull_open_drain_and_lock(TestState* state) {
     write_value(state, &io, PORTA + 4u, 4, 0);
     TEST_EXPECT(state, (read_value(state, &io, PORTA + 4u, 4) & (1u << 15)) != 0);
     write_value(state, &io, PORTA + 0x80u, 4, (4u << 16) | (1u << 8));
-    TEST_EXPECT(state, (read_value(state, &io, PORTA + 8u, 4) & (7u << 8)) ==
-                           (1u << 8));
+    TEST_EXPECT(state, (read_value(state, &io, PORTA + 8u, 4) & (7u << 8)) == (1u << 8));
     write_value(state, &io, bit_alias(GPIOA + 0x14u, 2), 4, 1u);
     write_value(state, &io, bit_alias(GPIOA, 2), 4, 1u);
     TEST_EXPECT(state, read_value(state, &io, bit_alias(GPIOA, 2), 4) == 1u);
@@ -273,23 +272,19 @@ static void test_flexbus_sysmpu_copy_and_reset(TestState* state) {
     TEST_EXPECT(state, read_value(state, &io, SYSMPU, 4) == 0x00815101u);
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x404u, 4) == UINT32_MAX);
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x408u, 4) == 0x0061f7dfu);
-    TEST_EXPECT(state, k22_io_sysmpu_access(&io, 0x1000u, 0, false,
-                                            K22_SYSMPU_WRITE));
+    TEST_EXPECT(state, k22_io_sysmpu_access(&io, 0x1000u, 0, false, K22_SYSMPU_WRITE));
     for (uint8_t region = 0; region < 12; region++)
         write_value(state, &io, SYSMPU + 0x40cu + (uint32_t)region * 16u, 4, 0);
     write_value(state, &io, SYSMPU + 0x400u, 4, 0x1000u);
     write_value(state, &io, SYSMPU + 0x404u, 4, 0x1fffu);
     write_value(state, &io, SYSMPU + 0x408u, 4, 4u | (3u << 3));
-    TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x800u, 4) ==
-                           (4u | (3u << 3)));
+    TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x800u, 4) == (4u | (3u << 3)));
     write_value(state, &io, SYSMPU + 0x800u, 4, 7u);
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x408u, 4) == 7u);
     write_value(state, &io, SYSMPU + 0x408u, 4, 4u | (3u << 3));
     write_value(state, &io, SYSMPU + 0x40cu, 4, 1u);
-    TEST_EXPECT(state, k22_io_sysmpu_access(&io, 0x1800u, 0, false,
-                                            K22_SYSMPU_READ));
-    TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0x1800u, 0, false,
-                                             K22_SYSMPU_WRITE));
+    TEST_EXPECT(state, k22_io_sysmpu_access(&io, 0x1800u, 0, false, K22_SYSMPU_READ));
+    TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0x1800u, 0, false, K22_SYSMPU_WRITE));
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x10u, 4) == 0x1800u);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_ACCESS_ERROR, 0x1800u));
     write_value(state, &io, SYSMPU, 4, 1u << 27);
@@ -342,8 +337,7 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, false));
     write_value(state, &io, 0x4004c000u, 4, 12u << 16);
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, true));
-    write_value(state, &io, 0x4004c000u, 4,
-                (9u << 16) | (1u << 15) | (1u << 24));
+    write_value(state, &io, 0x4004c000u, 4, (9u << 16) | (1u << 15) | (1u << 24));
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, false));
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, true));
     write_value(state, &io, 0x4004c000u, 4, 1u << 24);
@@ -375,8 +369,8 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     TEST_EXPECT(state, !k22_io_can_receive(&io, &frame));
     frame.identifier = 0x456u;
     TEST_EXPECT(state, k22_io_can_receive(&io, &frame));
-    TEST_EXPECT(state, (read_value(state, &io, CAN0 + 0xa0u, 4) &
-                        ((1u << 21) | (1u << 20))) != 0);
+    TEST_EXPECT(state,
+                (read_value(state, &io, CAN0 + 0xa0u, 4) & ((1u << 21) | (1u << 20))) != 0);
     k22_io_set_clock(&io, K22_PERIPHERAL_I2S0, true);
     write_value(state, &io, I2S0, 4, UINT32_C(0x80000001));
     for (uint8_t index = 0; index < K22_IO_FIFO_CAPACITY; index++)
@@ -393,8 +387,7 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     write_value(state, &io, SYSMPU, 4, (1u << 27) | 1u);
     write_value(state, &io, SYSMPU + 0x408u, 4, 1u << 31);
     TEST_EXPECT(state, k22_io_sysmpu_access(&io, 0, 7, false, K22_SYSMPU_READ));
-    TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0, 7, false,
-                                             K22_SYSMPU_EXECUTE));
+    TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0, 7, false, K22_SYSMPU_EXECUTE));
     TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0, 8, false, K22_SYSMPU_READ));
     TEST_EXPECT(state, !k22_io_sysmpu_access(NULL, 0, 0, false, K22_SYSMPU_READ));
 }

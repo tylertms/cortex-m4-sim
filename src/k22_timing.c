@@ -90,13 +90,11 @@ static uint32_t fll_clock(const K22Timing* timing) {
     uint32_t reference = timing->slow_irc_hz;
     if ((timing->mcg[0] & 4u) == 0) {
         const uint8_t index = (timing->mcg[0] >> 3u) & 7u;
-        const uint16_t low_range_dividers[8] = {1u, 2u, 4u, 8u, 16u, 32u, 64u,
-                                                128u};
-        const uint16_t high_range_dividers[8] = {32u, 64u, 128u, 256u, 512u, 1024u,
-                                                 1280u, 1536u};
-        const uint16_t divider = (timing->mcg[1] & 0x30u) == 0
-                                     ? low_range_dividers[index]
-                                     : high_range_dividers[index];
+        const uint16_t low_range_dividers[8] = {1u, 2u, 4u, 8u, 16u, 32u, 64u, 128u};
+        const uint16_t high_range_dividers[8] = {32u,  64u,   128u,  256u,
+                                                 512u, 1024u, 1280u, 1536u};
+        const uint16_t divider = (timing->mcg[1] & 0x30u) == 0 ? low_range_dividers[index]
+                                                               : high_range_dividers[index];
         reference = timing->external_oscillator_hz / divider;
     }
     uint32_t multiplier = multipliers[(c4 >> 5u) & 3u];
@@ -264,8 +262,7 @@ static bool write_sim(K22Timing* timing, uint32_t address, uint8_t size, uint32_
         timing->sim_scgc4 = value;
         return true;
     case SIM_SCGC5:
-        timing->sim_scgc5 =
-            (timing->sim_scgc5 & ~0x00003e01u) | (value & 0x00003e01u);
+        timing->sim_scgc5 = (timing->sim_scgc5 & ~0x00003e01u) | (value & 0x00003e01u);
         return true;
     case SIM_SCGC6:
         timing->sim_scgc6 = value;
@@ -504,8 +501,8 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
     const uint64_t period = (uint64_t)timing->pdb_mod + 1u;
     const uint64_t total = (uint64_t)timing->pdb_counter + ticks;
     const bool delayed = timing->pdb_idly <= timing->pdb_mod &&
-                         counter_reached((uint16_t)(total - ticks), ticks,
-                                         (uint32_t)period, timing->pdb_idly);
+                         counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period,
+                                         timing->pdb_idly);
     timing->pdb_counter = (uint16_t)(total % period);
     for (uint8_t channel = 0; channel < 2u; channel++) {
         const uint32_t base = 0x10u + (uint32_t)channel * 0x28u;

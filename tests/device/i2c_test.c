@@ -45,8 +45,7 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
-    write32(&state, device, SIM_SCGC4,
-            read32(&state, device, SIM_SCGC4) | (1u << 6));
+    write32(&state, device, SIM_SCGC4, read32(&state, device, SIM_SCGC4) | (1u << 6));
     write8(&state, device, I2C0_C1, 0xf0u);
     expect_transfer(&state, device, KINETIS_K22_I2C_START, 0);
     write8(&state, device, I2C0_D, 0xa4u);

@@ -13,11 +13,10 @@ typedef struct {
     uint8_t sram[SRAM_SIZE];
 } TestMemory;
 
-bool cortex_m4_execute_remaining(CortexM4* cpu, uint16_t first,
-                                 uint16_t second);
+bool cortex_m4_execute_remaining(CortexM4* cpu, uint16_t first, uint16_t second);
 
-static bool memory_region(uint32_t address, uint8_t size, uint32_t base,
-                          uint32_t length, uint32_t* offset) {
+static bool memory_region(uint32_t address, uint8_t size, uint32_t base, uint32_t length,
+                          uint32_t* offset) {
     if ((size != 1u && size != 2u && size != 4u) || address < base ||
         address - base > length - size) {
         return false;
@@ -87,8 +86,7 @@ static void reset_cpu(TestState* state, CortexM4* cpu, TestMemory* memory) {
     TEST_EXPECT(state, cortex_m4_reset(cpu, 0));
 }
 
-static void expect_reverse_forms(TestState* state, CortexM4* cpu,
-                                 TestMemory* memory) {
+static void expect_reverse_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 1, 0x11223344u);
     TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf081u));
@@ -113,8 +111,7 @@ static void expect_reverse_forms(TestState* state, CortexM4* cpu,
     TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0c1u));
 }
 
-static void expect_hint_forms(TestState* state, CortexM4* cpu,
-                              TestMemory* memory) {
+static void expect_hint_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     reset_cpu(state, cpu, memory);
     TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8000u));
     TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8001u));
@@ -150,8 +147,7 @@ static void expect_hint_forms(TestState* state, CortexM4* cpu,
     TEST_EXPECT(state, interrupt_result.instructions == 0);
 }
 
-static void expect_preload_forms(TestState* state, CortexM4* cpu,
-                                 TestMemory* memory) {
+static void expect_preload_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     static const uint16_t forms[][2] = {
         {0xf890u, 0xf004u}, {0xf810u, 0xfc04u}, {0xf810u, 0xf021u},
         {0xf990u, 0xf004u}, {0xf910u, 0xfc04u}, {0xf910u, 0xf021u},
@@ -161,8 +157,8 @@ static void expect_preload_forms(TestState* state, CortexM4* cpu,
     cortex_m4_set_register(cpu, 1, 1u);
     const uint32_t status = cortex_m4_get_fault_status(cpu);
     for (uint8_t index = 0; index < sizeof(forms) / sizeof(forms[0]); index++) {
-        TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, forms[index][0],
-                                                       forms[index][1]));
+        TEST_EXPECT(state,
+                    cortex_m4_execute_remaining(cpu, forms[index][0], forms[index][1]));
         TEST_EXPECT(state, cortex_m4_get_fault_status(cpu) == status);
         TEST_EXPECT(state, cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_RUNNING);
     }
@@ -170,8 +166,8 @@ static void expect_preload_forms(TestState* state, CortexM4* cpu,
     TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf800u, 0xf004u));
 }
 
-static void write_value(TestState* state, CortexM4* cpu, uint32_t address,
-                        uint8_t size, uint32_t value) {
+static void write_value(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size,
+                        uint32_t value) {
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, address, size, value));
 }
 

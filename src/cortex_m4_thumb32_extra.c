@@ -1,12 +1,11 @@
 #include "cortex_m4_internal.h"
 
 static uint32_t immediate12(uint16_t first, uint16_t second) {
-    return ((uint32_t)((first >> 10) & 1u) << 11) |
-           ((uint32_t)((second >> 12) & 7u) << 8) | (second & 0xffu);
+    return ((uint32_t)((first >> 10) & 1u) << 11) | ((uint32_t)((second >> 12) & 7u) << 8) |
+           (second & 0xffu);
 }
 
-static bool execute_wide_add_subtract(CortexM4* cpu, uint16_t first,
-                                      uint16_t second) {
+static bool execute_wide_add_subtract(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfbf0u;
     if (operation != 0xf200u && operation != 0xf2a0u) {
         return false;
@@ -35,8 +34,7 @@ static bool execute_decrement_before_multiple(CortexM4* cpu, uint16_t first,
     }
     const uint32_t write_back_value =
         cortex_m4_read_register_internal(cpu, base) - count * 4u;
-    uint32_t address =
-        cortex_m4_exception_advanced_multiple_address(cpu, write_back_value);
+    uint32_t address = cortex_m4_exception_advanced_multiple_address(cpu, write_back_value);
     const uint8_t resume = cortex_m4_exception_advanced_multiple_resume(cpu);
     if (!cortex_m4_require_alignment(cpu, address, 4)) {
         return true;
@@ -50,14 +48,12 @@ static bool execute_decrement_before_multiple(CortexM4* cpu, uint16_t first,
         }
         if (load) {
             uint32_t value = 0;
-            if (!cortex_m4_data_read(cpu, address, 4, CORTEX_M4_ACCESS_DATA,
-                                     &value)) {
+            if (!cortex_m4_data_read(cpu, address, 4, CORTEX_M4_ACCESS_DATA, &value)) {
                 return true;
             }
             cortex_m4_write_register_internal(cpu, index, value);
-        } else if (!cortex_m4_data_write(
-                       cpu, address, 4, CORTEX_M4_ACCESS_DATA,
-                       cortex_m4_read_register_internal(cpu, index))) {
+        } else if (!cortex_m4_data_write(cpu, address, 4, CORTEX_M4_ACCESS_DATA,
+                                         cortex_m4_read_register_internal(cpu, index))) {
             return true;
         }
         address += 4;
@@ -68,8 +64,7 @@ static bool execute_decrement_before_multiple(CortexM4* cpu, uint16_t first,
                 break;
             }
         }
-        if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 4u,
-                                                          address)) {
+        if (cortex_m4_exception_advanced_multiple_suspend(cpu, next, 4u, address)) {
             return true;
         }
     }
@@ -102,17 +97,15 @@ static bool execute_doubleword(CortexM4* cpu, uint16_t first, uint16_t second) {
     if (load) {
         uint32_t first_value = 0;
         uint32_t second_value = 0;
-        if (!cortex_m4_data_read(cpu, address, 4, CORTEX_M4_ACCESS_DATA,
-                                 &first_value) ||
+        if (!cortex_m4_data_read(cpu, address, 4, CORTEX_M4_ACCESS_DATA, &first_value) ||
             !cortex_m4_data_read(cpu, address + 4u, 4, CORTEX_M4_ACCESS_DATA,
                                  &second_value)) {
             return true;
         }
         cortex_m4_write_register_internal(cpu, first_target, first_value);
         cortex_m4_write_register_internal(cpu, second_target, second_value);
-    } else if (!cortex_m4_data_write(
-                   cpu, address, 4, CORTEX_M4_ACCESS_DATA,
-                   cortex_m4_read_register_internal(cpu, first_target)) ||
+    } else if (!cortex_m4_data_write(cpu, address, 4, CORTEX_M4_ACCESS_DATA,
+                                     cortex_m4_read_register_internal(cpu, first_target)) ||
                !cortex_m4_data_write(
                    cpu, address + 4u, 4, CORTEX_M4_ACCESS_DATA,
                    cortex_m4_read_register_internal(cpu, second_target))) {
@@ -124,13 +117,11 @@ static bool execute_doubleword(CortexM4* cpu, uint16_t first, uint16_t second) {
     return true;
 }
 
-static bool execute_register_offset(CortexM4* cpu, uint16_t first,
-                                    uint16_t second) {
+static bool execute_register_offset(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if ((second & 0x0fc0u) != 0 ||
-        (operation != 0xf800u && operation != 0xf810u &&
-         operation != 0xf820u && operation != 0xf830u &&
-         operation != 0xf840u && operation != 0xf850u &&
+        (operation != 0xf800u && operation != 0xf810u && operation != 0xf820u &&
+         operation != 0xf830u && operation != 0xf840u && operation != 0xf850u &&
          operation != 0xf910u && operation != 0xf930u)) {
         return false;
     }
@@ -140,7 +131,7 @@ static bool execute_register_offset(CortexM4* cpu, uint16_t first,
     const uint8_t shift = (uint8_t)((second >> 4) & 3u);
     const uint8_t size = (operation & 0x0040u) != 0   ? 4
                          : (operation & 0x0020u) != 0 ? 2
-                                                     : 1;
+                                                      : 1;
     const uint32_t address = cortex_m4_read_register_internal(cpu, base) +
                              (cortex_m4_read_register_internal(cpu, index) << shift);
     const bool load = (operation & 0x0010u) != 0;
@@ -163,9 +154,8 @@ static bool execute_register_offset(CortexM4* cpu, uint16_t first,
 static bool execute_unprivileged(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if ((second & 0x0f00u) != 0x0e00u ||
-        (operation != 0xf800u && operation != 0xf810u &&
-         operation != 0xf820u && operation != 0xf830u &&
-         operation != 0xf840u && operation != 0xf850u &&
+        (operation != 0xf800u && operation != 0xf810u && operation != 0xf820u &&
+         operation != 0xf830u && operation != 0xf840u && operation != 0xf850u &&
          operation != 0xf910u && operation != 0xf930u)) {
         return false;
     }
@@ -173,18 +163,17 @@ static bool execute_unprivileged(CortexM4* cpu, uint16_t first, uint16_t second)
     const uint8_t target = (uint8_t)(second >> 12);
     const uint8_t size = (operation & 0x0040u) != 0   ? 4
                          : (operation & 0x0020u) != 0 ? 2
-                                                     : 1;
-    const uint32_t address = cortex_m4_read_register_internal(cpu, base) +
-                             (uint32_t)(second & 0xffu);
+                                                      : 1;
+    const uint32_t address =
+        cortex_m4_read_register_internal(cpu, base) + (uint32_t)(second & 0xffu);
     const bool load = (operation & 0x0010u) != 0;
     if (!load) {
-        return cortex_m4_data_write(
-            cpu, address, size, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
-            cortex_m4_read_register_internal(cpu, target));
+        return cortex_m4_data_write(cpu, address, size, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                                    cortex_m4_read_register_internal(cpu, target));
     }
     uint32_t value = 0;
-    if (!cortex_m4_data_read(cpu, address, size,
-                             CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value)) {
+    if (!cortex_m4_data_read(cpu, address, size, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                             &value)) {
         return true;
     }
     if ((operation & 0x0100u) != 0) {
@@ -195,8 +184,7 @@ static bool execute_unprivileged(CortexM4* cpu, uint16_t first, uint16_t second)
     return true;
 }
 
-bool cortex_m4_execute_thumb32_extra(CortexM4* cpu, uint16_t first,
-                                     uint16_t second) {
+bool cortex_m4_execute_thumb32_extra(CortexM4* cpu, uint16_t first, uint16_t second) {
     return execute_wide_add_subtract(cpu, first, second) ||
            execute_decrement_before_multiple(cpu, first, second) ||
            execute_doubleword(cpu, first, second) ||
