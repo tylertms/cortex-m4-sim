@@ -30,6 +30,8 @@ typedef struct {
     bool fail_write;
     bool observe_dma_active;
     uint16_t dma_active;
+    uint32_t dma_write_values[32];
+    uint8_t dma_write_count;
     K22Data* data;
 } TestBus;
 
@@ -75,6 +77,9 @@ static bool bus_write(void* context, uint32_t address, uint8_t size, uint32_t va
     }
     if (address >= RAM_BASE && address - RAM_BASE <= sizeof(bus->ram) - size) {
         store(bus->ram, address - RAM_BASE, size, value);
+        if (bus->dma_write_count <
+            sizeof(bus->dma_write_values) / sizeof(bus->dma_write_values[0]))
+            bus->dma_write_values[bus->dma_write_count++] = value;
         return true;
     }
     return false;
@@ -308,6 +313,102 @@ static void test_dma_advanced(TestState* state) {
     TEST_EXPECT(state, read_value(state, data, TCD0, 4) == RAM_BASE + 0x50u);
     TEST_EXPECT(state, read_value(state, data, TCD0 + 0x10u, 4) == RAM_BASE + 0x150u);
     k22_data_destroy(data);
+}
+
+static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd,
+                                    uint32_t source, uint32_t destination) {
+    write_tcd(state, data, tcd, source, 0, 0, 1, 0, destination, 0, 1, 0, 0);
+}
+
+static void test_dma_arbitration_and_control(TestState* state) {
+    TestBus bus = {0};
+    K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    TEST_EXPECT(state, read_value(state, data, DMA + 0x103u, 1u) == 0u);
+    TEST_EXPECT(state, read_value(state, data, DMA + 0x102u, 1u) == 1u);
+    TEST_EXPECT(state, read_value(state, data, DMA + 0x100u, 1u) == 3u);
+    bus.ram[0x10u] = 0xa0u;
+    bus.ram[0x20u] = 0xb1u;
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    prepare_single_byte_dma(state, data, TCD1, RAM_BASE + 0x20u, RAM_BASE + 0x201u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    write_value(state, data, DMA + 0x1du, 1u, 1u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_count == 2u);
+    TEST_EXPECT(state, bus.dma_write_values[0] == 0xb1u);
+    TEST_EXPECT(state, bus.dma_write_values[1] == 0xa0u);
+
+    k22_data_reset(data);
+    bus.dma_write_count = 0u;
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    prepare_single_byte_dma(state, data, TCD0 + 15u * 32u, RAM_BASE + 0x20u,
+                            RAM_BASE + 0x201u);
+    write_value(state, data, DMA, 4u, 4u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    write_value(state, data, DMA + 0x1du, 1u, 15u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_values[0] == 0xa0u);
+    TEST_EXPECT(state, bus.dma_write_values[1] == 0xb1u);
+
+    k22_data_reset(data);
+    bus.dma_write_count = 0u;
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    write_value(state, data, DMA, 4u, 0x20u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_count == 0u);
+    write_value(state, data, DMA, 4u, 0u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_count == 1u);
+
+    k22_data_reset(data);
+    bus.dma_write_count = 0u;
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    write_value(state, data, DMA, 4u, 2u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    k22_data_set_debug_halted(data, true);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_count == 0u);
+    k22_data_set_debug_halted(data, false);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.dma_write_count == 1u);
+
+    k22_data_reset(data);
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    write_value(state, data, DMAMUX, 1u, 0x80u | 17u);
+    write_value(state, data, DMA + 0x1bu, 1u, 0u);
+    k22_data_dma_request(data, 17u);
+    TEST_EXPECT(state, (read_value(state, data, DMA + 0x34u, 2u) & 1u) != 0u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, (read_value(state, data, DMA + 0x34u, 2u) & 1u) == 0u);
+
+    k22_data_reset(data);
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    prepare_single_byte_dma(state, data, TCD1, RAM_BASE + 0x20u, RAM_BASE + 0x201u);
+    write_value(state, data, DMA + 0x102u, 1u, 0u);
+    write_value(state, data, DMA + 0x19u, 1u, 0u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    write_value(state, data, DMA + 0x1du, 1u, 1u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, (read_value(state, data, DMA + 4u, 4u) & (1u << 14u)) != 0u);
+    TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_DMA_ERROR]);
+
+    k22_data_reset(data);
+    write_value(state, data, DMA, 4u, 0x10u);
+    write_value(state, data, DMA + 0x19u, 1u, 0u);
+    prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
+    write_value(state, data, TCD0 + 8u, 4u, 0u);
+    write_value(state, data, DMA + 0x1du, 1u, 0u);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, (read_value(state, data, DMA, 4u) & 0x20u) != 0u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    K22Data* small = create(state, &bus, K22_PROFILE_MK22F12810);
+    uint32_t value = 0u;
+    TEST_EXPECT(state, !k22_data_read(small, DMA + 0x104u, 1u, &value));
+    TEST_EXPECT(state, !k22_data_write(small, DMA + 0x104u, 1u, 4u));
+    TEST_EXPECT(state, !k22_data_read(small, TCD0 + 4u * 32u, 1u, &value));
+    k22_data_destroy(small);
 }
 
 static void test_adc(TestState* state) {
@@ -1009,6 +1110,7 @@ int main(void) {
     test_profile_boundaries(&state);
     test_dma(&state);
     test_dma_advanced(&state);
+    test_dma_arbitration_and_control(&state);
     test_adc(&state);
     test_adc_compare_dma_and_continuous(&state);
     test_dac_cmp_vref(&state);

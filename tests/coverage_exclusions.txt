@@ -6,8 +6,8 @@ kinetis_k22.c:350|Allocation cleanup after a data-model allocation failure
 kinetis_k22.c:351|Return after a data-model allocation failure
 kinetis_k22.c:360|Allocation cleanup after a CPU allocation failure
 kinetis_k22.c:361|Return after a CPU allocation failure
-k22_data.c:868|Defensive fallback for a partition code rejected before storage
-k22_data.c:869|Return for a partition code rejected before storage
-k22_data.c:1395|Allocation cleanup after a FlexNVM or FlexRAM allocation failure
-k22_data.c:1396|Return after a FlexNVM or FlexRAM allocation failure
+k22_data.c:933|Defensive fallback for a partition code rejected before storage
+k22_data.c:934|Return for a partition code rejected before storage
+k22_data.c:1462|Allocation cleanup after a FlexNVM or FlexRAM allocation failure
+k22_data.c:1463|Return after a FlexNVM or FlexRAM allocation failure
 k22_timing.c:163|Defensive clamp for an impossible clock value in a valid profile

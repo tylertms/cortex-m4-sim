@@ -108,7 +108,7 @@ int main(void) {
 
     configure_transfer(&state, device, source, destination);
     write_debug(&state, device, DMA_SSRT, &(uint8_t){0}, sizeof(uint8_t));
-    TEST_EXPECT(&state, (read_debug(&state, device, 0x40008034u) & 1u) != 0u);
+    TEST_EXPECT(&state, (read_debug(&state, device, 0x40008034u) & 1u) == 0u);
     kinetis_k22_advance(device, 1u);
     TEST_EXPECT(&state, (read_debug(&state, device, DMA_ES) & 0x80000000u) != 0u);
     TEST_EXPECT(&state, (read_debug(&state, device, DMA_ERR) & 1u) != 0u);

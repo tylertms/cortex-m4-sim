@@ -49,8 +49,12 @@ struct K22Data {
     K22DataBus bus;
     uint8_t dma[DMA_REGISTER_SIZE];
     uint16_t dma_requests;
+    uint16_t dma_hardware_requests;
     uint16_t dma_active;
     uint16_t dma_half;
+    uint8_t dma_channel_count;
+    uint8_t dma_last_channel;
+    bool debug_halted;
     uint8_t dmamux[DMA_CHANNEL_COUNT];
     uint8_t dmamux_count;
     K22Adc adc[2];
@@ -146,6 +150,51 @@ static uint8_t dma_transfer_size(uint8_t encoding) {
     return 0;
 }
 
+static uint32_t dma_priority_offset(uint8_t channel) {
+    return 0x100u + (channel & 0xfcu) + 3u - (channel & 3u);
+}
+
+static uint8_t dma_priority_channel(uint32_t offset) {
+    const uint8_t index = (uint8_t)(offset - 0x100u);
+    return (uint8_t)((index & 0xfcu) + 3u - (index & 3u));
+}
+
+static bool dma_priorities_valid(const K22Data* data) {
+    uint16_t used = 0u;
+    for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++) {
+        const uint8_t priority = data->dma[dma_priority_offset(channel)] & 15u;
+        if ((used & (1u << priority)) != 0u)
+            return false;
+        used |= (uint16_t)(1u << priority);
+    }
+    return true;
+}
+
+static uint8_t dma_select_channel(const K22Data* data) {
+    if ((load_bytes(data->dma, 0u, 4u) & 4u) != 0u) {
+        for (uint8_t step = 1u; step <= data->dma_channel_count; step++) {
+            const uint8_t channel =
+                (uint8_t)((data->dma_last_channel + step) % data->dma_channel_count);
+            if ((data->dma_requests & (1u << channel)) != 0u)
+                return channel;
+        }
+    } else {
+        uint8_t selected = UINT8_MAX;
+        uint8_t selected_priority = 0u;
+        for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++) {
+            if ((data->dma_requests & (1u << channel)) == 0u)
+                continue;
+            const uint8_t priority = data->dma[dma_priority_offset(channel)] & 15u;
+            if (selected == UINT8_MAX || priority > selected_priority) {
+                selected = channel;
+                selected_priority = priority;
+            }
+        }
+        return selected;
+    }
+    return UINT8_MAX;
+}
+
 static uint16_t dma_iteration_count(uint16_t value) {
     return (value & 0x8000u) != 0 ? value & 0x01ffu : value & 0x7fffu;
 }
@@ -186,6 +235,8 @@ static void dma_error(K22Data* data, uint8_t channel, uint32_t reason) {
     store_bytes(data->dma, 0x2c, 2, errors);
     if ((load_bytes(data->dma, 0x14, 2) & (1u << channel)) != 0)
         interrupt(data, K22_DATA_INTERRUPT_DMA_ERROR, true);
+    if ((load_bytes(data->dma, 0u, 4u) & 0x10u) != 0u)
+        store_bytes(data->dma, 0u, 4u, load_bytes(data->dma, 0u, 4u) | 0x20u);
 }
 
 static bool dma_bus_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
@@ -199,7 +250,7 @@ static bool dma_bus_write(K22Data* data, uint32_t address, uint8_t size, uint32_
 }
 
 static void dma_queue_channel(K22Data* data, uint8_t channel) {
-    if (channel < DMA_CHANNEL_COUNT)
+    if (channel < data->dma_channel_count)
         data->dma_requests |= (uint16_t)(1u << channel);
 }
 
@@ -344,12 +395,18 @@ static bool dma_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* va
     const uint32_t offset = address - DMA_BASE;
     if (!valid_access(offset, size, DMA_REGISTER_SIZE))
         return false;
+    if (offset >= 0x100u && offset < 0x110u) {
+        if (size != 1u || dma_priority_channel(offset) >= data->dma_channel_count)
+            return false;
+    }
+    if (offset >= 0x1000u && (offset - 0x1000u) / DMA_TCD_SIZE >= data->dma_channel_count)
+        return false;
     if (offset == 0x30 && (size == 2 || size == 4)) {
         *value = data->dma_active;
         return true;
     }
     if (offset == 0x34 && (size == 2 || size == 4)) {
-        *value = data->dma_requests;
+        *value = data->dma_hardware_requests;
         return true;
     }
     *value = load_bytes(data->dma, offset, size);
@@ -399,6 +456,14 @@ static void dma_command(K22Data* data, uint32_t offset, uint8_t command) {
 static bool dma_write(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
     const uint32_t offset = address - DMA_BASE;
     if (!valid_access(offset, size, DMA_REGISTER_SIZE))
+        return false;
+    if (offset >= 0x100u && offset < 0x110u) {
+        if (size != 1u || dma_priority_channel(offset) >= data->dma_channel_count)
+            return false;
+        data->dma[offset] = (uint8_t)value & 0xcfu;
+        return true;
+    }
+    if (offset >= 0x1000u && (offset - 0x1000u) / DMA_TCD_SIZE >= data->dma_channel_count)
         return false;
     if (offset >= 0x18 && offset <= 0x1f && size == 1) {
         dma_command(data, offset, (uint8_t)value);
@@ -1371,8 +1436,10 @@ K22Data* k22_data_create(const K22Profile* profile, K22DataBus bus) {
     data->profile = profile;
     data->bus = bus;
     uint32_t size = 0;
-    if (profile_block(data, K22_PERIPHERAL_DMAMUX, NULL, &size))
+    if (profile_block(data, K22_PERIPHERAL_DMAMUX, NULL, &size)) {
         data->dmamux_count = (uint8_t)(size > DMA_CHANNEL_COUNT ? DMA_CHANNEL_COUNT : size);
+        data->dma_channel_count = data->dmamux_count;
+    }
     uint32_t base = 0;
     if (profile_block(data, K22_PERIPHERAL_ADC0, &base, NULL))
         data->adc_base[data->adc_count++] = base;
@@ -1435,8 +1502,13 @@ void k22_data_reset(K22Data* data) {
         memcpy(data->cmp[index].inputs, cmp_inputs[index], sizeof(cmp_inputs[index]));
     memset(data->vref, 0, sizeof(data->vref));
     data->dma_requests = 0;
+    data->dma_hardware_requests = 0;
     data->dma_active = 0;
     data->dma_half = 0;
+    data->dma_last_channel = (uint8_t)(data->dma_channel_count - 1u);
+    data->debug_halted = false;
+    for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++)
+        data->dma[dma_priority_offset(channel)] = channel;
     data->vref_cycles = 0;
     data->rng_control = 0;
     data->rng_status = 0x00010000u;
@@ -1601,8 +1673,10 @@ void k22_data_dma_request(K22Data* data, uint8_t source) {
     for (uint8_t channel = 0; channel < data->dmamux_count; channel++) {
         const uint8_t mux = data->dmamux[channel];
         if ((mux & 0x80u) != 0 && (mux & 0x3fu) == source &&
-            (enabled & (1u << channel)) != 0)
+            (enabled & (1u << channel)) != 0) {
             dma_queue_channel(data, channel);
+            data->dma_hardware_requests |= (uint16_t)(1u << channel);
+        }
     }
 }
 
@@ -1699,11 +1773,21 @@ bool k22_data_set_flash_configuration(K22Data* data, const uint8_t* bytes, size_
 void k22_data_advance(K22Data* data, uint32_t cycles) {
     if (data == NULL || cycles == 0)
         return;
-    for (uint8_t channel = 0; channel < DMA_CHANNEL_COUNT; channel++) {
-        if ((data->dma_requests & (1u << channel)) != 0) {
+    while (data->dma_requests != 0u && (load_bytes(data->dma, 0u, 4u) & 0x20u) == 0u &&
+           !((load_bytes(data->dma, 0u, 4u) & 2u) != 0u && data->debug_halted)) {
+        const uint8_t channel = dma_select_channel(data);
+        if (channel == UINT8_MAX)
+            break;
+        if ((load_bytes(data->dma, 0u, 4u) & 4u) == 0u && !dma_priorities_valid(data)) {
+            dma_error(data, channel, 1u << 14u);
             data->dma_requests &= (uint16_t)~(1u << channel);
-            dma_service_channel(data, channel);
+            data->dma_hardware_requests &= (uint16_t)~(1u << channel);
+            break;
         }
+        data->dma_requests &= (uint16_t)~(1u << channel);
+        data->dma_hardware_requests &= (uint16_t)~(1u << channel);
+        data->dma_last_channel = channel;
+        dma_service_channel(data, channel);
     }
     for (uint8_t index = 0; index < data->adc_count; index++) {
         K22Adc* adc = &data->adc[index];
@@ -1746,4 +1830,9 @@ void k22_data_advance(K22Data* data, uint32_t cycles) {
             data->flash_cycles -= cycles;
         }
     }
+}
+
+void k22_data_set_debug_halted(K22Data* data, bool halted) {
+    if (data != NULL)
+        data->debug_halted = halted;
 }

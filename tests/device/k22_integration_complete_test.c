@@ -52,6 +52,19 @@ enum {
     SIM_SCGC1 = 0x40048028u,
     SIM_SCGC3 = 0x40048030u,
     SIM_SOPT7 = 0x40048018u,
+    PORTD_PCR0 = 0x4004c000u,
+    PORTD_ISFR = 0x4004c0a0u,
+    USB0_ISTAT = 0x40072080u,
+    USB0_INTEN = 0x40072084u,
+    USB0_ENDPT3 = 0x40072094u,
+    CAN0_MCR = 0x40024000u,
+    CAN0_CTRL1 = 0x40024010u,
+    CAN0_IMASK1 = 0x40024028u,
+    CAN0_IFLAG1 = 0x40024030u,
+    CAN0_MB0_CS = 0x40024080u,
+    I2S0_TCSR = 0x4002f000u,
+    I2S0_TDR0 = 0x4002f020u,
+    I2S0_RCSR = 0x4002f080u,
     I2C0_C1 = 0x40066002u,
     I2C1_C1 = 0x40067002u,
     UART1_C2 = 0x4006b003u,
@@ -91,6 +104,10 @@ static bool write16(KinetisK22* device, uint32_t address, uint16_t value) {
     return kinetis_k22_write(device, address, &value, sizeof(value));
 }
 
+static bool write8(KinetisK22* device, uint32_t address, uint8_t value) {
+    return kinetis_k22_write(device, address, &value, sizeof(value));
+}
+
 static bool read16(KinetisK22* device, uint32_t address, uint16_t* value) {
     return kinetis_k22_read(device, address, value, sizeof(*value));
 }
@@ -101,6 +118,11 @@ static bool write32(KinetisK22* device, uint32_t address, uint32_t value) {
 
 static bool cpu_write8(KinetisK22* device, uint32_t address, uint8_t value) {
     return cortex_m4_write_memory(kinetis_k22_cpu(device), address, 1u, value);
+}
+
+static bool irq_level(const KinetisK22* device, uint8_t irq) {
+    const CortexM4* cpu = kinetis_k22_cpu_const(device);
+    return (cpu->irq_level[irq / 32u] & (1u << (irq & 31u))) != 0u;
 }
 
 static uint32_t flash_fccob_address(uint8_t index) {
@@ -177,6 +199,55 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
     const uint32_t fstat_bit_band =
         0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 4u * 4u;
     TEST_EXPECT(state, write32(device, fstat_bit_band, 1u));
+}
+
+static void expect_io_irq_levels(TestState* state, KinetisK22* device) {
+    TEST_EXPECT(state, write32(device, SIM_SCGC5, 1u << 12u));
+    TEST_EXPECT(state, write32(device, PORTD_PCR0, 9u << 16u));
+    kinetis_k22_gpio_drive(device, 3u, 0u, false);
+    kinetis_k22_gpio_drive(device, 3u, 0u, true);
+    TEST_EXPECT(state, irq_level(device, 62u));
+    TEST_EXPECT(state, write32(device, PORTD_ISFR, 1u));
+    TEST_EXPECT(state, !irq_level(device, 62u));
+
+    TEST_EXPECT(state, write32(device, SIM_SCGC4, 1u << 18u));
+    TEST_EXPECT(state, write8(device, USB0_INTEN, 1u << 3u));
+    TEST_EXPECT(state, write8(device, USB0_ENDPT3, 1u));
+    TEST_EXPECT(state, kinetis_k22_usb_token(device, 3u, 0x69u, false));
+    TEST_EXPECT(state, irq_level(device, 53u));
+    TEST_EXPECT(state, write8(device, USB0_ISTAT, 1u << 3u));
+    TEST_EXPECT(state, !irq_level(device, 53u));
+
+    TEST_EXPECT(state, write32(device, SIM_SCGC6, 1u << 15u));
+    TEST_EXPECT(state, write32(device, I2S0_TCSR, UINT32_C(0x80000100)));
+    TEST_EXPECT(state, write32(device, I2S0_TDR0, 0x12345678u));
+    TEST_EXPECT(state, irq_level(device, 28u));
+    TEST_EXPECT(state, write32(device, I2S0_TCSR, UINT32_C(0x80000000)));
+    TEST_EXPECT(state, !irq_level(device, 28u));
+    TEST_EXPECT(state, write32(device, I2S0_RCSR, UINT32_C(0x80000100)));
+    TEST_EXPECT(state, kinetis_k22_i2s_receive(device, 0x87654321u));
+    TEST_EXPECT(state, irq_level(device, 29u));
+    TEST_EXPECT(state, write32(device, I2S0_RCSR, UINT32_C(0x80000000)));
+    TEST_EXPECT(state, !irq_level(device, 29u));
+}
+
+static void expect_can_irq_level(TestState* state) {
+    KinetisK22* device = create_f12_device(state, KINETIS_K22_PACKAGE_MD_144_MAPBGA);
+    TEST_EXPECT(state, write32(device, SIM_SCGC6, 1u << 4u));
+    TEST_EXPECT(state, write32(device, CAN0_MCR, 0x0fu));
+    TEST_EXPECT(state, write32(device, CAN0_CTRL1, 0u));
+    TEST_EXPECT(state, write32(device, CAN0_IMASK1, 1u));
+    TEST_EXPECT(state, write32(device, CAN0_MB0_CS, 4u << 24u));
+    const KinetisK22CanFrame frame = {
+        .identifier = 0x123u,
+        .length = 8u,
+        .data = {0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u},
+    };
+    TEST_EXPECT(state, kinetis_k22_can_receive(device, &frame));
+    TEST_EXPECT(state, irq_level(device, 75u));
+    TEST_EXPECT(state, write32(device, CAN0_IFLAG1, 1u));
+    TEST_EXPECT(state, !irq_level(device, 75u));
+    kinetis_k22_destroy(device);
 }
 
 static void expect_memory_domains(TestState* state) {
@@ -390,7 +461,7 @@ static void expect_adc_alternate_triggers(TestState* state) {
     uint32_t gates = 0u;
     TEST_EXPECT(state, read32(device, SIM_SCGC6, &gates));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u,
-                                               gates | (1u << 23u) | (1u << 27u)));
+                                              gates | (1u << 23u) | (1u << 27u)));
     TEST_EXPECT(state, kinetis_k22_set_adc_channel(device, 0u, 5u, 0x345u));
     TEST_EXPECT(state, kinetis_k22_set_adc_channel(device, 0u, 6u, 0x456u));
     TEST_EXPECT(state, cpu_write8(device, ADC0_CFG1, 0x04u));
@@ -452,8 +523,7 @@ static void expect_adc_alternate_triggers(TestState* state) {
     TEST_EXPECT(state, result == 0x456u);
 
     TEST_EXPECT(state, read32(device, SIM_SCGC6, &gates));
-    TEST_EXPECT(state,
-                cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | (1u << 24u)));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | (1u << 24u)));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x88u));
     TEST_EXPECT(state, cpu_write8(device, ADC0_SC1A, 5u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, FTM0_MOD, 4u, 3u));
@@ -613,6 +683,7 @@ int main(void) {
     TestState state = {0};
     expect_package_selection(&state);
     expect_package_serial_extensions(&state);
+    expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
     KinetisK22* device = create_device(&state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
     TEST_EXPECT(&state, kinetis_k22_reset(device));
@@ -620,6 +691,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_bus_clock_hz(device) == 20971520u);
     expect_manifest_fallback(&state, device);
     expect_integrated_flash_command(&state, device);
+    expect_io_irq_levels(&state, device);
     expect_clock_gates(&state, device);
     expect_endpoint_event_order(&state, device);
     expect_pdb_data_triggers(&state, device);

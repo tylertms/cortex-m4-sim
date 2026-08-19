@@ -897,6 +897,8 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
     k22_timing_set_debug_halted(&device->timing,
                                 device->cpu != NULL && device->cpu->debug.halted);
+    k22_data_set_debug_halted(device->data,
+                              device->cpu != NULL && device->cpu->debug.halted);
     k22_timing_advance(&device->timing, cycles);
     k22_data_advance(device->data, cycles);
     k22_serial_advance(&device->serial, cycles);

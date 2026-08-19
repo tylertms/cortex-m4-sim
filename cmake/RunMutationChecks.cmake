@@ -59,6 +59,57 @@ run_mutation(
   "if (false && !sysmpu_access_allowed(" cortex_m4_device_k22_sysmpu_integration_test
   device_k22_sysmpu_integration)
 run_mutation(
+  flash_controller_program src/kinetis_k22_peripherals.c
+  "return kinetis_k22_flash_controller_write(context, address, size, value);"
+  "return false && kinetis_k22_flash_controller_write(context, address, size, value);"
+  cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
+run_mutation(
+  package_dac1 src/k22_package.c
+  "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package != K22_PACKAGE_FX_88_HVQFN;"
+  "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package == K22_PACKAGE_FX_88_HVQFN;"
+  cortex_m4_device_k22_package_test device_k22_package)
+run_mutation(
+  io_irq_deassert src/kinetis_k22_peripherals.c
+  "    kinetis_k22_refresh_signals(device);\n    return handled;\n}\n\nstatic void reset_manifest"
+  "    (void)device;\n    return handled;\n}\n\nstatic void reset_manifest"
+  cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
+run_mutation(
+  dma_fixed_priority src/k22_data.c "priority > selected_priority"
+  "priority < selected_priority" cortex_m4_device_k22_data_complete_test
+  device_k22_data_complete)
+run_mutation(
+  dma_round_robin src/k22_data.c
+  "for (uint8_t step = 1u; step <= data->dma_channel_count; step++)"
+  "for (uint8_t step = 0u; step <= data->dma_channel_count; step++)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_halt src/k22_data.c "(load_bytes(data->dma, 0u, 4u) & 0x20u) == 0u"
+  "false" cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_debug_stall src/k22_data.c
+  "(load_bytes(data->dma, 0u, 4u) & 2u) != 0u && data->debug_halted"
+  "(load_bytes(data->dma, 0u, 4u) & 2u) != 0u && false"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_priority_error src/k22_data.c
+  "(load_bytes(data->dma, 0u, 4u) & 4u) == 0u && !dma_priorities_valid(data)"
+  "(load_bytes(data->dma, 0u, 4u) == 0u) && dma_priorities_valid(data)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_hardware_status src/k22_data.c
+  "data->dma_hardware_requests &= (uint16_t)~(1u << channel);"
+  "data->dma_hardware_requests |= (uint16_t)(1u << channel);"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_priority_reset src/k22_data.c
+  "data->dma[dma_priority_offset(channel)] = channel;"
+  "data->dma[dma_priority_offset(channel)] = 0u;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dma_halt_on_error src/k22_data.c
+  "(load_bytes(data->dma, 0u, 4u) & 0x10u) != 0u"
+  "false" cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
   lptmr_filter src/k22_timing.c "const uint32_t threshold = 1u << prescale;"
   "const uint32_t threshold = 2u << prescale;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

@@ -54,6 +54,7 @@ bool k22_data_copy(K22Data* destination, const K22Data* source);
 bool k22_data_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value);
 bool k22_data_write(K22Data* data, uint32_t address, uint8_t size, uint32_t value);
 void k22_data_advance(K22Data* data, uint32_t cycles);
+void k22_data_set_debug_halted(K22Data* data, bool halted);
 void k22_data_dma_request(K22Data* data, uint8_t source);
 void k22_data_adc_trigger(K22Data* data, uint8_t instance);
 void k22_data_adc_pretrigger(K22Data* data, uint8_t instance, uint8_t pretrigger);

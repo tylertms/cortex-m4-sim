@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change one hundred ten critical behaviors in temporary source copies.
+The mutation checks change one hundred twenty-one critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
