@@ -109,7 +109,7 @@ run_mutation(
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_disabled_channel src/k22_timing.c
-  "if ((ftm->channel_sc[channel] & 0x3cu) != 0u && compare >= first &&"
+  "if ((ftm->channel_sc[channel] & 0x30u) != 0u && compare >= first &&"
   "if (compare >= first &&"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
@@ -168,4 +168,29 @@ run_mutation(
   ftm_up_init_trigger src/k22_timing.c
   "if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)"
   "if (false && (ftm->registers[6] & (1u << 6u)) != 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_input_synchronizer_delay src/k22_timing.c
+  "return filter == 0u ? 3u : 4u + (uint32_t)filter * 4u;"
+  "return filter == 0u ? 2u : 4u + (uint32_t)filter * 4u;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_input_filter_delay src/k22_timing.c
+  "return filter == 0u ? 3u : 4u + (uint32_t)filter * 4u;"
+  "return filter == 0u ? 3u : 3u + (uint32_t)filter * 4u;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_input_edge_selection src/k22_timing.c
+  "const bool selected = current ? (edges & 1u) != 0u : (edges & 2u) != 0u;"
+  "const bool selected = current ? (edges & 2u) != 0u : (edges & 1u) != 0u;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_input_counter_reset src/k22_timing.c
+  "if ((ftm->channel_sc[channel] & 2u) != 0u) {"
+  "if (false) {"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_input_value_write src/k22_timing.c
+  "} else if (!ftm_input_capture_mode(ftm, channel))"
+  "} else if (ftm != NULL || !ftm_input_capture_mode(ftm, channel))"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

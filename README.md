@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change twenty-eight critical behaviors in temporary source copies.
+The mutation checks change thirty-three critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -161,3 +161,8 @@ The checks cover these behaviors:
 - FTM clock-start initialization triggers
 - FTM center-aligned initialization triggers
 - FTM up-counting initialization triggers
+- FTM input synchronization delay
+- FTM input filter delay
+- FTM input edge selection
+- FTM input-capture counter reset
+- FTM input-capture value protection

@@ -701,6 +701,22 @@ static uint8_t ftm_channel_count(uint8_t index) {
     return index == 0u || index == 3u ? 8u : 2u;
 }
 
+bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
+                              bool high) {
+    if (timing == NULL || timing->profile == NULL || instance >= 4u ||
+        channel >= ftm_channel_count(instance))
+        return false;
+    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
+    if (!has(timing, peripheral))
+        return false;
+    K22FtmState* ftm = &timing->ftm[instance];
+    if (ftm->channel_input[channel] != high) {
+        ftm->channel_input[channel] = high;
+        ftm->channel_input_age[channel] = 0u;
+    }
+    return true;
+}
+
 static void update_ftm_irq(const K22Timing* timing, uint8_t index) {
     const K22FtmState* ftm = &timing->ftm[index];
     bool asserted = (ftm->sc & 0xc0u) == 0xc0u;
@@ -813,7 +829,7 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
     update_ftm_irq(timing, index);
 }
 
-static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
+static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycles) {
     K22FtmState* ftm = &timing->ftm[index];
     const uint8_t clock_select = (uint8_t)((ftm->sc >> 3u) & 3u);
     if (!ftm_gate(timing, index) || clock_select == 0 || timing->debug_halted) {
@@ -847,7 +863,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
         const uint32_t compare = ftm->channel_value[channel];
         const uint32_t distance =
             compare > start ? compare - start : period - (start - compare);
-        if ((ftm->channel_sc[channel] & 0x3cu) != 0u && compare >= first &&
+        if ((ftm->channel_sc[channel] & 0x30u) != 0u && compare >= first &&
             compare <= last && ticks >= distance)
             ftm_channel_event(timing, index, channel);
     }
@@ -856,6 +872,73 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
     update_ftm_irq(timing, index);
+}
+
+static uint32_t ftm_input_threshold(const K22FtmState* ftm, uint8_t channel) {
+    if (channel >= 4u)
+        return 3u;
+    const uint8_t filter = (uint8_t)((ftm->registers[9] >> (channel * 4u)) & 15u);
+    return filter == 0u ? 3u : 4u + (uint32_t)filter * 4u;
+}
+
+static bool ftm_input_capture_mode(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    const uint32_t pair = ftm->registers[4] >> pair_shift;
+    return (ftm->sc & (1u << 5u)) == 0u && (ftm->channel_sc[channel] & 0x30u) == 0u &&
+           (ftm->channel_sc[channel] & 0x0cu) != 0u && (pair & 5u) == 0u;
+}
+
+static void ftm_capture_input(K22Timing* timing, uint8_t index, uint8_t channel,
+                              bool previous, bool current) {
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
+    const bool selected = current ? (edges & 1u) != 0u : (edges & 2u) != 0u;
+    if (previous == current || !selected || !ftm_input_capture_mode(ftm, channel))
+        return;
+    ftm->channel_value[channel] = ftm->counter;
+    ftm_channel_event(timing, index, channel);
+    if ((ftm->channel_sc[channel] & 2u) != 0u) {
+        ftm->counter = ftm->initial;
+        ftm->counting_down = false;
+        ftm->overflow_count = 0u;
+        ftm->remainder = 0u;
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
+    }
+    update_ftm_irq(timing, index);
+}
+
+static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint8_t channels = ftm_channel_count(index);
+    uint32_t remaining = cycles;
+    while (remaining != 0u) {
+        uint32_t segment = remaining;
+        for (uint8_t channel = 0u; channel < channels; channel++) {
+            if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
+                continue;
+            const uint32_t threshold = ftm_input_threshold(ftm, channel);
+            const uint32_t until_event = ftm->channel_input_age[channel] >= threshold
+                                             ? 0u
+                                             : threshold - ftm->channel_input_age[channel];
+            if (until_event < segment)
+                segment = until_event;
+        }
+        advance_ftm_counter(timing, index, segment);
+        remaining -= segment;
+        for (uint8_t channel = 0u; channel < channels; channel++) {
+            if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
+                continue;
+            ftm->channel_input_age[channel] += segment;
+            if (ftm->channel_input_age[channel] < ftm_input_threshold(ftm, channel))
+                continue;
+            const bool previous = ftm->channel_filtered_input[channel];
+            ftm->channel_filtered_input[channel] = ftm->channel_input[channel];
+            ftm->channel_input_age[channel] = 0u;
+            ftm_capture_input(timing, index, channel, previous,
+                              ftm->channel_filtered_input[channel]);
+        }
+    }
 }
 
 static uint32_t wdog_timeout(const K22Timing* timing) {
@@ -1109,7 +1192,7 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             ftm->channel_sc[channel] = flag | (value & 0x7fu);
             ftm->channel_flag_read[channel] = false;
             update_ftm_irq(timing, index);
-        } else
+        } else if (!ftm_input_capture_mode(ftm, channel))
             ftm->channel_value[channel] = (uint16_t)value;
     } else if (offset == 0x4cu)
         ftm->initial = (uint16_t)value;

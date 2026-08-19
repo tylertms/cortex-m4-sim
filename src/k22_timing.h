@@ -46,6 +46,9 @@ typedef struct {
     bool trigger_flag_read;
     bool overflow_flag_read;
     bool channel_flag_read[8];
+    bool channel_input[8];
+    bool channel_filtered_input[8];
+    uint32_t channel_input_age[8];
     bool counting_down;
     uint8_t overflow_count;
 } K22FtmState;
@@ -138,6 +141,8 @@ bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
 void k22_timing_set_debug_halted(K22Timing* timing, bool halted);
 bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
+bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
+                              bool high);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 bool k22_timing_copy(K22Timing* destination, const K22Timing* source,

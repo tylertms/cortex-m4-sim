@@ -63,8 +63,10 @@ enum {
     FTM0_C0V = 0x40038010u,
     FTM0_C1SC = 0x40038014u,
     FTM0_C1V = 0x40038018u,
+    FTM0_CNTIN = 0x4003804cu,
     FTM0_STATUS = 0x40038050u,
     FTM0_EXTTRIG = 0x4003806cu,
+    FTM0_FILTER = 0x40038078u,
     FTM0_CONF = 0x40038084u,
     FTM1_EXTTRIG = 0x4003906cu,
     WDOG_STCTRLH = 0x40052000u,
@@ -740,6 +742,60 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, FTM1_EXTTRIG, 4, 0x70u);
 }
 
+static void test_ftm_input_capture(TestState* state, const K22Profile* profile) {
+    K22Timing timing;
+    Observations observations = {0};
+    TEST_EXPECT(
+        state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 24u));
+    expect_write(state, &timing, FTM0_CNTIN, 4, 5u);
+    expect_write(state, &timing, FTM0_MOD, 4, 100u);
+    expect_write(state, &timing, FTM0_EXTTRIG, 4, 0x40u);
+    expect_write(state, &timing, FTM0_CNT, 4, 0u);
+    expect_write(state, &timing, FTM0_C0SC, 4, 0x47u);
+    expect_write(state, &timing, FTM0_C0V, 4, 0x1234u);
+    expect_read(state, &timing, FTM0_C0V, 4, 0u);
+    expect_write(state, &timing, FTM0_SC, 4, 8u);
+    TEST_EXPECT(state, k22_timing_set_ftm_input(&timing, 0u, 0u, true));
+    const uint32_t first_dma_before = observations.dma_requests;
+    const uint32_t first_trigger_before = observations.alternate_triggers;
+    k22_timing_advance(&timing, 2u);
+    expect_read(state, &timing, FTM0_C0V, 4, 0u);
+    k22_timing_set_debug_halted(&timing, true);
+    k22_timing_advance(&timing, 1u);
+    expect_read(state, &timing, FTM0_C0V, 4, 7u);
+    expect_read(state, &timing, FTM0_CNT, 4, 5u);
+    TEST_EXPECT(state, observations.irq[42]);
+    TEST_EXPECT(state, observations.dma_requests == first_dma_before + 1u);
+    TEST_EXPECT(state, observations.alternate_triggers == first_trigger_before + 1u);
+    k22_timing_set_debug_halted(&timing, false);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0xc7u);
+    expect_write(state, &timing, FTM0_C0SC, 4, 0x47u);
+    TEST_EXPECT(state, k22_timing_set_ftm_input(&timing, 0u, 0u, false));
+    k22_timing_advance(&timing, 3u);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0x47u);
+
+    expect_write(state, &timing, FTM0_C0SC, 4, 0x4du);
+    expect_write(state, &timing, FTM0_FILTER, 4, 2u);
+    TEST_EXPECT(state, k22_timing_set_ftm_input(&timing, 0u, 0u, true));
+    const uint32_t filtered_dma_before = observations.dma_requests;
+    k22_timing_advance(&timing, 11u);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0x4du);
+    k22_timing_advance(&timing, 1u);
+    expect_read(state, &timing, FTM0_C0V, 4, 20u);
+    TEST_EXPECT(state, observations.dma_requests == filtered_dma_before + 1u);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0xcdu);
+    expect_write(state, &timing, FTM0_C0SC, 4, 0x4du);
+    TEST_EXPECT(state, k22_timing_set_ftm_input(&timing, 0u, 0u, false));
+    k22_timing_advance(&timing, 4u);
+    TEST_EXPECT(state, k22_timing_set_ftm_input(&timing, 0u, 0u, true));
+    k22_timing_advance(&timing, 20u);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0x4du);
+    TEST_EXPECT(state, !k22_timing_set_ftm_input(&timing, 1u, 2u, true));
+    TEST_EXPECT(state, !k22_timing_set_ftm_input(&timing, 4u, 0u, true));
+    TEST_EXPECT(state, !k22_timing_set_ftm_input(NULL, 0u, 0u, true));
+}
+
 static void unlock_watchdog(TestState* state, K22Timing* timing) {
     expect_write(state, timing, WDOG_UNLOCK, 2, 0xc520u);
     expect_write(state, timing, WDOG_UNLOCK, 2, 0xd928u);
@@ -1062,6 +1118,7 @@ int main(void) {
     test_rtc_protection_and_compensation(&state, profile);
     test_pdb(&state, &timing, &observations);
     test_ftm(&state, &timing, &observations);
+    test_ftm_input_capture(&state, profile);
     k22_timing_reset(&timing, 0x82u, 0);
     memset(&observations, 0, sizeof(observations));
     test_watchdogs(&state, &timing, &observations);

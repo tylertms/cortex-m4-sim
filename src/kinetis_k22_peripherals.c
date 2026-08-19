@@ -362,8 +362,8 @@ static void adc_alternate_trigger(KinetisK22* device, uint8_t source) {
 
 static void data_interrupt(void* context, K22DataInterrupt interrupt, bool asserted) {
     KinetisK22* device = context;
-    if (interrupt >= K22_DATA_INTERRUPT_CMP0 &&
-        interrupt <= K22_DATA_INTERRUPT_CMP2 && device->data != NULL) {
+    if (interrupt >= K22_DATA_INTERRUPT_CMP0 && interrupt <= K22_DATA_INTERRUPT_CMP2 &&
+        device->data != NULL) {
         const uint8_t instance = (uint8_t)(interrupt - K22_DATA_INTERRUPT_CMP0);
         bool high = false;
         if (k22_data_get_cmp_output(device->data, instance, &high)) {
@@ -939,6 +939,12 @@ bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t inp
 
 bool kinetis_k22_set_lptmr_input(KinetisK22* device, uint8_t input, bool high) {
     return device != NULL && k22_timing_set_lptmr_input(&device->timing, input, high);
+}
+
+bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,
+                               bool high) {
+    return device != NULL &&
+           k22_timing_set_ftm_input(&device->timing, instance, channel, high);
 }
 
 bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
