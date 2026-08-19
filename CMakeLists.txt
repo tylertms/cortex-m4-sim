@@ -195,6 +195,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "device;integration")
   cortex_m4_add_test(device_k22_ftm_deadtime
                      tests/device/k22_ftm_deadtime_test.c "device;integration")
+  cortex_m4_add_test(device_k22_ftm_fault tests/device/k22_ftm_fault_test.c
+                     "device;integration")
   cortex_m4_add_test(
     device_k22_integration_complete
     tests/device/k22_integration_complete_test.c "device;integration")

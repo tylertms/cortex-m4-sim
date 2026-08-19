@@ -53,6 +53,10 @@ static void test_data_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_set_ftm_input(device, 0u, 0u, true));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(device, 4u, 0u, false));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(NULL, 0u, 0u, false));
+    TEST_EXPECT(state, kinetis_k22_set_ftm_fault(device, 0u, 0u, true));
+    TEST_EXPECT(state, !kinetis_k22_set_ftm_fault(device, 4u, 0u, false));
+    TEST_EXPECT(state, !kinetis_k22_set_ftm_fault(device, 0u, 4u, false));
+    TEST_EXPECT(state, !kinetis_k22_set_ftm_fault(NULL, 0u, 0u, false));
     TEST_EXPECT(state, kinetis_k22_trigger_ftm_hardware(device, 0u, 0u));
     TEST_EXPECT(state, !kinetis_k22_trigger_ftm_hardware(device, 4u, 0u));
     TEST_EXPECT(state, !kinetis_k22_trigger_ftm_hardware(device, 0u, 3u));

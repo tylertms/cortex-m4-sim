@@ -445,6 +445,66 @@ run_mutation(
   cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
 run_mutation(
   ftm_deadtime_segmentation src/k22_timing.c
-  "uint32_t segment = ftm_has_deadtime(ftm, channels) ? 1u : remaining;"
-  "uint32_t segment = ftm_has_deadtime(ftm, channels) ? remaining : remaining;"
+  "ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u"
+  "(ftm_has_deadtime(ftm, channels) && false) || ftm_fault_processing_active(ftm) ? 1u"
   cortex_m4_device_k22_ftm_deadtime_test device_k22_ftm_deadtime)
+run_mutation(
+  ftm_fault_mode src/k22_timing.c
+  "return (uint8_t)((ftm->registers[0] >> 5u) & 3u);"
+  "return (uint8_t)((ftm->registers[0] >> 6u) & 3u);"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_even_channels src/k22_timing.c
+  "(mode != 1u || (channel & 1u) == 0u);"
+  "(mode != 1u || (channel & 1u) != 0u);"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_pair_enable src/k22_timing.c
+  "(ftm->registers[4] & (1u << shift)) != 0u &&"
+  "(ftm->registers[4] & (1u << shift)) == 0u &&"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_safe_output src/k22_timing.c
+  "if (ftm->fault_output_active && ftm_fault_channel_enabled(ftm, channel))"
+  "if (false && ftm_fault_channel_enabled(ftm, channel))"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_irq src/k22_timing.c
+  "((ftm->registers[0] & 0x80u) != 0u && (ftm->registers[8] & 0x80u) != 0u);"
+  "((ftm->registers[0] & 0x80u) != 0u && false);"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_polarity src/k22_timing.c
+  "const bool active = ftm->fault_input[input] != polarity;"
+  "const bool active = ftm->fault_input[input] == polarity;"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_filter_delay src/k22_timing.c
+  "(filter_enable & bit) != 0u && filter_value != 0u ? 4u + filter_value : 3u;"
+  "(filter_enable & bit) != 0u && filter_value != 0u ? 3u + filter_value : 3u;"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_sync_delay src/k22_timing.c
+  "(filter_enable & bit) != 0u && filter_value != 0u ? 4u + filter_value : 3u;"
+  "(filter_enable & bit) != 0u && filter_value != 0u ? 4u + filter_value : 2u;"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_activation src/k22_timing.c
+  "ftm->fault_output_active = true;"
+  "ftm->fault_output_active = false;"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_clear_read_sequence src/k22_timing.c
+  "ftm->fault_aggregate_read && (value & 0x80u) == 0u && active == 0u"
+  "true && (value & 0x80u) == 0u && active == 0u"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_cycle_release src/k22_timing.c
+  "if (!new_cycle || !ftm->fault_release_pending)"
+  "if (!new_cycle || true)"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_fault_segmentation src/k22_timing.c
+  "ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u"
+  "ftm_has_deadtime(ftm, channels) || (ftm_fault_processing_active(ftm) && false) ? 1u"
+  cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)

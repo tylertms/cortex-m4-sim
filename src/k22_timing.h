@@ -56,9 +56,12 @@ typedef struct {
     bool channel_filtered_input[8];
     bool channel_output[8];
     bool channel_deadtime_output[8];
+    bool fault_input[4];
+    bool fault_filtered_input[4];
     bool channel_value_pending[8];
     uint32_t channel_input_age[8];
     uint32_t channel_deadtime_remaining[8];
+    uint32_t fault_input_age[4];
     bool outmask_pending;
     bool invctrl_pending;
     bool swoctrl_pending;
@@ -67,10 +70,15 @@ typedef struct {
     bool software_sync_pending;
     bool hardware_sync_pending;
     bool write_protection_read;
+    bool fault_aggregate_read;
+    bool fault_output_active;
+    bool fault_release_pending;
     bool counting_down;
     uint8_t hardware_trigger_pending_mask;
+    uint8_t fault_flags_read_mask;
     uint8_t overflow_count;
     uint64_t deadtime_remainder;
+    uint64_t fault_remainder;
 } K22FtmState;
 
 typedef struct {
@@ -162,6 +170,8 @@ void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
 void k22_timing_set_debug_halted(K22Timing* timing, bool halted);
 bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
 bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
+                              bool high);
+bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,
                               bool high);
 bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_t trigger);
 bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,

@@ -734,6 +734,21 @@ bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t chann
     return true;
 }
 
+bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,
+                              bool high) {
+    if (timing == NULL || timing->profile == NULL || instance >= 4u || input >= 4u)
+        return false;
+    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
+    if (!has(timing, peripheral))
+        return false;
+    K22FtmState* ftm = &timing->ftm[instance];
+    if (ftm->fault_input[input] != high) {
+        ftm->fault_input[input] = high;
+        ftm->fault_input_age[input] = 0u;
+    }
+    return true;
+}
+
 bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_t trigger) {
     if (timing == NULL || timing->profile == NULL || instance >= 4u || trigger >= 3u)
         return false;
@@ -777,6 +792,17 @@ static bool ftm_deadtime_enabled(const K22FtmState* ftm, uint8_t channel) {
            (ftm->registers[5] & 0x3fu) != 0u;
 }
 
+static uint8_t ftm_fault_mode(const K22FtmState* ftm) {
+    return (uint8_t)((ftm->registers[0] >> 5u) & 3u);
+}
+
+static bool ftm_fault_channel_enabled(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t mode = ftm_fault_mode(ftm);
+    const uint8_t shift = (uint8_t)((channel / 2u) * 8u + 6u);
+    return mode != 0u && (ftm->registers[4] & (1u << shift)) != 0u &&
+           (mode != 1u || (channel & 1u) == 0u);
+}
+
 bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
                                bool* high) {
     if (timing == NULL || high == NULL || timing->profile == NULL || instance >= 4u ||
@@ -791,6 +817,8 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
                       : ftm_pre_deadtime_output(ftm, channel);
     if ((ftm->registers[3] & (1u << channel)) != 0u)
         output = false;
+    if (ftm->fault_output_active && ftm_fault_channel_enabled(ftm, channel))
+        output = false;
     if ((ftm->registers[7] & (1u << channel)) != 0u)
         output = !output;
     *high = output;
@@ -803,6 +831,8 @@ static void update_ftm_irq(const K22Timing* timing, uint8_t index) {
     const uint8_t channels = ftm_channel_count(index);
     for (uint8_t channel = 0u; channel < channels; channel++)
         asserted = asserted || (ftm->channel_sc[channel] & 0xc0u) == 0xc0u;
+    asserted = asserted ||
+               ((ftm->registers[0] & 0x80u) != 0u && (ftm->registers[8] & 0x80u) != 0u);
     set_irq(timing, ftm_irq(index), asserted);
 }
 
@@ -821,6 +851,98 @@ static bool ftm_gate(const K22Timing* timing, uint8_t index) {
         return (timing->sim_scgc6 & (1u << 6u)) != 0;
     }
     return (timing->sim_scgc6 & (1u << (24u + index))) != 0;
+}
+
+static uint8_t ftm_active_fault_mask(const K22FtmState* ftm) {
+    if (ftm_fault_mode(ftm) == 0u)
+        return 0u;
+    uint8_t active = 0u;
+    const uint8_t enabled = (uint8_t)ftm->registers[10] & 0x0fu;
+    for (uint8_t input = 0u; input < 4u; input++) {
+        if ((enabled & (1u << input)) != 0u && ftm->fault_filtered_input[input])
+            active |= (uint8_t)(1u << input);
+    }
+    return active;
+}
+
+static void ftm_update_fault_status(K22FtmState* ftm) {
+    const uint32_t flags = ftm->registers[8] & 0x0fu;
+    ftm->registers[8] &= 0x4fu;
+    if (ftm_active_fault_mask(ftm) != 0u)
+        ftm->registers[8] |= 0x20u;
+    if (flags != 0u)
+        ftm->registers[8] |= 0x80u;
+}
+
+static void ftm_detect_fault(K22Timing* timing, uint8_t index, uint8_t input) {
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint8_t bit = (uint8_t)(1u << input);
+    ftm->registers[8] |= bit;
+    ftm->fault_flags_read_mask &= (uint8_t)~bit;
+    ftm->fault_aggregate_read = false;
+    ftm->fault_output_active = true;
+    ftm->fault_release_pending = false;
+    ftm_update_fault_status(ftm);
+    update_ftm_irq(timing, index);
+}
+
+static bool ftm_fault_processing_active(const K22FtmState* ftm) {
+    return (ftm_fault_mode(ftm) != 0u && (ftm->registers[10] & 0x0fu) != 0u) ||
+           ftm->fault_output_active;
+}
+
+static void ftm_advance_fault_inputs(K22Timing* timing, uint8_t index, uint32_t cycles) {
+    K22FtmState* ftm = &timing->ftm[index];
+    if (!ftm_gate(timing, index))
+        return;
+    const uint64_t ticks = clock_ticks(&ftm->fault_remainder, cycles, timing->bus_clock_hz,
+                                       timing->core_clock_hz);
+    const uint8_t enabled =
+        ftm_fault_mode(ftm) == 0u ? 0u : (uint8_t)ftm->registers[10] & 0x0fu;
+    const uint8_t filter_enable = (uint8_t)(ftm->registers[10] >> 4u) & 0x0fu;
+    const uint8_t filter_value = (uint8_t)(ftm->registers[10] >> 8u) & 0x0fu;
+    for (uint8_t input = 0u; input < 4u; input++) {
+        const uint8_t bit = (uint8_t)(1u << input);
+        if ((enabled & bit) == 0u) {
+            ftm->fault_filtered_input[input] = false;
+            ftm->fault_input_age[input] = 0u;
+            continue;
+        }
+        const bool polarity = (ftm->registers[13] & bit) != 0u;
+        const bool active = ftm->fault_input[input] != polarity;
+        if (active == ftm->fault_filtered_input[input]) {
+            ftm->fault_input_age[input] = 0u;
+            continue;
+        }
+        const uint32_t threshold =
+            (filter_enable & bit) != 0u && filter_value != 0u ? 4u + filter_value : 3u;
+        ftm->fault_input_age[input] += (uint32_t)ticks;
+        if (ftm->fault_input_age[input] < threshold)
+            continue;
+        ftm->fault_filtered_input[input] = active;
+        ftm->fault_input_age[input] = 0u;
+        if (active)
+            ftm_detect_fault(timing, index, input);
+    }
+    ftm_update_fault_status(ftm);
+    if (ftm->fault_output_active && ftm_fault_mode(ftm) == 3u &&
+        ftm_active_fault_mask(ftm) == 0u)
+        ftm->fault_release_pending = true;
+    update_ftm_irq(timing, index);
+}
+
+static void ftm_fault_cycle_boundary(K22Timing* timing, uint8_t index, bool new_cycle) {
+    K22FtmState* ftm = &timing->ftm[index];
+    if (!new_cycle || !ftm->fault_release_pending)
+        return;
+    if (ftm_fault_mode(ftm) == 3u)
+        ftm->registers[8] &= ~0x0fu;
+    ftm->fault_output_active = false;
+    ftm->fault_release_pending = false;
+    ftm->fault_flags_read_mask = 0u;
+    ftm->fault_aggregate_read = false;
+    ftm_update_fault_status(ftm);
+    update_ftm_irq(timing, index);
 }
 
 static uint64_t ftm_phase_crossing_count(uint32_t phase, uint64_t ticks, uint32_t period,
@@ -1026,6 +1148,7 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         ftm_phase_crossing_count(phase, ticks, period, span + 1u);
     const uint64_t minimum_points = ftm_phase_crossing_count(phase, ticks, period, 0u);
     ftm_overflow(timing, index, maximum_points);
+    ftm_fault_cycle_boundary(timing, index, minimum_points != 0u);
     if (minimum_points != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
     phase = (uint32_t)(((uint64_t)phase + ticks) % period);
@@ -1096,6 +1219,7 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
     }
     ftm->counter = (uint16_t)(first + relative % period);
     ftm_overflow(timing, index, overflows);
+    ftm_fault_cycle_boundary(timing, index, overflows != 0u);
     if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
     if (overflows != 0u)
@@ -1379,7 +1503,9 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     const uint8_t channels = ftm_channel_count(index);
     uint32_t remaining = cycles;
     while (remaining != 0u) {
-        uint32_t segment = ftm_has_deadtime(ftm, channels) ? 1u : remaining;
+        uint32_t segment =
+            ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u
+                                                                                : remaining;
         for (uint8_t channel = 0u; channel < channels; channel++) {
             if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
                 continue;
@@ -1390,6 +1516,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
             if (until_event < segment)
                 segment = until_event;
         }
+        ftm_advance_fault_inputs(timing, index, segment);
         advance_ftm_counter(timing, index, segment);
         ftm_advance_deadtime(timing, index, segment);
         remaining -= segment;
@@ -1618,8 +1745,13 @@ static bool ftm_read(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t 
         *value = ftm->registers[(offset - 0x54u) / 4u];
         if (offset == 0x6cu && (*value & 0x80u) != 0u)
             ftm->trigger_flag_read = true;
-        if (offset == 0x74u && (*value & 0x40u) != 0u)
-            ftm->write_protection_read = true;
+        if (offset == 0x74u) {
+            if ((*value & 0x40u) != 0u)
+                ftm->write_protection_read = true;
+            ftm->fault_flags_read_mask |= (uint8_t)(*value & 0x0fu);
+            if ((*value & 0x80u) != 0u)
+                ftm->fault_aggregate_read = true;
+        }
     } else
         return false;
     return true;
@@ -1760,11 +1892,34 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             ftm->outmask_buffer = value;
             ftm->outmask_pending = true;
         } else if (offset == 0x74u) {
+            uint8_t flags = (uint8_t)ftm->registers[8] & 0x0fu;
+            const uint8_t active = ftm_active_fault_mask(ftm);
+            if (ftm->fault_aggregate_read && (value & 0x80u) == 0u && active == 0u) {
+                flags = 0u;
+            } else {
+                for (uint8_t input = 0u; input < 4u; input++) {
+                    const uint8_t bit = (uint8_t)(1u << input);
+                    if ((ftm->fault_flags_read_mask & bit) != 0u && (value & bit) == 0u &&
+                        (active & bit) == 0u)
+                        flags &= (uint8_t)~bit;
+                }
+            }
+            ftm->registers[8] = (ftm->registers[8] & 0x40u) | flags;
             if ((value & 0x40u) != 0u) {
                 ftm->registers[8] |= 0x40u;
                 ftm->registers[0] &= ~4u;
             }
+            ftm->fault_flags_read_mask = 0u;
+            ftm->fault_aggregate_read = false;
+            if (ftm->fault_output_active) {
+                if (ftm_fault_mode(ftm) == 3u)
+                    ftm->fault_release_pending = active == 0u;
+                else
+                    ftm->fault_release_pending = flags == 0u;
+            }
+            ftm_update_fault_status(ftm);
             ftm->write_protection_read = false;
+            update_ftm_irq(timing, index);
         } else if (offset == 0x6cu) {
             const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
             uint32_t next =
@@ -1787,6 +1942,22 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                 value = (value & ~protected_mask) |
                         (ftm->registers[register_index] & protected_mask);
             ftm->registers[register_index] = value;
+        }
+        if (offset == 0x54u || offset == 0x7cu || offset == 0x88u) {
+            if (ftm_fault_mode(ftm) == 0u) {
+                ftm->fault_output_active = false;
+                ftm->fault_release_pending = false;
+            }
+            const uint8_t enabled =
+                ftm_fault_mode(ftm) == 0u ? 0u : (uint8_t)ftm->registers[10] & 0x0fu;
+            for (uint8_t input = 0u; input < 4u; input++) {
+                if ((enabled & (1u << input)) == 0u) {
+                    ftm->fault_filtered_input[input] = false;
+                    ftm->fault_input_age[input] = 0u;
+                }
+            }
+            ftm_update_fault_status(ftm);
+            update_ftm_irq(timing, index);
         }
     } else
         return false;

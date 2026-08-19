@@ -947,6 +947,12 @@ bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t cha
            k22_timing_set_ftm_input(&device->timing, instance, channel, high);
 }
 
+bool kinetis_k22_set_ftm_fault(KinetisK22* device, uint8_t instance, uint8_t input,
+                               bool high) {
+    return device != NULL &&
+           k22_timing_set_ftm_fault(&device->timing, instance, input, high);
+}
+
 bool kinetis_k22_trigger_ftm_hardware(KinetisK22* device, uint8_t instance,
                                       uint8_t trigger) {
     return device != NULL &&
