@@ -11,6 +11,7 @@ enum {
     WDOG_REFRESH = 0x4005200cu,
     WDOG_UNLOCK = 0x4005200eu,
     RCM_SRS0 = 0x4007f000u,
+    RCM_SRS1 = 0x4007f001u,
     SIM_REGISTER = 0x40047000u,
     PORTA_PCR0 = 0x40049000u,
     GPIOA_PDIR = 0x400ff010u,
@@ -93,7 +94,8 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, &nop, sizeof(nop)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
-    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x80u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x82u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS1) == 0);
     TEST_EXPECT(&state, read16(&state, device, WDOG_STCTRLH) == 0x01d3u);
     TEST_EXPECT(&state, read16(&state, device, WDOG_TOVALH) == 0x004cu);
     TEST_EXPECT(&state, read16(&state, device, WDOG_TOVALL) == 0x4b4cu);
@@ -105,13 +107,14 @@ int main(void) {
 
     configure(&state, device, 3, true);
     kinetis_k22_watchdog_advance(device, 2);
-    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x80u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x82u);
     write16(&state, device, WDOG_REFRESH, 0xa602u);
     write16(&state, device, WDOG_REFRESH, 0xb480u);
     kinetis_k22_watchdog_advance(device, 2);
-    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x80u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x82u);
     kinetis_k22_watchdog_advance(device, 1);
     TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x20u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS1) == 0);
     uint32_t retained = 0;
     TEST_EXPECT(&state, kinetis_k22_read(device, address, &retained, sizeof(retained)));
     TEST_EXPECT(&state, retained == sentinel);
@@ -122,14 +125,16 @@ int main(void) {
     TEST_EXPECT(&state,
                 cortex_m4_write_memory(kinetis_k22_cpu(device), SCB_AIRCR, 4, 0x05fa0004u));
     cortex_m4_step(kinetis_k22_cpu(device));
-    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x04u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS1) == 0x04u);
     expect_reset_peripherals(&state, device);
     TEST_EXPECT(&state, kinetis_k22_read(device, address, &retained, sizeof(retained)));
     TEST_EXPECT(&state, retained == sentinel);
 
     configure(&state, device, 1, false);
     kinetis_k22_watchdog_advance(device, UINT32_MAX);
-    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0x04u);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0);
+    TEST_EXPECT(&state, read8(&state, device, RCM_SRS1) == 0x04u);
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

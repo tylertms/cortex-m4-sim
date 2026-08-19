@@ -15,7 +15,8 @@ enum {
     SCB_SHPR = 0xe000ed18u,
     SCB_SHCSR = 0xe000ed24u,
     NVIC_SOFTWARE_TRIGGER = 0xe000ef00u,
-    RESET_STATUS = 0x4007f000u,
+    RESET_STATUS_0 = 0x4007f000u,
+    RESET_STATUS_1 = 0x4007f001u,
 };
 
 static uint32_t read_value(TestState* state, CortexM4* cpu, uint32_t address,
@@ -74,7 +75,8 @@ int main(void) {
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, SCB_AIRCR, 4, 0x05fa0004u));
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x100u);
-    TEST_EXPECT(&state, read_value(&state, cpu, RESET_STATUS, 1) == 0x04u);
+    TEST_EXPECT(&state, read_value(&state, cpu, RESET_STATUS_0, 1) == 0);
+    TEST_EXPECT(&state, read_value(&state, cpu, RESET_STATUS_1, 1) == 0x04u);
     TEST_EXPECT(&state, read_value(&state, cpu, 0x20000000u, 4) == retained);
 
     kinetis_k22_destroy(device);

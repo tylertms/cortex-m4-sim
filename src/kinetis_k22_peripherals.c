@@ -164,7 +164,7 @@ void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks) {
     }
     const uint32_t timeout = watchdog_timeout(device);
     if (timeout == 0 || ticks >= timeout - device->watchdog_ticks) {
-        kinetis_k22_warm_reset(device, 0x20u);
+        kinetis_k22_warm_reset(device, 0x20u, 0);
         return;
     }
     device->watchdog_ticks += ticks;

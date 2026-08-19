@@ -105,7 +105,7 @@ static void k22_advance_bus(void* context, uint32_t cycles) {
     kinetis_k22_peripheral_advance(device, cycles);
 }
 
-static void k22_reset_bus(void* context) { kinetis_k22_warm_reset(context, 0x04u); }
+static void k22_reset_bus(void* context) { kinetis_k22_warm_reset(context, 0, 0x04u); }
 
 KinetisK22Configuration kinetis_k22_default_configuration(void) {
     KinetisK22Configuration configuration;
@@ -170,17 +170,18 @@ bool kinetis_k22_reset(KinetisK22* device) {
     memset(device->peripheral, 0, K22_PERIPHERAL_SIZE);
     device->cycles = 0;
     kinetis_k22_peripheral_reset(device);
-    device->peripheral[0x7f000u] = 0x80u;
+    device->peripheral[0x7f000u] = 0x82u;
     return cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
 }
 
-void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause) {
+void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause_0, uint8_t cause_1) {
     if (device == NULL) {
         return;
     }
     memset(device->peripheral, 0, K22_PERIPHERAL_SIZE);
     kinetis_k22_peripheral_reset(device);
-    device->peripheral[0x7f000u] = cause;
+    device->peripheral[0x7f000u] = cause_0;
+    device->peripheral[0x7f001u] = cause_1;
     cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
 }
 

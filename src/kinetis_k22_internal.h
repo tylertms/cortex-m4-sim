@@ -58,6 +58,6 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
                                   uint32_t value);
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles);
 void kinetis_k22_peripheral_reset(KinetisK22* device);
-void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause);
+void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause_0, uint8_t cause_1);
 
 #endif
