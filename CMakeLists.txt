@@ -23,21 +23,35 @@ endif()
 
 add_library(
   cortex_m4_simulator STATIC
-  src/cortex_m4.c src/cortex_m4_bus.c src/cortex_m4_exception.c
-  src/cortex_m4_fpu.c src/cortex_m4_thumb.c src/kinetis_k22.c)
+  src/cortex_m4.c
+  src/cortex_m4_bus.c
+  src/cortex_m4_exception.c
+  src/cortex_m4_fpu.c
+  src/cortex_m4_thumb.c
+  src/kinetis_k22.c
+  src/kinetis_k22_peripherals.c)
 add_library(cortex_m4::simulator ALIAS cortex_m4_simulator)
+
+add_executable(cortex_m4_firmware_runner src/firmware_image.c src/main.c)
+add_executable(cortex_m4::firmware_runner ALIAS cortex_m4_firmware_runner)
 
 target_compile_features(cortex_m4_simulator PUBLIC c_std_11)
 target_include_directories(
   cortex_m4_simulator
   PUBLIC include
   PRIVATE src)
+target_compile_features(cortex_m4_firmware_runner PRIVATE c_std_11)
+target_include_directories(cortex_m4_firmware_runner PRIVATE src)
+target_link_libraries(cortex_m4_firmware_runner PRIVATE cortex_m4_simulator)
 
 if(MSVC)
   target_compile_options(cortex_m4_simulator PRIVATE /W4 /WX)
+  target_compile_options(cortex_m4_firmware_runner PRIVATE /W4 /WX)
 else()
   target_compile_options(cortex_m4_simulator PRIVATE -Wall -Wextra -Wpedantic
                                                      -Werror)
+  target_compile_options(cortex_m4_firmware_runner PRIVATE -Wall -Wextra
+                                                           -Wpedantic -Werror)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
@@ -60,9 +74,20 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 
   cortex_m4_add_test(core_reset tests/core/reset_test.c "core;unit")
   cortex_m4_add_test(core_thumb tests/core/thumb_test.c "core;integration")
+  cortex_m4_add_test(core_thumb32 tests/core/thumb32_test.c "core;integration")
+  cortex_m4_add_test(core_fpu tests/core/fpu_test.c "core;integration")
   cortex_m4_add_test(core_exception tests/core/exception_test.c
                      "core;integration")
+  cortex_m4_add_test(core_system_exception tests/core/system_exception_test.c
+                     "core;integration")
   cortex_m4_add_test(device_memory tests/device/memory_test.c "device;unit")
+  cortex_m4_add_test(device_gpio tests/device/gpio_test.c "device;integration")
+  cortex_m4_add_test(device_pit tests/device/pit_test.c "device;integration")
+  cortex_m4_add_test(device_adc tests/device/adc_test.c "device;integration")
+  cortex_m4_add_test(device_uart tests/device/uart_test.c "device;integration")
+  cortex_m4_add_test(device_spi tests/device/spi_test.c "device;integration")
+  cortex_m4_add_test(device_dma tests/device/dma_test.c "device;integration")
+  cortex_m4_add_test(device_i2c tests/device/i2c_test.c "device;integration")
 
   if(CORTEX_M4_ENABLE_COVERAGE)
     set(coverage_directory "${CMAKE_CURRENT_BINARY_DIR}/coverage")

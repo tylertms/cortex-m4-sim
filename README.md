@@ -1,13 +1,30 @@
 # Cortex-M4 Simulator
 
-This repository provides a native C simulator for the Arm Cortex-M4F processor.
-It also provides a Kinetis K22 device model.
+This repository contains a native C simulator for the Arm Cortex-M4F processor.
+It also contains a Kinetis K22 device model.
 
-The CPU model implements the Armv7E-M architecture and FPv4-SP-D16 extension.
-The device model implements the K22 peripherals that the target firmware uses.
+The CPU model targets the Armv7E-M architecture and FPv4-SP-D16 extension.
+The device model targets the K22 peripherals that the firmware uses.
+
+The implementation is in progress. The current tests cover the implemented
+CPU instructions, exception paths, memory map, and device peripherals. A green
+test result does not mean that every Arm or K22 feature is complete.
 
 The exact K22 package and silicon revision are not known.
 The simulator does not claim behavior that depends on that missing identification.
+
+## Current support
+
+The CPU currently supports the Thumb and floating-point instructions used by
+the target firmware. It also supports basic exceptions, NVIC, SCB, SysTick,
+peripheral bit-band access, and bounded execution.
+
+The K22 model currently supports flash, SRAM, GPIO, PORT interrupts, PIT, ADC0,
+UART1, SPI0, I2C0, DMA, and selected clock and power registers.
+
+The remaining work includes less common Armv7E-M instructions, complete fault
+and priority behavior, advanced floating-point state, MPU behavior, watchdog
+reset timing, and electrical timing that requires hardware tests.
 
 ## Build
 
