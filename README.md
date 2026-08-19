@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change eighteen critical behaviors in temporary source copies.
+The mutation checks change twenty-two critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -151,3 +151,7 @@ The checks cover these behaviors:
 - FTM interrupt aggregation
 - FTM disabled-channel behavior
 - FTM flag-clear sequencing
+- FTM center-aligned counting
+- FTM center-aligned overflow timing
+- FTM disabled channels in center-aligned mode
+- FTM debug freeze

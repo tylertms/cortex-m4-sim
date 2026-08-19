@@ -117,3 +117,23 @@ run_mutation(
   "(value & 0x80u) == 0u && ftm->channel_flag_read[channel]"
   "(value & 0x80u) == 0u && true"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_center_aligned_counting src/k22_timing.c
+  "if ((ftm->sc & (1u << 5u)) != 0u)"
+  "if (false && (ftm->sc & (1u << 5u)) != 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_center_aligned_overflow src/k22_timing.c
+  "ftm_crossed_phase(phase, ticks, period, span + 1u)"
+  "ftm_crossed_phase(phase, ticks, period, span)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_center_aligned_disabled_channel src/k22_timing.c
+  "if ((ftm->channel_sc[channel] & 0x3cu) == 0u || compare <= first ||"
+  "if (false || compare <= first ||"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_debug_freeze src/k22_timing.c
+  "|| clock_select == 0 || timing->debug_halted)"
+  "|| clock_select == 0 || false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

@@ -46,6 +46,7 @@ typedef struct {
     bool trigger_flag_read;
     bool overflow_flag_read;
     bool channel_flag_read[8];
+    bool counting_down;
 } K22FtmState;
 
 typedef struct {
@@ -131,8 +132,7 @@ typedef struct {
 bool k22_timing_init(K22Timing* timing, const K22Profile* profile,
                      uint32_t external_oscillator_hz, uint32_t rtc_oscillator_hz,
                      K22TimingSignals signals);
-bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size,
-                     uint32_t* value);
+bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value);
 bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value);
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
 void k22_timing_set_debug_halted(K22Timing* timing, bool halted);

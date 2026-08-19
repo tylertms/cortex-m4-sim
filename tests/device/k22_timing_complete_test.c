@@ -136,8 +136,8 @@ static K22TimingSignals signals(Observations* observations) {
     return value;
 }
 
-static void expect_read(TestState* state, K22Timing* timing, uint32_t address,
-                        uint8_t size, uint32_t expected) {
+static void expect_read(TestState* state, K22Timing* timing, uint32_t address, uint8_t size,
+                        uint32_t expected) {
     uint32_t value = 0xdeadbeefu;
     TEST_EXPECT(state, k22_timing_read(timing, address, size, &value));
     if (value != expected) {
@@ -462,8 +462,8 @@ static void test_rtc_protection_and_compensation(TestState* state,
                                                  const K22Profile* profile) {
     Observations observations = {0};
     K22Timing timing;
-    TEST_EXPECT(state, k22_timing_init(&timing, profile, 8000000u, 32768u,
-                                       signals(&observations)));
+    TEST_EXPECT(
+        state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
     expect_write(state, &timing, RTC_TSR, 4, 1u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
     k22_timing_advance(&timing, timing.core_clock_hz);
@@ -478,8 +478,7 @@ static void test_rtc_protection_and_compensation(TestState* state,
     k22_timing_advance(&timing,
                        cycles_for_ticks(&timing, 32640u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_TSR, 4, 2u);
-    k22_timing_advance(&timing,
-                       cycles_for_ticks(&timing, 1u, timing.rtc_oscillator_hz));
+    k22_timing_advance(&timing, cycles_for_ticks(&timing, 1u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_TSR, 4, 3u);
     expect_read(state, &timing, RTC_TCR, 4, 0x0000017fu);
 
@@ -492,8 +491,7 @@ static void test_rtc_protection_and_compensation(TestState* state,
     const uint32_t before = timing.rtc_tsr;
     k22_timing_advance(&timing, timing.core_clock_hz);
     expect_read(state, &timing, RTC_TSR, 4, before);
-    k22_timing_advance(&timing,
-                       cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
+    k22_timing_advance(&timing, cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_TSR, 4, before + 1u);
 
     expect_write(state, &timing, RTC_SR, 4, 0u);
@@ -501,9 +499,9 @@ static void test_rtc_protection_and_compensation(TestState* state,
     expect_write(state, &timing, RTC_IER, 4, 2u);
     expect_write(state, &timing, RTC_CR, 4, 0x100u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
-    k22_timing_advance(&timing, timing.core_clock_hz +
-                                    cycles_for_ticks(&timing, 128u,
-                                                     timing.rtc_oscillator_hz));
+    k22_timing_advance(&timing,
+                       timing.core_clock_hz +
+                           cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_SR, 4, 0x16u);
     expect_read(state, &timing, RTC_TSR, 4, 0u);
     expect_read(state, &timing, RTC_TPR, 4, 0u);
@@ -632,6 +630,61 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, FTM0_C0SC, 4, 0xd0u);
     expect_write(state, timing, FTM0_C0SC, 4, 0x50u);
     TEST_EXPECT(state, !observations->irq[42]);
+
+    expect_write(state, timing, FTM0_SC, 4, 0u);
+    expect_write(state, timing, FTM0_SC + 0x4cu, 4, 1u);
+    expect_write(state, timing, FTM0_MOD, 4, 4u);
+    expect_write(state, timing, FTM0_CNT, 4, 0xaaaau);
+    expect_read(state, timing, FTM0_CNT, 4, 1u);
+    expect_write(state, timing, FTM0_C1SC, 4, 0u);
+    expect_write(state, timing, FTM0_C0V, 4, 2u);
+    expect_write(state, timing, FTM0_C0SC, 4, 0x68u);
+    expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, FTM0_CNT, 4, 2u);
+    expect_read(state, timing, FTM0_STATUS, 4, 1u);
+    expect_read(state, timing, FTM0_C0SC, 4, 0xe8u);
+    expect_write(state, timing, FTM0_C0SC, 4, 0x68u);
+    k22_timing_advance(timing, 2u);
+    expect_read(state, timing, FTM0_CNT, 4, 4u);
+    expect_read(state, timing, FTM0_SC, 4, 0x68u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, FTM0_CNT, 4, 3u);
+    expect_read(state, timing, FTM0_SC, 4, 0xe8u);
+    expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, FTM0_CNT, 4, 2u);
+    expect_read(state, timing, FTM0_C0SC, 4, 0xe8u);
+    expect_write(state, timing, FTM0_C0SC, 4, 0x68u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, FTM0_CNT, 4, 1u);
+    TEST_EXPECT(state, !observations->irq[42]);
+    k22_timing_set_debug_halted(timing, true);
+    k22_timing_advance(timing, 3u);
+    expect_read(state, timing, FTM0_CNT, 4, 1u);
+    k22_timing_set_debug_halted(timing, false);
+    const uint32_t center_dma_before = observations->dma_requests;
+    const uint32_t center_trigger_before = observations->alternate_triggers;
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x10u);
+    expect_write(state, timing, FTM0_C0SC, 4, 0x69u);
+    k22_timing_advance(timing, 13u);
+    expect_read(state, timing, FTM0_CNT, 4, 2u);
+    TEST_EXPECT(state, observations->dma_requests == center_dma_before + 1u);
+    TEST_EXPECT(state, observations->alternate_triggers == center_trigger_before + 1u);
+    expect_read(state, timing, FTM0_C0SC, 4, 0xe9u);
+    expect_write(state, timing, FTM0_C0SC, 4, 0u);
+    expect_read(state, timing, FTM0_SC, 4, 0xe8u);
+    expect_write(state, timing, FTM0_SC, 4, 0u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x40u);
+    expect_write(state, timing, FTM0_SC + 0x4cu, 4, 3u);
+    expect_write(state, timing, FTM0_MOD, 4, 3u);
+    expect_write(state, timing, FTM0_CNT, 4, 0u);
+    expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    const uint32_t redundant_trigger_before = observations->alternate_triggers;
+    k22_timing_advance(timing, 1u);
+    TEST_EXPECT(state, observations->alternate_triggers == redundant_trigger_before + 1u);
+    expect_read(state, timing, FTM0_CNT, 4, 3u);
+    expect_read(state, timing, FTM0_SC, 4, 0xe8u);
     expect_write(state, timing, FTM1_EXTTRIG, 4, UINT32_MAX);
     expect_read(state, timing, FTM1_EXTTRIG, 4, 0x70u);
 }

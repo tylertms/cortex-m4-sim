@@ -548,8 +548,8 @@ static void rtc_complete_second(K22Timing* timing) {
                           ((timing->rtc_tcr & 0xff00u) << 16u) |
                           ((timing->rtc_tcr & 0xffu) << 16u);
     } else {
-        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) |
-                          ((uint32_t)(interval_counter - 1u) << 24u);
+        timing->rtc_tcr =
+            (timing->rtc_tcr & 0xffffu) | ((uint32_t)(interval_counter - 1u) << 24u);
     }
     const bool overflow = timing->rtc_tsr == UINT32_MAX;
     if (overflow) {
@@ -727,10 +727,79 @@ static bool ftm_gate(const K22Timing* timing, uint8_t index) {
     return (timing->sim_scgc6 & (1u << (24u + index))) != 0;
 }
 
+static bool ftm_crossed_phase(uint32_t phase, uint64_t ticks, uint32_t period,
+                              uint32_t target) {
+    const uint32_t distance = target > phase ? target - phase : period - (phase - target);
+    return ticks >= distance;
+}
+
+static void ftm_channel_event(K22Timing* timing, uint8_t index, uint8_t channel) {
+    K22FtmState* ftm = &timing->ftm[index];
+    ftm->channel_sc[channel] |= 1u << 7u;
+    ftm->channel_flag_read[channel] = false;
+    if ((ftm->channel_sc[channel] & 1u) != 0)
+        request_dma(timing, ftm_dma_source(index, channel));
+    const uint8_t trigger_bit = ftm_trigger_bit(channel);
+    if (trigger_bit != UINT8_MAX && (ftm->registers[6] & (1u << trigger_bit)) != 0u)
+        ftm_trigger(timing, index);
+}
+
+static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks) {
+    K22FtmState* ftm = &timing->ftm[index];
+    const uint32_t first = ftm->initial;
+    const uint32_t last = ftm->modulo;
+    if (last <= first) {
+        ftm->counter = (uint16_t)first;
+        ftm->counting_down = false;
+        ftm->sc |= 1u << 7u;
+        ftm->overflow_flag_read = false;
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
+        update_ftm_irq(timing, index);
+        return;
+    }
+    const uint32_t span = last - first;
+    const uint32_t period = span * 2u;
+    uint32_t phase;
+    if (ftm->counter < first || ftm->counter > last) {
+        phase = 0u;
+    } else if (ftm->counting_down) {
+        phase = span + last - ftm->counter;
+    } else {
+        phase = ftm->counter - first;
+    }
+    const uint8_t channels = ftm_channel_count(index);
+    for (uint8_t channel = 0u; channel < channels; channel++) {
+        const uint32_t compare = ftm->channel_value[channel];
+        if ((ftm->channel_sc[channel] & 0x3cu) == 0u || compare <= first || compare >= last)
+            continue;
+        const uint32_t up_phase = compare - first;
+        const uint32_t down_phase = period - up_phase;
+        if (ftm_crossed_phase(phase, ticks, period, up_phase) ||
+            ftm_crossed_phase(phase, ticks, period, down_phase))
+            ftm_channel_event(timing, index, channel);
+    }
+    if (ftm_crossed_phase(phase, ticks, period, span + 1u)) {
+        ftm->sc |= 1u << 7u;
+        ftm->overflow_flag_read = false;
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
+    }
+    phase = (uint32_t)(((uint64_t)phase + ticks) % period);
+    if (phase <= span) {
+        ftm->counter = (uint16_t)(first + phase);
+        ftm->counting_down = false;
+    } else {
+        ftm->counter = (uint16_t)(last - (phase - span));
+        ftm->counting_down = true;
+    }
+    update_ftm_irq(timing, index);
+}
+
 static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     K22FtmState* ftm = &timing->ftm[index];
     const uint8_t clock_select = (uint8_t)((ftm->sc >> 3u) & 3u);
-    if (!ftm_gate(timing, index) || clock_select == 0) {
+    if (!ftm_gate(timing, index) || clock_select == 0 || timing->debug_halted) {
         return;
     }
     uint32_t source_hz = timing->bus_clock_hz;
@@ -743,6 +812,10 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     const uint64_t ticks =
         clock_ticks(&ftm->remainder, cycles, source_hz, timing->core_clock_hz);
     if (ticks == 0) {
+        return;
+    }
+    if ((ftm->sc & (1u << 5u)) != 0u) {
+        advance_ftm_up_down(timing, index, ticks);
         return;
     }
     const uint32_t first = ftm->initial;
@@ -758,17 +831,8 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
         const uint32_t distance =
             compare > start ? compare - start : period - (start - compare);
         if ((ftm->channel_sc[channel] & 0x3cu) != 0u && compare >= first &&
-            compare <= last && ticks >= distance) {
-            ftm->channel_sc[channel] |= 1u << 7u;
-            ftm->channel_flag_read[channel] = false;
-            if ((ftm->channel_sc[channel] & 1u) != 0) {
-                request_dma(timing, ftm_dma_source(index, channel));
-            }
-            const uint8_t trigger_bit = ftm_trigger_bit(channel);
-            if (trigger_bit != UINT8_MAX &&
-                (ftm->registers[6] & (1u << trigger_bit)) != 0u)
-                ftm_trigger(timing, index);
-        }
+            compare <= last && ticks >= distance)
+            ftm_channel_event(timing, index, channel);
     }
     ftm->counter = (uint16_t)(first + relative % period);
     if (overflow) {
@@ -1008,9 +1072,10 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         ftm->sc = flag | (value & 0x7fu);
         ftm->overflow_flag_read = false;
         update_ftm_irq(timing, index);
-    } else if (offset == 4)
-        ftm->counter = (uint16_t)value;
-    else if (offset == 8)
+    } else if (offset == 4) {
+        ftm->counter = ftm->initial;
+        ftm->counting_down = false;
+    } else if (offset == 8)
         ftm->modulo = (uint16_t)value;
     else if (offset >= 0x0cu && offset < 0x4cu) {
         const uint8_t channel = (uint8_t)((offset - 0x0cu) / 8u);
@@ -1040,8 +1105,8 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         const uint8_t register_index = (uint8_t)((offset - 0x54u) / 4u);
         if (offset == 0x6cu) {
             const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
-            uint32_t next = (ftm->registers[register_index] & 0x80u) |
-                            (value & mask & 0x7fu);
+            uint32_t next =
+                (ftm->registers[register_index] & 0x80u) | (value & mask & 0x7fu);
             if ((value & 0x80u) == 0u && ftm->trigger_flag_read)
                 next &= ~0x80u;
             ftm->registers[register_index] = next;
@@ -1159,8 +1224,7 @@ static bool rtc_write(K22Timing* timing, uint32_t offset, uint32_t value) {
         return true;
     case 20:
         if ((timing->rtc_lr & 0x20u) != 0u ||
-            ((timing->rtc_cr & 8u) != 0u &&
-             ((timing->rtc_sr & 0x13u) != 0x10u))) {
+            ((timing->rtc_cr & 8u) != 0u && ((timing->rtc_sr & 0x13u) != 0x10u))) {
             timing->rtc_sr = (timing->rtc_sr & 7u) | (value & 0x10u);
             update_rtc_irq(timing);
         }
@@ -1460,8 +1524,7 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     }
 }
 
-bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size,
-                     uint32_t* value) {
+bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value) {
     if (timing == NULL || timing->profile == NULL || value == NULL) {
         return false;
     }
