@@ -147,3 +147,25 @@ run_mutation(
   "ftm->overflow_count = 0u;"
   "ftm->overflow_count = ftm->overflow_count;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_init_trigger_counter_write src/k22_timing.c
+  [=[ftm->overflow_count = 0u;
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)]=]
+  [=[ftm->overflow_count = 0u;
+        if (false)]=]
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_init_trigger_clock_start src/k22_timing.c
+  "const bool clock_stopped = (ftm->sc & 0x18u) == 0u;"
+  "const bool clock_stopped = false;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_center_init_trigger_boundary src/k22_timing.c
+  "ftm_phase_crossing_count(phase, ticks, period, 0u) != 0u"
+  "ftm_phase_crossing_count(phase, ticks, period, 1u) != 0u"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_up_init_trigger src/k22_timing.c
+  "if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)"
+  "if (false && (ftm->registers[6] & (1u << 6u)) != 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

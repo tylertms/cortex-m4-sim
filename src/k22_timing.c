@@ -733,8 +733,8 @@ static bool ftm_crossed_phase(uint32_t phase, uint64_t ticks, uint32_t period,
     return ticks >= distance;
 }
 
-static uint64_t ftm_phase_crossing_count(uint32_t phase, uint64_t ticks,
-                                         uint32_t period, uint32_t target) {
+static uint64_t ftm_phase_crossing_count(uint32_t phase, uint64_t ticks, uint32_t period,
+                                         uint32_t target) {
     const uint32_t distance = target > phase ? target - phase : period - (phase - target);
     return ticks < distance ? 0u : 1u + (ticks - distance) / period;
 }
@@ -755,17 +755,13 @@ static void ftm_overflow(K22Timing* timing, uint8_t index, uint64_t count) {
         return;
     K22FtmState* ftm = &timing->ftm[index];
     const uint8_t cycle = (uint8_t)((ftm->registers[12] & 0x1fu) + 1u);
-    const uint8_t first_set = ftm->overflow_count == 0u
-                                  ? 1u
-                                  : (uint8_t)(cycle - ftm->overflow_count + 1u);
+    const uint8_t first_set =
+        ftm->overflow_count == 0u ? 1u : (uint8_t)(cycle - ftm->overflow_count + 1u);
     if (count >= first_set) {
         ftm->sc |= 1u << 7u;
         ftm->overflow_flag_read = false;
     }
-    ftm->overflow_count =
-        (uint8_t)((ftm->overflow_count + count % cycle) % cycle);
-    if ((ftm->registers[6] & (1u << 6u)) != 0u)
-        ftm_trigger(timing, index);
+    ftm->overflow_count = (uint8_t)((ftm->overflow_count + count % cycle) % cycle);
 }
 
 static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks) {
@@ -776,6 +772,8 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         ftm->counter = (uint16_t)first;
         ftm->counting_down = false;
         ftm_overflow(timing, index, ticks);
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
         update_ftm_irq(timing, index);
         return;
     }
@@ -800,8 +798,10 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
             ftm_crossed_phase(phase, ticks, period, down_phase))
             ftm_channel_event(timing, index, channel);
     }
-    ftm_overflow(timing, index,
-                 ftm_phase_crossing_count(phase, ticks, period, span + 1u));
+    ftm_overflow(timing, index, ftm_phase_crossing_count(phase, ticks, period, span + 1u));
+    if (ftm_phase_crossing_count(phase, ticks, period, 0u) != 0u &&
+        (ftm->registers[6] & (1u << 6u)) != 0u)
+        ftm_trigger(timing, index);
     phase = (uint32_t)(((uint64_t)phase + ticks) % period);
     if (phase <= span) {
         ftm->counter = (uint16_t)(first + phase);
@@ -853,6 +853,8 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     }
     ftm->counter = (uint16_t)(first + relative % period);
     ftm_overflow(timing, index, overflows);
+    if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
+        ftm_trigger(timing, index);
     update_ftm_irq(timing, index);
 }
 
@@ -1078,16 +1080,22 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
     }
     K22FtmState* ftm = &timing->ftm[index];
     if (offset == 0) {
+        const bool clock_stopped = (ftm->sc & 0x18u) == 0u;
         uint32_t flag = ftm->sc & 0x80u;
         if ((value & 0x80u) == 0u && ftm->overflow_flag_read)
             flag = 0u;
         ftm->sc = flag | (value & 0x7fu);
         ftm->overflow_flag_read = false;
+        if (clock_stopped && (ftm->sc & 0x18u) != 0u && ftm->counter == ftm->initial &&
+            (ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
         update_ftm_irq(timing, index);
     } else if (offset == 4) {
         ftm->counter = ftm->initial;
         ftm->counting_down = false;
         ftm->overflow_count = 0u;
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
     } else if (offset == 8)
         ftm->modulo = (uint16_t)value;
     else if (offset >= 0x0cu && offset < 0x4cu) {

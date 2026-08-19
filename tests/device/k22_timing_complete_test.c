@@ -635,14 +635,21 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, FTM0_SC, 4, 0u);
     expect_write(state, timing, FTM0_SC + 0x4cu, 4, 1u);
     expect_write(state, timing, FTM0_MOD, 4, 4u);
+    const uint32_t center_write_trigger_before = observations->alternate_triggers;
     expect_write(state, timing, FTM0_CNT, 4, 0xaaaau);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == center_write_trigger_before + 1u);
     expect_read(state, timing, FTM0_CNT, 4, 1u);
     expect_write(state, timing, FTM0_C1SC, 4, 0u);
     expect_write(state, timing, FTM0_C1V, 4, 2u);
     expect_write(state, timing, FTM0_C1V + 8u, 4, 1u);
     expect_write(state, timing, FTM0_C0V, 4, 2u);
     expect_write(state, timing, FTM0_C0SC, 4, 0x68u);
+    const uint32_t center_start_trigger_before = observations->alternate_triggers;
     expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == center_start_trigger_before + 1u);
+    const uint32_t center_cycle_trigger_before = observations->alternate_triggers;
     k22_timing_advance(timing, 1u);
     expect_read(state, timing, FTM0_CNT, 4, 2u);
     expect_read(state, timing, FTM0_STATUS, 4, 3u);
@@ -657,6 +664,7 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, FTM0_CNT, 4, 3u);
     expect_read(state, timing, FTM0_SC, 4, 0xe8u);
     expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    TEST_EXPECT(state, observations->alternate_triggers == center_cycle_trigger_before);
     k22_timing_advance(timing, 1u);
     expect_read(state, timing, FTM0_CNT, 4, 2u);
     expect_read(state, timing, FTM0_C0SC, 4, 0xe8u);
@@ -666,6 +674,8 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     k22_timing_advance(timing, 1u);
     expect_read(state, timing, FTM0_CNT, 4, 1u);
     expect_read(state, timing, FTM0_STATUS, 4, 0u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == center_cycle_trigger_before + 1u);
     TEST_EXPECT(state, !observations->irq[42]);
     k22_timing_set_debug_halted(timing, true);
     k22_timing_advance(timing, 3u);
@@ -686,8 +696,14 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, FTM0_EXTTRIG, 4, 0x40u);
     expect_write(state, timing, FTM0_SC + 0x4cu, 4, 3u);
     expect_write(state, timing, FTM0_MOD, 4, 3u);
+    const uint32_t redundant_write_trigger_before = observations->alternate_triggers;
     expect_write(state, timing, FTM0_CNT, 4, 0u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == redundant_write_trigger_before + 1u);
+    const uint32_t redundant_start_trigger_before = observations->alternate_triggers;
     expect_write(state, timing, FTM0_SC, 4, 0x68u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == redundant_start_trigger_before + 1u);
     const uint32_t redundant_trigger_before = observations->alternate_triggers;
     k22_timing_advance(timing, 1u);
     TEST_EXPECT(state, observations->alternate_triggers == redundant_trigger_before + 1u);
@@ -698,14 +714,23 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, FTM0_SC + 0x4cu, 4, 0u);
     expect_write(state, timing, FTM0_MOD, 4, 1u);
     expect_write(state, timing, FTM0_CONF, 4, 2u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x40u);
     expect_write(state, timing, FTM0_CNT, 4, 0u);
     expect_write(state, timing, FTM0_SC, 4, 0x48u);
+    const uint32_t periodic_trigger_before = observations->alternate_triggers;
     k22_timing_advance(timing, 2u);
+    TEST_EXPECT(state, observations->alternate_triggers == periodic_trigger_before + 1u);
     expect_read(state, timing, FTM0_SC, 4, 0xc8u);
     expect_write(state, timing, FTM0_SC, 4, 0x48u);
+    const uint32_t periodic_skip_trigger_before = observations->alternate_triggers;
     k22_timing_advance(timing, 4u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == periodic_skip_trigger_before + 1u);
     expect_read(state, timing, FTM0_SC, 4, 0x48u);
+    const uint32_t periodic_resume_trigger_before = observations->alternate_triggers;
     k22_timing_advance(timing, 2u);
+    TEST_EXPECT(state,
+                observations->alternate_triggers == periodic_resume_trigger_before + 1u);
     expect_read(state, timing, FTM0_SC, 4, 0xc8u);
     expect_write(state, timing, FTM0_SC, 4, 0x48u);
     expect_write(state, timing, FTM0_CNT, 4, 0xffffu);
