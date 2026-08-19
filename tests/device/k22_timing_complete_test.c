@@ -934,7 +934,7 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_ftm_output(state, &timing, true);
     bool channel_one = true;
     TEST_EXPECT(state, k22_timing_get_ftm_output(&timing, 0u, 1u, &channel_one));
-    TEST_EXPECT(state, !channel_one);
+    TEST_EXPECT(state, channel_one);
 
     expect_write(state, &timing, FTM0_COMBINE, 4, 0u);
     expect_write(state, &timing, FTM0_SWOCTRL, 4, 0x101u);
@@ -975,7 +975,7 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, FTM0_INVCTRL, 4, 1u);
     expect_ftm_output(state, &timing, true);
     k22_timing_advance(&timing, 1u);
-    expect_ftm_output(state, &timing, false);
+    expect_ftm_output(state, &timing, true);
 
     expect_write(state, &timing, FTM0_SYNCONF, 4,
                  (1u << 12u) | (1u << 11u) | (1u << 10u) | (1u << 7u) | (1u << 5u) |

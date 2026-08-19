@@ -270,9 +270,9 @@ run_mutation(
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_inverting_control src/k22_timing.c
-  "const uint8_t source_channel = combined && inverted_pair ? channel ^ 1u : channel;"
-  "const uint8_t source_channel = combined && !inverted_pair ? channel ^ 1u : channel;"
-  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+  "        if (complementary && (((channel & 1u) != 0u) != inverted_pair))"
+  "        if (complementary && (((channel & 1u) != 0u) == inverted_pair))"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
 run_mutation(
   ftm_outmask_system_sync src/k22_timing.c
   "if ((ftm->registers[1] & 8u) == 0u)"
@@ -373,3 +373,38 @@ run_mutation(
   "const bool synchronize_buffers = (ftm->registers[0] & 8u) == 0u;"
   "const bool synchronize_buffers = (ftm->registers[0] & 8u) != 0u;"
   cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_combine_selection src/k22_timing.c
+  "           (pair & 1u) != 0u && (pair & 4u) == 0u;"
+  "           (pair & 1u) == 0u && (pair & 4u) == 0u;"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_combine_capture_exclusion src/k22_timing.c
+  "           (pair & 1u) != 0u && (pair & 4u) == 0u;"
+  "           (pair & 1u) != 0u && (pair & 4u) != 0u;"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_complementary_selection src/k22_timing.c
+  "    return (ftm->registers[11] & 1u) == 0u && (pair & 2u) != 0u && (pair & 4u) == 0u &&"
+  "    return (ftm->registers[11] & 1u) == 0u && (pair & 2u) == 0u && (pair & 4u) == 0u &&"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_combine_compare_order src/k22_timing.c
+  "            active = first_compare < second_compare && ftm->counter >= first_compare &&"
+  "            active = first_compare > second_compare && ftm->counter >= first_compare &&"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_combine_second_boundary src/k22_timing.c
+  "                     ftm->counter < second_compare;"
+  "                     ftm->counter <= second_compare;"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_combine_channel_event src/k22_timing.c
+  "        if ((output_compare || edge_aligned || combine_compare) &&"
+  "        if ((output_compare || edge_aligned) &&"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
+run_mutation(
+  ftm_combine_legacy_buffer src/k22_timing.c
+  "            ftm_center_aligned_pwm_mode(ftm, channel) || ftm_combine_mode(ftm, channel))"
+  "            ftm_center_aligned_pwm_mode(ftm, channel))"
+  cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)

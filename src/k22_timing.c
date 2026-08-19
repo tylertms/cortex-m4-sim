@@ -701,6 +701,23 @@ static uint8_t ftm_channel_count(uint8_t index) {
     return index == 0u || index == 3u ? 8u : 2u;
 }
 
+static bool ftm_combine_mode(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    const uint32_t pair = ftm->registers[4] >> pair_shift;
+    return (ftm->sc & (1u << 5u)) == 0u && (ftm->registers[11] & 1u) == 0u &&
+           (pair & 1u) != 0u && (pair & 4u) == 0u;
+}
+
+static bool ftm_complementary_mode(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    const uint32_t pair = ftm->registers[4] >> pair_shift;
+    const uint8_t first_channel = channel & 0xfeu;
+    const bool output_compare =
+        (ftm->sc & (1u << 5u)) == 0u && (ftm->channel_sc[first_channel] & 0x30u) == 0x10u;
+    return (ftm->registers[11] & 1u) == 0u && (pair & 2u) != 0u && (pair & 4u) == 0u &&
+           !output_compare;
+}
+
 bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
                               bool high) {
     if (timing == NULL || timing->profile == NULL || instance >= 4u ||
@@ -737,16 +754,21 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
         return false;
     const K22FtmState* ftm = &timing->ftm[instance];
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
-    const bool combined = ((ftm->registers[4] >> pair_shift) & 1u) != 0u;
-    const bool inverted_pair = (ftm->registers[15] & (1u << (channel / 2u))) != 0u;
-    const uint8_t source_channel = combined && inverted_pair ? channel ^ 1u : channel;
-    bool output = ftm->channel_output[source_channel];
-    const bool dual_capture = ((ftm->registers[4] >> pair_shift) & 4u) != 0u;
+    const uint32_t pair = ftm->registers[4] >> pair_shift;
+    const bool combined = ftm_combine_mode(ftm, channel);
+    const bool complementary = ftm_complementary_mode(ftm, channel);
+    const uint8_t first_channel = channel & 0xfeu;
+    bool output = ftm->channel_output[channel];
+    if ((combined || complementary) && (ftm->channel_sc[channel] & 0x0cu) != 0u) {
+        output = ftm->channel_output[first_channel];
+        const bool inverted_pair = (ftm->registers[15] & (1u << (channel / 2u))) != 0u;
+        if (complementary && (((channel & 1u) != 0u) != inverted_pair))
+            output = !output;
+    }
+    const bool dual_capture = (pair & 4u) != 0u;
     const bool software_enabled = (ftm->registers[16] & (1u << channel)) != 0u;
     if ((ftm->registers[11] & 1u) == 0u && !dual_capture && software_enabled) {
         output = (ftm->registers[16] & (1u << (channel + 8u))) != 0u;
-        const bool complementary = ((ftm->registers[4] >> pair_shift) & 2u) != 0u;
-        const uint8_t first_channel = channel & 0xfeu;
         const bool pair_software_enabled =
             (ftm->registers[16] & (3u << first_channel)) == (3u << first_channel);
         if ((channel & 1u) != 0u && complementary && pair_software_enabled && output &&
@@ -807,6 +829,28 @@ static void ftm_channel_event(K22Timing* timing, uint8_t index, uint8_t channel)
 static bool ftm_pair_mode_disabled(const K22FtmState* ftm, uint8_t channel) {
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
     return ((ftm->registers[4] >> pair_shift) & 5u) == 0u;
+}
+
+static void ftm_combine_pwm_advance(K22FtmState* ftm, uint8_t channel) {
+    if ((channel & 1u) != 0u || !ftm_combine_mode(ftm, channel))
+        return;
+    const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
+    if (edges == 0u)
+        return;
+    const uint32_t first_compare = ftm->channel_value[channel];
+    const uint32_t second_compare = ftm->channel_value[channel + 1u];
+    const bool first_valid = first_compare >= ftm->initial && first_compare <= ftm->modulo;
+    const bool second_valid =
+        second_compare >= ftm->initial && second_compare <= ftm->modulo;
+    bool active = false;
+    if (first_valid) {
+        if (second_valid)
+            active = first_compare < second_compare && ftm->counter >= first_compare &&
+                     ftm->counter < second_compare;
+        else
+            active = ftm->counter >= first_compare;
+    }
+    ftm->channel_output[channel] = edges == 2u ? active : !active;
 }
 
 static bool ftm_output_compare_mode(const K22FtmState* ftm, uint8_t channel) {
@@ -919,7 +963,7 @@ static void ftm_apply_legacy_boundary_values(K22FtmState* ftm, uint8_t channels)
     ftm_apply_modulo(ftm);
     for (uint8_t channel = 0u; channel < channels; channel++) {
         if (ftm_edge_aligned_pwm_mode(ftm, channel) ||
-            ftm_center_aligned_pwm_mode(ftm, channel))
+            ftm_center_aligned_pwm_mode(ftm, channel) || ftm_combine_mode(ftm, channel))
             ftm_apply_channel_value(ftm, channel);
     }
 }
@@ -1025,9 +1069,12 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
             compare > start ? compare - start : period - (start - compare);
         const bool output_compare = ftm_output_compare_mode(ftm, channel);
         const bool edge_aligned = ftm_edge_aligned_pwm_mode(ftm, channel);
+        const bool combined = ftm_combine_mode(ftm, channel);
         const bool valid_compare = output_compare ? compare >= first && compare <= last
                                                   : compare > first && compare <= last;
-        if ((output_compare || edge_aligned) && valid_compare && ticks >= distance) {
+        const bool combine_compare = combined && compare >= first && compare <= last;
+        if ((output_compare || edge_aligned || combine_compare) &&
+            (valid_compare || combine_compare) && ticks >= distance) {
             matches[channel] = 1u + (ticks - distance) / period;
             match_mask |= (uint8_t)(1u << channel);
             ftm_channel_event(timing, index, channel);
@@ -1042,6 +1089,7 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
     for (uint8_t channel = 0u; channel < channels; channel++) {
         ftm_output_compare_match(ftm, channel, matches[channel]);
         ftm_edge_aligned_pwm_advance(ftm, channel, matches[channel], overflows);
+        ftm_combine_pwm_advance(ftm, channel);
     }
     ftm_loading_point(ftm, overflows != 0u, overflows != 0u, match_mask);
     update_ftm_irq(timing, index);
