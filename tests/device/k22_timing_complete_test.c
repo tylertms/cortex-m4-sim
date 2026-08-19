@@ -66,6 +66,10 @@ typedef struct {
     uint32_t resets;
     uint8_t last_srs0;
     uint8_t last_srs1;
+    uint32_t adc_triggers;
+    uint32_t dac_triggers;
+    uint8_t last_trigger_instance;
+    uint8_t last_trigger_channel;
 } Observations;
 
 static void irq_signal(void* context, uint8_t irq, bool asserted) {
@@ -87,8 +91,20 @@ static void reset_signal(void* context, uint8_t srs0, uint8_t srs1) {
     observations->last_srs1 = srs1;
 }
 
+static void trigger_signal(void* context, K22TimingTrigger trigger, uint8_t instance,
+                           uint8_t channel) {
+    Observations* observations = context;
+    if (trigger == K22_TIMING_TRIGGER_ADC)
+        observations->adc_triggers++;
+    else
+        observations->dac_triggers++;
+    observations->last_trigger_instance = instance;
+    observations->last_trigger_channel = channel;
+}
+
 static K22TimingSignals signals(Observations* observations) {
-    K22TimingSignals value = {observations, irq_signal, dma_signal, reset_signal};
+    K22TimingSignals value = {observations, irq_signal, dma_signal, reset_signal,
+                              trigger_signal};
     return value;
 }
 
@@ -130,7 +146,9 @@ static void test_profiles_and_reset(TestState* state) {
                     k22_timing_read(&timing, SIM_SCGC3, 4, &(uint32_t){0}) ==
                         (id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212));
         expect_read(state, &timing, RCM_SRS0, 1, 0x82u);
-        expect_read(state, &timing, 0x40037000u, 4, 6u);
+        expect_read(state, &timing, 0x40037000u, 4,
+                    id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212 ? 2u
+                                                                                   : 6u);
         expect_read(state, &timing, 0x4003d014u, 4, 1u);
         expect_read(state, &timing, 0x40052000u, 2, 0x01d3u);
         TEST_EXPECT(state, k22_timing_core_clock_hz(&timing) == 20971520u);
@@ -214,6 +232,12 @@ static void test_rtc(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, RTC_TPR, 4, 0u);
     TEST_EXPECT(state, observations->irq[46]);
     TEST_EXPECT(state, observations->irq[47]);
+    const uint32_t retained_tsr = timing->rtc_tsr;
+    const uint16_t retained_tpr = timing->rtc_tpr;
+    k22_timing_warm_reset(timing, 0x20u, 0);
+    TEST_EXPECT(state, timing->rtc_tsr == retained_tsr);
+    TEST_EXPECT(state, timing->rtc_tpr == retained_tpr);
+    expect_read(state, timing, RCM_SRS0, 1, 0x20u);
 }
 
 static void test_pdb(TestState* state, K22Timing* timing, Observations* observations) {
@@ -223,11 +247,17 @@ static void test_pdb(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, PDB_SC + 0x10u, 4, 3u);
     expect_write(state, timing, PDB_SC + 0x18u, 4, 1u);
     expect_write(state, timing, PDB_SC + 0x1cu, 4, 2u);
+    expect_write(state, timing, PDB_SC + 0x150u, 4, 2u);
+    expect_write(state, timing, PDB_SC + 0x154u, 4, 1u);
     expect_write(state, timing, PDB_SC, 4, 0x23u);
     k22_timing_advance(timing, 2u);
     expect_read(state, timing, PDB_CNT, 4, 2u);
     expect_read(state, timing, PDB_SC, 4, 0x63u);
     expect_read(state, timing, PDB_SC + 0x14u, 4, 3u);
+    TEST_EXPECT(state, observations->adc_triggers == 2u);
+    TEST_EXPECT(state, observations->dac_triggers == 1u);
+    TEST_EXPECT(state, observations->last_trigger_instance == 0u);
+    TEST_EXPECT(state, observations->last_trigger_channel == 0u);
     expect_write(state, timing, PDB_SC + 0x14u, 4, 3u);
     expect_read(state, timing, PDB_SC + 0x14u, 4, 0u);
     TEST_EXPECT(state, observations->irq[52]);
@@ -317,7 +347,7 @@ static void test_sim_surface(TestState* state, K22Timing* timing) {
         TEST_EXPECT(state, k22_timing_read(timing, writable[index], 4, &(uint32_t){0}));
     }
     expect_read(state, timing, 0x4004804cu, 4, 0xff0f0f00u);
-    expect_read(state, timing, 0x40048050u, 4, 0x7fff0000u);
+    expect_read(state, timing, 0x40048050u, 4, 0x7f7f0000u);
     TEST_EXPECT(state, !k22_timing_read(timing, 0x40048028u, 4, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(timing, 0x40048028u, 4, 0));
 }

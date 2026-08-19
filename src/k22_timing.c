@@ -219,7 +219,10 @@ static bool read_sim(const K22Timing* timing, uint32_t address, uint8_t size,
         *value = sim_fcfg1(timing);
         return true;
     case SIM_FCFG2:
-        *value = 0x7fff0000u;
+        *value = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                         timing->profile->id == K22_PROFILE_MK22FX51212
+                     ? 0x7f7f0000u
+                     : 0x7fff0000u;
         return true;
     default:
         return false;
@@ -487,6 +490,12 @@ static bool counter_reached(uint16_t start, uint64_t ticks, uint32_t period,
     return ticks >= distance;
 }
 
+static void trigger(K22Timing* timing, K22TimingTrigger type, uint8_t instance,
+                    uint8_t channel) {
+    if (timing->signals.trigger != NULL)
+        timing->signals.trigger(timing->signals.context, type, instance, channel);
+}
+
 static void advance_pdb(K22Timing* timing, uint32_t cycles) {
     if (!has(timing, K22_PERIPHERAL_PDB0) || (timing->sim_scgc6 & (1u << 22u)) == 0 ||
         (timing->pdb_sc & 1u) == 0) {
@@ -512,8 +521,21 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
                 (uint16_t)
                     timing->pdb_registers[(base + 8u + (uint32_t)pretrigger * 4u) >> 2u];
             if ((control & (1u << pretrigger)) != 0 &&
-                counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period, delay))
+                counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period,
+                                delay)) {
                 timing->pdb_registers[(base + 4u) >> 2u] |= 1u << pretrigger;
+                trigger(timing, K22_TIMING_TRIGGER_ADC, channel, pretrigger);
+            }
+        }
+    }
+    for (uint8_t instance = 0; instance < 2u; instance++) {
+        const uint32_t interval_offset = 0x150u + (uint32_t)instance * 8u;
+        const uint32_t control_offset = interval_offset + 4u;
+        const uint16_t interval = (uint16_t)timing->pdb_registers[interval_offset >> 2u];
+        const uint32_t control = timing->pdb_registers[control_offset >> 2u];
+        if ((control & 1u) != 0 && interval <= timing->pdb_mod &&
+            counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period, interval)) {
+            trigger(timing, K22_TIMING_TRIGGER_DAC, instance, 0);
         }
     }
     if (delayed) {
@@ -1073,18 +1095,26 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->fast_irc_hz = 4000000u;
     timing->lpo_hz = 1000u;
     timing->elapsed_core_cycles = elapsed;
-    timing->sim_sopt1 = 0x80000000u;
+    timing->sim_sopt1 = timing->profile->id == K22_PROFILE_MK22F12810 ? 0u : 0x80000000u;
     timing->sim_sopt2 = 0x1000u;
     timing->sim_scgc4 = 0xf0100030u;
     timing->sim_scgc5 = 0x00040182u;
     timing->sim_scgc6 = 0x40000001u;
-    timing->sim_scgc7 = 2u;
-    timing->sim_clkdiv1 = 0x00110000u;
+    timing->sim_scgc7 = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                                timing->profile->id == K22_PROFILE_MK22FX51212
+                            ? 6u
+                            : 2u;
+    timing->sim_clkdiv1 =
+        timing->profile->id <= K22_PROFILE_MK22FN25612 ? 0x00010000u : 0x00110000u;
     timing->mcg[0] = 4u;
     timing->mcg[1] = 0x80u;
     timing->mcg[6] = 0x10u;
     timing->mcg[8] = 2u;
     timing->mcg[13] = 0x80u;
+    if (timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+        timing->profile->id == K22_PROFILE_MK22FX51212) {
+        timing->llwu[10] = 0x02u;
+    }
     timing->pmc[0] = 0x10u;
     timing->pmc[2] = 4u;
     timing->smc[2] = 3u;
@@ -1098,12 +1128,22 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
         timing->rcm[8] = sticky0 | srs0;
         timing->rcm[9] = sticky1 | srs1;
     }
-    timing->pit_mcr = 6u;
+    timing->pit_mcr = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                              timing->profile->id == K22_PROFILE_MK22FX51212
+                          ? 2u
+                          : 6u;
     timing->rtc_sr = 1u;
-    timing->rtc_lr = 0xffu;
+    timing->rtc_lr = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                             timing->profile->id == K22_PROFILE_MK22FX51212
+                         ? 0xffffu
+                         : 0xffu;
     timing->rtc_ier = 7u;
-    timing->rtc_war = 0xffu;
-    timing->rtc_rar = 0xffu;
+    const uint32_t rtc_access_reset = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                                              timing->profile->id == K22_PROFILE_MK22FX51212
+                                          ? 0xffffu
+                                          : 0xffu;
+    timing->rtc_war = rtc_access_reset;
+    timing->rtc_rar = rtc_access_reset;
     timing->pdb_mod = 0xffffu;
     timing->pdb_idly = 0xffffu;
     for (uint8_t index = 0; index < 4; index++) {
@@ -1120,6 +1160,34 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->wdog[11] = 0x0400u;
     timing->ewm_cmph = 0xffu;
     update_clocks(timing);
+}
+
+void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
+    if (timing == NULL || timing->profile == NULL)
+        return;
+    const uint32_t tsr = timing->rtc_tsr;
+    const uint16_t tpr = timing->rtc_tpr;
+    const uint32_t tar = timing->rtc_tar;
+    const uint32_t tcr = timing->rtc_tcr;
+    const uint32_t cr = timing->rtc_cr;
+    const uint32_t sr = timing->rtc_sr;
+    const uint32_t lr = timing->rtc_lr;
+    const uint32_t ier = timing->rtc_ier;
+    const uint32_t war = timing->rtc_war;
+    const uint32_t rar = timing->rtc_rar;
+    const uint64_t remainder = timing->rtc_remainder;
+    k22_timing_reset(timing, srs0, srs1);
+    timing->rtc_tsr = tsr;
+    timing->rtc_tpr = tpr;
+    timing->rtc_tar = tar;
+    timing->rtc_tcr = tcr;
+    timing->rtc_cr = cr;
+    timing->rtc_sr = sr;
+    timing->rtc_lr = lr;
+    timing->rtc_ier = ier;
+    timing->rtc_war = war;
+    timing->rtc_rar = rar;
+    timing->rtc_remainder = remainder;
 }
 
 bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,

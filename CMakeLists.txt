@@ -43,6 +43,7 @@ set(cortex_m4_simulator_sources
     src/k22_package.c
     src/k22_profile.c
     src/k22_register_manifest.c
+    src/k22_sdhc.c
     src/k22_serial.c
     src/k22_timing.c
     src/kinetis_k22_peripherals.c)
@@ -146,6 +147,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "device;unit")
   cortex_m4_add_test(device_k22_register_manifest
                      tests/device/k22_register_manifest_test.c "device;unit")
+  cortex_m4_add_test(device_k22_register_access
+                     tests/device/k22_register_access_test.c "device;integration")
   cortex_m4_add_test(device_k22_data_complete
                      tests/device/k22_data_complete_test.c "device;integration")
   cortex_m4_add_test(device_k22_io_complete
@@ -154,10 +157,15 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "device;unit")
   cortex_m4_add_test(device_k22_serial_complete
                      tests/device/k22_serial_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_sdhc_complete
+                     tests/device/k22_sdhc_complete_test.c "device;integration")
   cortex_m4_add_test(device_k22_timing_complete
                      tests/device/k22_timing_complete_test.c "device;integration")
   cortex_m4_add_test(device_k22_integration_complete
                      tests/device/k22_integration_complete_test.c
+                     "device;integration")
+  cortex_m4_add_test(device_k22_sysmpu_integration
+                     tests/device/k22_sysmpu_integration_test.c
                      "device;integration")
   cortex_m4_add_test(device_k22_infrastructure
                      tests/device/k22_infrastructure_test.c

@@ -58,10 +58,14 @@ static void test_profiles_and_gates(TestState* state) {
 
     serial = create_serial(state, K22_PROFILE_MK22FN1M012);
     TEST_EXPECT(state, !serial.lpuart0.present);
-    TEST_EXPECT(state, !serial.spi[1].present);
+    TEST_EXPECT(state, serial.spi[1].present);
+    TEST_EXPECT(state, serial.spi[2].present);
+    TEST_EXPECT(state, serial.uart[3].present);
+    TEST_EXPECT(state, serial.uart[4].present);
+    TEST_EXPECT(state, serial.uart[5].present);
     TEST_EXPECT(state, serial.i2c[2].present);
     TEST_EXPECT(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_I2C2, true));
-    TEST_EXPECT(state, read_register(state, &serial, I2C2_BASE + 3, 1) == 0);
+    TEST_EXPECT(state, read_register(state, &serial, I2C2_BASE + 3, 1) == 0x80u);
 }
 
 static void test_uart_transfer_status_interrupt_and_dma(TestState* state) {
@@ -194,8 +198,10 @@ static void test_spi_transfer_fifo_interrupt_dma_and_errors(TestState* state) {
 static void test_spi_profile_presence(TestState* state) {
     K22Serial serial = create_serial(state, K22_PROFILE_MK22FN1M012);
     uint32_t value;
-    TEST_EXPECT(state, !k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_SPI1, true));
-    TEST_EXPECT(state, !k22_serial_read(&serial, SPI1_BASE, 4, &value));
+    TEST_EXPECT(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_SPI1, true));
+    TEST_EXPECT(state, k22_serial_read(&serial, SPI1_BASE, 4, &value));
+    TEST_EXPECT(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_SPI2, true));
+    TEST_EXPECT(state, k22_serial_read(&serial, 0x400ac000u, 4, &value));
 }
 
 static void test_i2c_master_events_timing_irq_and_dma(TestState* state) {
@@ -289,7 +295,7 @@ static void test_register_edge_paths(TestState* state) {
     TEST_EXPECT(state, !k22_serial_write(&serial, UART0_BASE, 2, 0));
 
     TEST_EXPECT(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_LPUART0, true));
-    TEST_EXPECT(state, read_register(state, &serial, LPUART0_BASE + 0x0c, 4) == 0);
+    TEST_EXPECT(state, read_register(state, &serial, LPUART0_BASE + 0x0c, 4) == 0x1000u);
     write_register(state, &serial, LPUART0_BASE, 4, 0x0f000001u);
     write_register(state, &serial, LPUART0_BASE + 8, 4, 1u << 19);
     write_register(state, &serial, LPUART0_BASE + 0x0c, 4, 0x11u);

@@ -10,11 +10,20 @@ typedef void (*K22TimingIrqSignal)(void* context, uint8_t irq, bool asserted);
 typedef void (*K22TimingDmaSignal)(void* context, uint8_t source);
 typedef void (*K22TimingResetSignal)(void* context, uint8_t srs0, uint8_t srs1);
 
+typedef enum {
+    K22_TIMING_TRIGGER_ADC,
+    K22_TIMING_TRIGGER_DAC,
+} K22TimingTrigger;
+
+typedef void (*K22TimingTriggerSignal)(void* context, K22TimingTrigger trigger,
+                                       uint8_t instance, uint8_t channel);
+
 typedef struct {
     void* context;
     K22TimingIrqSignal irq;
     K22TimingDmaSignal dma;
     K22TimingResetSignal reset;
+    K22TimingTriggerSignal trigger;
 } K22TimingSignals;
 
 typedef struct {
@@ -116,6 +125,7 @@ bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,
 bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value);
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
+void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 bool k22_timing_copy(K22Timing* destination, const K22Timing* source,
                      K22TimingSignals signals);
 uint32_t k22_timing_core_clock_hz(const K22Timing* timing);

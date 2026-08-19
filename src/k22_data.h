@@ -43,6 +43,7 @@ typedef struct {
     void* context;
     bool (*read)(void* context, uint32_t address, uint8_t size, uint32_t* value);
     bool (*write)(void* context, uint32_t address, uint8_t size, uint32_t value);
+    bool (*program)(void* context, uint32_t address, uint8_t size, uint32_t value);
     void (*interrupt)(void* context, K22DataInterrupt interrupt, bool asserted);
 } K22DataBus;
 
@@ -55,6 +56,7 @@ bool k22_data_write(K22Data* data, uint32_t address, uint8_t size, uint32_t valu
 void k22_data_advance(K22Data* data, uint32_t cycles);
 void k22_data_dma_request(K22Data* data, uint8_t source);
 void k22_data_adc_trigger(K22Data* data, uint8_t instance);
+void k22_data_adc_pretrigger(K22Data* data, uint8_t instance, uint8_t pretrigger);
 bool k22_data_set_adc_input(K22Data* data, uint8_t instance, uint8_t channel,
                             uint16_t value);
 bool k22_data_set_cmp_input(K22Data* data, uint8_t instance, uint8_t input, uint8_t value);

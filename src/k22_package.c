@@ -157,8 +157,26 @@ bool k22_package_has_peripheral(const K22PackageSelection* selected,
     if (!k22_profile_has_peripheral(profile, peripheral))
         return false;
     if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)
-        return selected->package == K22_PACKAGE_DC_121_XFBGA;
+        return selected->package != K22_PACKAGE_FX_88_HVQFN;
     if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_FB)
         return selected->package != K22_PACKAGE_FX_88_HVQFN;
+    if (selected->profile == K22_PROFILE_MK22FN1M012 ||
+        selected->profile == K22_PROFILE_MK22FX51212) {
+        const bool at_least_80 = selected->package != K22_PACKAGE_LH_64_LQFP;
+        const bool at_least_100 = selected->package == K22_PACKAGE_LL_100_LQFP ||
+                                  selected->package == K22_PACKAGE_MC_121_MAPBGA ||
+                                  selected->package == K22_PACKAGE_LQ_144_LQFP ||
+                                  selected->package == K22_PACKAGE_MD_144_MAPBGA;
+        const bool at_least_121 = selected->package == K22_PACKAGE_MC_121_MAPBGA ||
+                                  selected->package == K22_PACKAGE_LQ_144_LQFP ||
+                                  selected->package == K22_PACKAGE_MD_144_MAPBGA;
+        if (peripheral == K22_PERIPHERAL_SPI1 || peripheral == K22_PERIPHERAL_UART3 ||
+            peripheral == K22_PERIPHERAL_SDHC)
+            return at_least_80;
+        if (peripheral == K22_PERIPHERAL_SPI2 || peripheral == K22_PERIPHERAL_UART4)
+            return at_least_100;
+        if (peripheral == K22_PERIPHERAL_UART5 || peripheral == K22_PERIPHERAL_DAC1)
+            return at_least_121;
+    }
     return true;
 }

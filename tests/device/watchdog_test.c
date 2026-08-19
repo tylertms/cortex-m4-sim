@@ -12,6 +12,7 @@ enum {
     WDOG_UNLOCK = 0x4005200eu,
     RCM_SRS0 = 0x4007f000u,
     RCM_SRS1 = 0x4007f001u,
+    RTC_TSR = 0x4003d000u,
     SIM_REGISTER = 0x40047000u,
     PORTA_PCR0 = 0x40049000u,
     GPIOA_PDIR = 0x400ff010u,
@@ -66,7 +67,7 @@ static void dirty_peripherals(TestState* state, KinetisK22* device) {
 
 static void expect_reset_peripherals(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, read32(state, device, SIM_REGISTER) == 0x80000000u);
-    TEST_EXPECT(state, read32(state, device, PORTA_PCR0) == 0);
+    TEST_EXPECT(state, read32(state, device, PORTA_PCR0) == 0x702u);
     TEST_EXPECT(state, read32(state, device, PIT0_LDVAL) == 0);
     TEST_EXPECT(state, read32(state, device, ADC0_CFG1) == 0);
     TEST_EXPECT(state, read32(state, device, DMA_TCD0_SADDR) == 0);
@@ -104,6 +105,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_write(device, address, &sentinel, sizeof(sentinel)));
     kinetis_k22_gpio_drive(device, 0, 0, true);
     dirty_peripherals(&state, device);
+    write32(&state, device, RTC_TSR, 0x12345678u);
 
     configure(&state, device, 3, true);
     kinetis_k22_watchdog_advance(device, 2);
@@ -120,6 +122,7 @@ int main(void) {
     TEST_EXPECT(&state, retained == sentinel);
     TEST_EXPECT(&state, cortex_m4_get_register(kinetis_k22_cpu(device), 15) == 0x100u);
     expect_reset_peripherals(&state, device);
+    TEST_EXPECT(&state, read32(&state, device, RTC_TSR) == 0x12345678u);
 
     dirty_peripherals(&state, device);
     TEST_EXPECT(&state,
@@ -128,6 +131,7 @@ int main(void) {
     TEST_EXPECT(&state, read8(&state, device, RCM_SRS0) == 0);
     TEST_EXPECT(&state, read8(&state, device, RCM_SRS1) == 0x04u);
     expect_reset_peripherals(&state, device);
+    TEST_EXPECT(&state, read32(&state, device, RTC_TSR) == 0x12345678u);
     TEST_EXPECT(&state, kinetis_k22_read(device, address, &retained, sizeof(retained)));
     TEST_EXPECT(&state, retained == sentinel);
 

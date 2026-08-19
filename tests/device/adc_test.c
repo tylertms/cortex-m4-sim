@@ -32,6 +32,7 @@ int main(void) {
     write32(&state, device, ADC0_CFG1, 0x0cu);
     kinetis_k22_set_adc0_channel(device, 7, 0x345u);
     write32(&state, device, ADC0_SC1A, 7u | 0x40u);
+    kinetis_k22_advance(device, 18u);
     TEST_EXPECT(&state, (read32(&state, device, ADC0_SC1A) & 0x80u) != 0);
     TEST_EXPECT(&state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), ADC0_IRQ));
     TEST_EXPECT(&state, read32(&state, device, ADC0_RA) == 0x345u);

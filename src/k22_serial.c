@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "k22_register_manifest.h"
+
 enum {
     UART_C2 = 0x03,
     UART_S1 = 0x04,
@@ -48,6 +50,28 @@ static void store32(uint8_t* bytes, uint32_t value) {
     bytes[1] = (uint8_t)(value >> 8);
     bytes[2] = (uint8_t)(value >> 16);
     bytes[3] = (uint8_t)(value >> 24);
+}
+
+static void reset_register_block(const K22Profile* profile, uint32_t base,
+                                 uint32_t block_size, uint8_t* registers, size_t capacity) {
+    memset(registers, 0, capacity);
+    const K22RegisterManifest* manifest = k22_register_manifest_get(profile->id);
+    if (manifest == NULL) {
+        return;
+    }
+    for (size_t index = 0u; index < manifest->register_count; index++) {
+        const K22RegisterDescriptor* descriptor = &manifest->registers[index];
+        const uint8_t size = (uint8_t)(descriptor->width / 8u);
+        if (descriptor->address < base || descriptor->address - base >= block_size ||
+            descriptor->address - base + size > capacity) {
+            continue;
+        }
+        const uint32_t offset = descriptor->address - base;
+        const uint32_t value = descriptor->reset_value & descriptor->reset_mask;
+        for (uint8_t byte = 0u; byte < size; byte++) {
+            registers[offset + byte] = (uint8_t)(value >> (byte * 8u));
+        }
+    }
 }
 
 static void fifo_clear(K22SerialFifo* fifo) { memset(fifo, 0, sizeof(*fifo)); }
@@ -129,8 +153,9 @@ static void configure_i2c(K22SerialI2c* i2c, const K22Profile* profile,
     i2c->acknowledge = true;
 }
 
-static void reset_uart(K22SerialUart* uart, bool lpuart) {
-    memset(uart->registers, 0, sizeof(uart->registers));
+static void reset_uart(K22SerialUart* uart, const K22Profile* profile) {
+    reset_register_block(profile, uart->base, uart->block_size, uart->registers,
+                         sizeof(uart->registers));
     fifo_clear(&uart->receive);
     fifo_clear(&uart->transmit);
     fifo_clear(&uart->wire_receive);
@@ -139,31 +164,22 @@ static void reset_uart(K22SerialUart* uart, bool lpuart) {
     uart->transmit_cycles = 0;
     uart->clock_enabled = false;
     uart->status_read = false;
-    if (lpuart) {
-        store32(&uart->registers[LPUART_BAUD], 0x0f000004u);
-        store32(&uart->registers[LPUART_STAT], 0x00c00000u);
-    } else {
-        uart->registers[UART_S1] = 0xc0u;
-        uart->registers[UART_PFIFO] = uart->fifo_depth > 1 ? 0x33u : 0;
-    }
 }
 
-static void reset_spi(K22SerialSpi* spi) {
-    memset(spi->registers, 0, sizeof(spi->registers));
+static void reset_spi(K22SerialSpi* spi, const K22Profile* profile) {
+    reset_register_block(profile, spi->base, spi->block_size, (uint8_t*)spi->registers,
+                         sizeof(spi->registers));
     fifo_clear(&spi->receive);
     fifo_clear(&spi->transmit);
     fifo_clear(&spi->wire_receive);
     fifo_clear(&spi->wire_transmit);
-    spi->registers[SPI_MCR / 4] = 0x00004001u;
-    spi->registers[SPI_CTAR0 / 4] = 0x78000000u;
-    spi->registers[SPI_CTAR1 / 4] = 0x78000000u;
-    spi->registers[SPI_SR / 4] = 0x02000000u;
     spi->transfer_cycles = 0;
     spi->clock_enabled = false;
 }
 
-static void reset_i2c(K22SerialI2c* i2c) {
-    memset(i2c->registers, 0, sizeof(i2c->registers));
+static void reset_i2c(K22SerialI2c* i2c, const K22Profile* profile) {
+    reset_register_block(profile, i2c->base, i2c->block_size, i2c->registers,
+                         sizeof(i2c->registers));
     fifo_clear(&i2c->receive);
     fifo_clear(&i2c->slave_receive);
     fifo_clear(&i2c->slave_transmit_fifo);
@@ -187,8 +203,12 @@ bool k22_serial_init(K22Serial* serial, const K22Profile* profile) {
     configure_uart(&serial->uart[0], profile, K22_PERIPHERAL_UART0, 8);
     configure_uart(&serial->uart[1], profile, K22_PERIPHERAL_UART1, 1);
     configure_uart(&serial->uart[2], profile, K22_PERIPHERAL_UART2, 1);
+    configure_uart(&serial->uart[3], profile, K22_PERIPHERAL_UART3, 1);
+    configure_uart(&serial->uart[4], profile, K22_PERIPHERAL_UART4, 1);
+    configure_uart(&serial->uart[5], profile, K22_PERIPHERAL_UART5, 1);
     configure_spi(&serial->spi[0], profile, K22_PERIPHERAL_SPI0, 4);
     configure_spi(&serial->spi[1], profile, K22_PERIPHERAL_SPI1, 4);
+    configure_spi(&serial->spi[2], profile, K22_PERIPHERAL_SPI2, 4);
     configure_i2c(&serial->i2c[0], profile, K22_PERIPHERAL_I2C0);
     configure_i2c(&serial->i2c[1], profile, K22_PERIPHERAL_I2C1);
     configure_i2c(&serial->i2c[2], profile, K22_PERIPHERAL_I2C2);
@@ -199,13 +219,13 @@ bool k22_serial_init(K22Serial* serial, const K22Profile* profile) {
 void k22_serial_reset(K22Serial* serial) {
     if (serial == NULL)
         return;
-    reset_uart(&serial->lpuart0, true);
+    reset_uart(&serial->lpuart0, serial->profile);
+    for (size_t index = 0; index < 6; index++)
+        reset_uart(&serial->uart[index], serial->profile);
     for (size_t index = 0; index < 3; index++)
-        reset_uart(&serial->uart[index], false);
-    for (size_t index = 0; index < 2; index++)
-        reset_spi(&serial->spi[index]);
+        reset_spi(&serial->spi[index], serial->profile);
     for (size_t index = 0; index < 3; index++)
-        reset_i2c(&serial->i2c[index]);
+        reset_i2c(&serial->i2c[index], serial->profile);
     serial->event_read_index = 0;
     serial->event_write_index = 0;
     serial->event_count = 0;
@@ -233,13 +253,13 @@ static K22SerialUart* find_uart_by_peripheral(K22Serial* serial, K22PeripheralId
         return &serial->lpuart0;
     }
     *lpuart = false;
-    if (peripheral >= K22_PERIPHERAL_UART0 && peripheral <= K22_PERIPHERAL_UART2)
+    if (peripheral >= K22_PERIPHERAL_UART0 && peripheral <= K22_PERIPHERAL_UART5)
         return &serial->uart[peripheral - K22_PERIPHERAL_UART0];
     return NULL;
 }
 
 static K22SerialSpi* find_spi_by_peripheral(K22Serial* serial, K22PeripheralId peripheral) {
-    if (peripheral >= K22_PERIPHERAL_SPI0 && peripheral <= K22_PERIPHERAL_SPI1)
+    if (peripheral >= K22_PERIPHERAL_SPI0 && peripheral <= K22_PERIPHERAL_SPI2)
         return &serial->spi[peripheral - K22_PERIPHERAL_SPI0];
     return NULL;
 }
@@ -269,9 +289,11 @@ bool k22_serial_set_clock_gate(K22Serial* serial, K22PeripheralId peripheral,
 
 static K22SerialUart* uart_at(K22Serial* serial, uint32_t address, bool* lpuart,
                               uint32_t* offset) {
-    K22SerialUart* candidates[] = {&serial->lpuart0, &serial->uart[0], &serial->uart[1],
-                                   &serial->uart[2]};
-    for (size_t index = 0; index < 4; index++) {
+    K22SerialUart* candidates[] = {
+        &serial->lpuart0, &serial->uart[0], &serial->uart[1], &serial->uart[2],
+        &serial->uart[3], &serial->uart[4], &serial->uart[5],
+    };
+    for (size_t index = 0; index < 7; index++) {
         K22SerialUart* uart = candidates[index];
         if (uart->present && address >= uart->base &&
             address - uart->base < uart->block_size) {
@@ -284,7 +306,7 @@ static K22SerialUart* uart_at(K22Serial* serial, uint32_t address, bool* lpuart,
 }
 
 static K22SerialSpi* spi_at(K22Serial* serial, uint32_t address, uint32_t* offset) {
-    for (size_t index = 0; index < 2; index++) {
+    for (size_t index = 0; index < 3; index++) {
         K22SerialSpi* spi = &serial->spi[index];
         if (spi->present && address >= spi->base && address - spi->base < spi->block_size) {
             *offset = address - spi->base;
@@ -767,9 +789,9 @@ void k22_serial_advance(K22Serial* serial, uint32_t bus_cycles) {
     if (serial == NULL)
         return;
     advance_uart(&serial->lpuart0, true, bus_cycles);
-    for (size_t index = 0; index < 3; index++)
+    for (size_t index = 0; index < 6; index++)
         advance_uart(&serial->uart[index], false, bus_cycles);
-    for (size_t index = 0; index < 2; index++)
+    for (size_t index = 0; index < 3; index++)
         advance_spi(&serial->spi[index], bus_cycles);
     for (size_t index = 0; index < 3; index++)
         advance_i2c(&serial->i2c[index], bus_cycles);
@@ -782,13 +804,13 @@ static K22SerialUart* endpoint_uart(K22Serial* serial, K22SerialEndpoint endpoin
         return &serial->lpuart0;
     }
     *lpuart = false;
-    if (endpoint >= K22_SERIAL_UART0 && endpoint <= K22_SERIAL_UART2)
+    if (endpoint >= K22_SERIAL_UART0 && endpoint <= K22_SERIAL_UART5)
         return &serial->uart[endpoint - K22_SERIAL_UART0];
     return NULL;
 }
 
 static K22SerialSpi* endpoint_spi(K22Serial* serial, K22SerialEndpoint endpoint) {
-    if (endpoint >= K22_SERIAL_SPI0 && endpoint <= K22_SERIAL_SPI1)
+    if (endpoint >= K22_SERIAL_SPI0 && endpoint <= K22_SERIAL_SPI2)
         return &serial->spi[endpoint - K22_SERIAL_SPI0];
     return NULL;
 }
@@ -957,6 +979,8 @@ bool k22_serial_irq(const K22Serial* serial, K22SerialIrq irq) {
         return spi_irq(&serial->spi[0]);
     case K22_SERIAL_IRQ_SPI1:
         return spi_irq(&serial->spi[1]);
+    case K22_SERIAL_IRQ_SPI2:
+        return spi_irq(&serial->spi[2]);
     case K22_SERIAL_IRQ_I2C0:
     case K22_SERIAL_IRQ_I2C1:
     case K22_SERIAL_IRQ_I2C2: {
@@ -967,10 +991,16 @@ bool k22_serial_irq(const K22Serial* serial, K22SerialIrq irq) {
     case K22_SERIAL_IRQ_UART0:
     case K22_SERIAL_IRQ_UART1:
     case K22_SERIAL_IRQ_UART2:
+    case K22_SERIAL_IRQ_UART3:
+    case K22_SERIAL_IRQ_UART4:
+    case K22_SERIAL_IRQ_UART5:
         return uart_irq(&serial->uart[(irq - K22_SERIAL_IRQ_UART0) / 2], false, false);
     case K22_SERIAL_IRQ_UART0_ERROR:
     case K22_SERIAL_IRQ_UART1_ERROR:
     case K22_SERIAL_IRQ_UART2_ERROR:
+    case K22_SERIAL_IRQ_UART3_ERROR:
+    case K22_SERIAL_IRQ_UART4_ERROR:
+    case K22_SERIAL_IRQ_UART5_ERROR:
         return uart_irq(&serial->uart[(irq - K22_SERIAL_IRQ_UART0_ERROR) / 2], false, true);
     default:
         return false;
@@ -1003,7 +1033,7 @@ bool k22_serial_dma_request(const K22Serial* serial, K22SerialDmaRequest request
                    ? (baud & (1u << 21)) != 0 && (status & (1u << 21)) != 0
                    : (baud & (1u << 23)) != 0 && (status & (1u << 23)) != 0;
     }
-    if (request >= K22_SERIAL_DMA_SPI0_RECEIVE && request <= K22_SERIAL_DMA_SPI1_TRANSMIT) {
+    if (request >= K22_SERIAL_DMA_SPI0_RECEIVE && request <= K22_SERIAL_DMA_SPI2_TRANSMIT) {
         size_t index = (request - K22_SERIAL_DMA_SPI0_RECEIVE) / 2;
         bool receive = ((request - K22_SERIAL_DMA_SPI0_RECEIVE) & 1u) == 0;
         K22SerialSpi* spi = (K22SerialSpi*)&serial->spi[index];

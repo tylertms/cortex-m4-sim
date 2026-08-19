@@ -36,8 +36,18 @@ static bool flash_access_allowed(const KinetisK22* device, CortexM4Access access
     return write ? (permission & 2u) != 0u : (permission & 1u) != 0u;
 }
 
-bool kinetis_k22_memory_read(KinetisK22* device, uint32_t address, uint8_t size,
-                             CortexM4Access access, uint32_t* value) {
+static bool sysmpu_access_allowed(KinetisK22* device, uint32_t address, uint8_t size,
+                                  uint8_t master, bool supervisor, K22SysMpuAccess access) {
+    if (!k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_SYSMPU) ||
+        !k22_io_clock_enabled(&device->io, K22_PERIPHERAL_SYSMPU))
+        return true;
+    return k22_io_sysmpu_access(&device->io, address, master, supervisor, access) &&
+           k22_io_sysmpu_access(&device->io, address + size - 1u, master, supervisor,
+                                access);
+}
+
+static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_t size,
+                                    CortexM4Access access, uint32_t* value) {
     if (device == NULL || value == NULL || (size != 1 && size != 2 && size != 4)) {
         return false;
     }
@@ -61,11 +71,18 @@ bool kinetis_k22_memory_read(KinetisK22* device, uint32_t address, uint8_t size,
         k22_data_read(device->data, address, size, value)) {
         return true;
     }
+    if (device->flexbus_memory != NULL &&
+        valid_range(address, size, device->flexbus_address, device->flexbus_size) &&
+        k22_io_flexbus_transfer(&device->io, address, size, false, 0u)) {
+        *value = load_little_endian(
+            device->flexbus_memory + address - device->flexbus_address, size);
+        return true;
+    }
     return kinetis_k22_peripheral_read(device, address, size, access, value);
 }
 
-bool kinetis_k22_memory_write(KinetisK22* device, uint32_t address, uint8_t size,
-                              CortexM4Access access, uint32_t value) {
+static bool memory_write_unprotected(KinetisK22* device, uint32_t address, uint8_t size,
+                                     CortexM4Access access, uint32_t value) {
     if (device == NULL || (size != 1 && size != 2 && size != 4)) {
         return false;
     }
@@ -89,7 +106,68 @@ bool kinetis_k22_memory_write(KinetisK22* device, uint32_t address, uint8_t size
         k22_data_write(device->data, address, size, value)) {
         return true;
     }
+    if (device->flexbus_memory != NULL && !device->flexbus_read_only &&
+        valid_range(address, size, device->flexbus_address, device->flexbus_size) &&
+        k22_io_flexbus_transfer(&device->io, address, size, true, value)) {
+        store_little_endian(device->flexbus_memory + address - device->flexbus_address,
+                            size, value);
+        return true;
+    }
     return kinetis_k22_peripheral_write(device, address, size, access, value);
+}
+
+bool kinetis_k22_memory_read(KinetisK22* device, uint32_t address, uint8_t size,
+                             CortexM4Access access, uint32_t* value) {
+    if (device == NULL || value == NULL || (size != 1 && size != 2 && size != 4))
+        return false;
+    if (access != CORTEX_M4_ACCESS_DEBUG) {
+        const uint8_t master = access == CORTEX_M4_ACCESS_INSTRUCTION ? 0u : 1u;
+        const bool supervisor =
+            access != CORTEX_M4_ACCESS_UNPRIVILEGED_DATA &&
+            (access != CORTEX_M4_ACCESS_INSTRUCTION || device->cpu == NULL ||
+             (cortex_m4_get_xpsr(device->cpu) & 0x1ffu) != 0u ||
+             (cortex_m4_get_control(device->cpu) & 1u) == 0u);
+        const K22SysMpuAccess operation =
+            access == CORTEX_M4_ACCESS_INSTRUCTION ? K22_SYSMPU_EXECUTE : K22_SYSMPU_READ;
+        if (!sysmpu_access_allowed(device, address, size, master, supervisor, operation))
+            return false;
+    }
+    return memory_read_unprotected(device, address, size, access, value);
+}
+
+bool kinetis_k22_memory_write(KinetisK22* device, uint32_t address, uint8_t size,
+                              CortexM4Access access, uint32_t value) {
+    if (device == NULL || (size != 1 && size != 2 && size != 4))
+        return false;
+    if (access != CORTEX_M4_ACCESS_DEBUG) {
+        const bool supervisor = access != CORTEX_M4_ACCESS_UNPRIVILEGED_DATA;
+        if (!sysmpu_access_allowed(device, address, size, 1u, supervisor, K22_SYSMPU_WRITE))
+            return false;
+    }
+    return memory_write_unprotected(device, address, size, access, value);
+}
+
+bool kinetis_k22_dma_read(KinetisK22* device, uint32_t address, uint8_t size,
+                          uint32_t* value) {
+    return device != NULL && value != NULL && (size == 1u || size == 2u || size == 4u) &&
+           sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_READ) &&
+           memory_read_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, value);
+}
+
+bool kinetis_k22_dma_write(KinetisK22* device, uint32_t address, uint8_t size,
+                           uint32_t value) {
+    return device != NULL && (size == 1u || size == 2u || size == 4u) &&
+           sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_WRITE) &&
+           memory_write_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, value);
+}
+
+bool kinetis_k22_flash_controller_write(KinetisK22* device, uint32_t address, uint8_t size,
+                                        uint32_t value) {
+    if (device == NULL || (size != 1u && size != 2u && size != 4u) ||
+        !valid_range(address, size, K22_FLASH_BASE, device->configuration.flash_size))
+        return false;
+    store_little_endian(device->flash + address, size, value);
+    return true;
 }
 
 static const K22RegisterDescriptor* bit_band_descriptor(const KinetisK22* device,
@@ -214,6 +292,8 @@ static void destroy_partial(KinetisK22* device) {
     }
     cortex_m4_destroy(device->cpu);
     k22_data_destroy(device->data);
+    k22_sdhc_destroy(&device->sdhc);
+    free(device->flexbus_memory);
     free(device->flash);
     free(device->sram);
     free(device->peripheral);
@@ -257,6 +337,7 @@ KinetisK22* kinetis_k22_create(KinetisK22Configuration configuration) {
     }
     memset(device->flash, 0xff, configuration.flash_size);
     if (!k22_serial_init(&device->serial, profile) ||
+        !k22_sdhc_init(&device->sdhc, kinetis_k22_sdhc_bus(device)) ||
         !k22_timing_init(&device->timing, profile, configuration.external_oscillator_hz,
                          configuration.rtc_oscillator_hz,
                          kinetis_k22_timing_signals(device)) ||
@@ -328,7 +409,7 @@ void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause_0, uint8_t cause_1
     sync_flash_configuration(device);
     kinetis_k22_peripheral_reset(device);
     memcpy(device->peripheral + 0x3e000u, retained_vbat, sizeof(retained_vbat));
-    k22_timing_reset(&device->timing, cause_0, cause_1);
+    k22_timing_warm_reset(&device->timing, cause_0, cause_1);
     kinetis_k22_sync_clock_gates(device);
     (void)cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
 }
@@ -418,6 +499,8 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     destination->event_write_index = source->event_write_index;
     destination->event_count = source->event_count;
     if (!k22_data_copy(destination->data, source->data) ||
+        !k22_sdhc_copy(&destination->sdhc, &source->sdhc,
+                       kinetis_k22_sdhc_bus(destination)) ||
         !k22_serial_copy(&destination->serial, &source->serial) ||
         !k22_io_copy(&destination->io, &source->io) ||
         !k22_timing_copy(&destination->timing, &source->timing,
@@ -427,7 +510,52 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     destination->io.configuration.event_handler =
         kinetis_k22_io_configuration(destination).event_handler;
     destination->io.configuration.event_context = destination;
+    if (source->flexbus_memory != NULL) {
+        if (!kinetis_k22_flexbus_attach(destination, source->flexbus_address,
+                                        source->flexbus_memory, source->flexbus_size,
+                                        source->flexbus_read_only))
+            return false;
+    } else {
+        kinetis_k22_flexbus_detach(destination);
+    }
     return cortex_m4_copy(destination->cpu, source->cpu);
+}
+
+bool kinetis_k22_flexbus_attach(KinetisK22* device, uint32_t address, const void* data,
+                                size_t size, bool read_only) {
+    if (device == NULL || data == NULL || size == 0u ||
+        (uint64_t)address + size > UINT64_C(0x100000000) ||
+        !k22_package_has_peripheral(device->package, K22_PERIPHERAL_FB))
+        return false;
+    uint8_t* memory = malloc(size);
+    if (memory == NULL)
+        return false;
+    memcpy(memory, data, size);
+    free(device->flexbus_memory);
+    device->flexbus_memory = memory;
+    device->flexbus_address = address;
+    device->flexbus_size = size;
+    device->flexbus_read_only = read_only;
+    return true;
+}
+
+void kinetis_k22_flexbus_detach(KinetisK22* device) {
+    if (device == NULL)
+        return;
+    free(device->flexbus_memory);
+    device->flexbus_memory = NULL;
+    device->flexbus_address = 0u;
+    device->flexbus_size = 0u;
+    device->flexbus_read_only = false;
+}
+
+bool kinetis_k22_flexbus_read(const KinetisK22* device, size_t offset, void* data,
+                              size_t size) {
+    if (device == NULL || data == NULL || device->flexbus_memory == NULL ||
+        offset > device->flexbus_size || size > device->flexbus_size - offset)
+        return false;
+    memcpy(data, device->flexbus_memory + offset, size);
+    return true;
 }
 
 void kinetis_k22_advance(KinetisK22* device, uint32_t cycles) {

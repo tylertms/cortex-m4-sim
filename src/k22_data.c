@@ -74,6 +74,7 @@ struct K22Data {
     uint32_t crc_control;
     uint8_t flash[0x20];
     uint8_t flash_config[0x10];
+    uint8_t flash_once[64];
     uint32_t flash_cycles;
     uint8_t* flexnvm;
     uint8_t* flexram;
@@ -89,6 +90,28 @@ static uint32_t load_bytes(const uint8_t* bytes, uint32_t offset, uint8_t size) 
 static void store_bytes(uint8_t* bytes, uint32_t offset, uint8_t size, uint32_t value) {
     for (uint8_t index = 0; index < size; index++)
         bytes[offset + index] = (uint8_t)(value >> (8u * index));
+}
+
+static void adc_reset_registers(K22Adc* adc) {
+    adc->registers[0] = 0x1fu;
+    adc->registers[4] = 0x1fu;
+    store_bytes(adc->registers, 0x28u, 4u, 0x0004u);
+    store_bytes(adc->registers, 0x2cu, 4u, 0x8200u);
+    store_bytes(adc->registers, 0x30u, 4u, 0x8200u);
+    store_bytes(adc->registers, 0x34u, 4u, 0x000au);
+    store_bytes(adc->registers, 0x38u, 4u, 0x0020u);
+    store_bytes(adc->registers, 0x3cu, 4u, 0x0200u);
+    store_bytes(adc->registers, 0x40u, 4u, 0x0100u);
+    store_bytes(adc->registers, 0x44u, 4u, 0x0080u);
+    store_bytes(adc->registers, 0x48u, 4u, 0x0040u);
+    store_bytes(adc->registers, 0x4cu, 4u, 0x0020u);
+    store_bytes(adc->registers, 0x54u, 4u, 0x000au);
+    store_bytes(adc->registers, 0x58u, 4u, 0x0020u);
+    store_bytes(adc->registers, 0x5cu, 4u, 0x0200u);
+    store_bytes(adc->registers, 0x60u, 4u, 0x0100u);
+    store_bytes(adc->registers, 0x64u, 4u, 0x0080u);
+    store_bytes(adc->registers, 0x68u, 4u, 0x0040u);
+    store_bytes(adc->registers, 0x6cu, 4u, 0x0020u);
 }
 
 static bool valid_access(uint32_t offset, uint8_t size, uint32_t length) {
@@ -659,6 +682,7 @@ static void crc_accumulate(K22Data* data, uint8_t byte) {
 static uint32_t crc_result(const K22Data* data) {
     const bool width32 = (data->crc_control & 0x01000000u) != 0;
     const uint8_t bits = width32 ? 32u : 16u;
+    const uint32_t stored_high = width32 ? 0u : data->crc_value & 0xffff0000u;
     uint32_t value = data->crc_value;
     const uint8_t transpose = (uint8_t)((data->crc_control >> 28) & 3u);
     uint32_t transformed = 0;
@@ -673,7 +697,7 @@ static uint32_t crc_result(const K22Data* data) {
     value = transformed;
     if ((data->crc_control & 0x04000000u) != 0)
         value = ~value;
-    return width32 ? value : value & 0xffffu;
+    return width32 ? value : stored_high | (value & 0xffffu);
 }
 
 static bool crc_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
@@ -774,6 +798,8 @@ static uint32_t flash_address(const uint8_t* flash) {
 }
 
 static bool flash_store(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
+    if (data->bus.program != NULL)
+        return data->bus.program(data->bus.context, address, size, value);
     return data->bus.write != NULL &&
            data->bus.write(data->bus.context, address, size, value);
 }
@@ -789,39 +815,117 @@ static bool flash_protected(const K22Data* data, uint32_t address) {
     return (protection & (1u << (segment & 7u))) == 0;
 }
 
+static bool flash_program_words(K22Data* data, uint32_t address, uint8_t words) {
+    for (uint8_t word = 0; word < words; word++) {
+        const uint8_t offset = (uint8_t)(8u + word * 4u);
+        const uint32_t value = ((uint32_t)data->flash[offset] << 24) |
+                               ((uint32_t)data->flash[offset + 1u] << 16) |
+                               ((uint32_t)data->flash[offset + 2u] << 8) |
+                               data->flash[offset + 3u];
+        uint32_t previous = 0;
+        if (!flash_load(data, address + (uint32_t)word * 4u, 4u, &previous) ||
+            !flash_store(data, address + (uint32_t)word * 4u, 4u, previous & value))
+            return false;
+    }
+    return true;
+}
+
+static bool flash_erase(K22Data* data, uint32_t start, uint32_t length) {
+    for (uint32_t offset = 0; offset < length; offset += 4u) {
+        if (!flash_store(data, start + offset, 4u, UINT32_MAX))
+            return false;
+    }
+    return true;
+}
+
+static bool flash_range_protected(const K22Data* data, uint32_t start, uint32_t length) {
+    const uint32_t end = start + length;
+    const uint32_t segment_size = data->profile->program_flash_size / 32u;
+    for (uint32_t address = start; address < end; address += segment_size) {
+        if (flash_protected(data, address))
+            return true;
+    }
+    return false;
+}
+
 static void flash_execute(K22Data* data) {
-    data->flash[0] &= 0x30u;
+    data->flash[0] &= 0x70u;
     const uint8_t command = data->flash[4];
     const uint32_t address = flash_address(data->flash);
-    bool valid = address < data->profile->program_flash_size;
-    bool protection_failure = valid && flash_protected(data, address);
-    if (command == 0x06u && valid && !protection_failure && (address & 3u) == 0) {
-        const uint32_t value = ((uint32_t)data->flash[8] << 24) |
-                               ((uint32_t)data->flash[9] << 16) |
-                               ((uint32_t)data->flash[10] << 8) | data->flash[11];
-        uint32_t previous = 0;
-        valid = flash_load(data, address, 4, &previous) &&
-                flash_store(data, address, 4, previous & value);
-    } else if ((command == 0x09u || command == 0x08u) && valid && !protection_failure) {
-        const uint32_t sector =
-            command == 0x08u ? data->profile->program_flash_size : 2048u;
-        const uint32_t start = command == 0x08u ? 0 : address & ~(sector - 1u);
-        if (command == 0x08u) {
-            for (uint8_t index = 0x10; index <= 0x13; index++)
-                protection_failure = protection_failure || data->flash[index] != 0xffu;
-            valid = !protection_failure;
+    const bool ftfe = k22_profile_has_peripheral(data->profile, K22_PERIPHERAL_FTFE);
+    const uint32_t sector_size = ftfe ? 4096u : 2048u;
+    const uint8_t program_command = ftfe ? 0x07u : 0x06u;
+    const uint8_t program_words = ftfe ? 2u : 1u;
+    bool valid = true;
+    bool protection_failure = false;
+    bool verify_failure = false;
+    if (command == program_command) {
+        valid = address < data->profile->program_flash_size &&
+                address % (program_words * 4u) == 0;
+        protection_failure = valid && flash_protected(data, address);
+        if (valid && !protection_failure)
+            valid = flash_program_words(data, address, program_words);
+    } else if (command == 0x09u) {
+        valid = address < data->profile->program_flash_size;
+        const uint32_t start = address & ~(sector_size - 1u);
+        protection_failure = valid && flash_range_protected(data, start, sector_size);
+        if (valid && !protection_failure)
+            valid = flash_erase(data, start, sector_size);
+    } else if (command == 0x08u) {
+        const uint32_t block_size = ftfe && data->profile->program_flash_size > 0x80000u
+                                        ? 0x80000u
+                                        : data->profile->program_flash_size;
+        valid = address < data->profile->program_flash_size;
+        const uint32_t start = address & ~(block_size - 1u);
+        protection_failure = valid && flash_range_protected(data, start, block_size);
+        if (valid && !protection_failure)
+            valid = flash_erase(data, start, block_size);
+    } else if (command == 0x44u) {
+        protection_failure =
+            flash_range_protected(data, 0, data->profile->program_flash_size);
+        if (!protection_failure)
+            valid = flash_erase(data, 0, data->profile->program_flash_size);
+    } else if (command == 0x01u || command == 0x40u) {
+        const uint32_t length =
+            command == 0x40u ? data->profile->program_flash_size : sector_size;
+        const uint32_t start = command == 0x40u ? 0 : address & ~(sector_size - 1u);
+        for (uint32_t offset = 0; offset < length && !verify_failure; offset += 4u) {
+            uint32_t word = 0;
+            verify_failure =
+                !flash_load(data, start + offset, 4u, &word) || word != UINT32_MAX;
         }
-        for (uint32_t offset = 0; valid && offset < sector; offset += 4)
-            valid = flash_store(data, start + offset, 4, UINT32_MAX);
-    } else if (command == 0x01u || command == 0x02u || command == 0x03u ||
-               command == 0x41u || command == 0x44u) {
+    } else if (command == 0x02u) {
+        uint32_t actual = 0;
+        const uint32_t expected = ((uint32_t)data->flash[8] << 24) |
+                                  ((uint32_t)data->flash[9] << 16) |
+                                  ((uint32_t)data->flash[10] << 8) | data->flash[11];
+        valid = address < data->profile->program_flash_size && (address & 3u) == 0;
+        verify_failure =
+            valid && (!flash_load(data, address, 4u, &actual) || actual != expected);
+    } else if (command == 0x41u) {
+        const uint8_t index = data->flash[5] & 7u;
+        memcpy(data->flash + 8u, data->flash_once + (uint32_t)index * 8u, 8u);
+    } else if (command == 0x43u) {
+        const uint8_t index = data->flash[5] & 7u;
+        uint8_t* once = data->flash_once + (uint32_t)index * 8u;
+        for (uint8_t byte = 0; byte < 8u; byte++) {
+            if (once[byte] != 0xffu)
+                valid = false;
+            once[byte] &= data->flash[8u + byte];
+        }
+    } else if (command == 0x03u || command == 0x45u) {
         valid = true;
     } else {
         valid = false;
     }
-    if (!valid)
-        data->flash[0] |= protection_failure ? 0x10u : 0x20u;
-    data->flash_cycles = command == 0x09u || command == 0x08u ? 2000u : 40u;
+    if (protection_failure)
+        data->flash[0] |= 0x10u;
+    else if (!valid)
+        data->flash[0] |= 0x20u;
+    else if (verify_failure)
+        data->flash[0] |= 1u;
+    data->flash_cycles =
+        command == 0x08u || command == 0x09u || command == 0x44u ? 2000u : 40u;
 }
 
 static bool flash_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
@@ -838,7 +942,7 @@ static bool flash_write(K22Data* data, uint32_t address, uint8_t size, uint32_t 
         return false;
     if (offset == 0 && size == 1) {
         data->flash[0] &= (uint8_t)~(value & 0x30u);
-        if ((value & 0x80u) != 0 && (data->flash[0] & 0x80u) != 0)
+        if ((value & 0x80u) != 0 && (data->flash[0] & 0xb0u) == 0x80u)
             flash_execute(data);
         return true;
     }
@@ -924,6 +1028,7 @@ K22Data* k22_data_create(const K22Profile* profile, K22DataBus bus) {
         memset(data->flexram, 0, profile->flexram_size);
     memset(data->flash_config, 0xff, sizeof(data->flash_config));
     data->flash_config[0x0c] = 0xfeu;
+    memset(data->flash_once, 0xff, sizeof(data->flash_once));
     k22_data_reset(data);
     return data;
 }
@@ -960,12 +1065,12 @@ void k22_data_reset(K22Data* data) {
     data->dma_half = 0;
     data->vref_cycles = 0;
     data->rng_control = 0;
-    data->rng_status = 0;
+    data->rng_status = 0x00010000u;
     data->rng_error = 0;
     data->rng_output = 0;
     data->rng_state = 0x6d2b79f5u;
     data->rng_cycles = 0;
-    data->crc_value = 0;
+    data->crc_value = UINT32_MAX;
     data->crc_polynomial = 0x00001021u;
     data->crc_control = 0;
     memset(data->flash, 0, sizeof(data->flash));
@@ -978,12 +1083,12 @@ void k22_data_reset(K22Data* data) {
     data->flash_cycles = 0;
     if (data->flexram != NULL)
         memset(data->flexram, 0, data->profile->flexram_size);
-    for (uint8_t index = 0; index < data->adc_count; index++) {
-        data->adc[index].registers[0] = 0x1fu;
-        data->adc[index].registers[4] = 0x1fu;
-    }
-    for (uint8_t index = 0; index < data->dac_count; index++)
+    for (uint8_t index = 0; index < data->adc_count; index++)
+        adc_reset_registers(&data->adc[index]);
+    for (uint8_t index = 0; index < data->dac_count; index++) {
+        data->dac[index].registers[0x20] = 0x02u;
         data->dac[index].registers[0x23] = 0x0fu;
+    }
     for (uint8_t line = 0; line < K22_DATA_INTERRUPT_COUNT; line++)
         interrupt(data, (K22DataInterrupt)line, false);
 }
@@ -1119,9 +1224,13 @@ void k22_data_dma_request(K22Data* data, uint8_t source) {
 }
 
 void k22_data_adc_trigger(K22Data* data, uint8_t instance) {
-    if (data != NULL && instance < data->adc_count &&
+    k22_data_adc_pretrigger(data, instance, 0);
+}
+
+void k22_data_adc_pretrigger(K22Data* data, uint8_t instance, uint8_t pretrigger) {
+    if (data != NULL && instance < data->adc_count && pretrigger < 2u &&
         (data->adc[instance].registers[0x20] & 0x40u) != 0)
-        adc_start(&data->adc[instance], 0);
+        adc_start(&data->adc[instance], pretrigger);
 }
 
 bool k22_data_set_adc_input(K22Data* data, uint8_t instance, uint8_t channel,

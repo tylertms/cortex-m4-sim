@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "k22_register_manifest.h"
+
 enum {
     K22_BIT_BAND_BASE = 0x42000000u,
     K22_BIT_BAND_LIMIT = 0x44000000u,
@@ -225,37 +227,67 @@ bool k22_io_init(K22Io* io, K22IoConfiguration configuration) {
     return true;
 }
 
+static void reset_peripheral_registers(const K22IoConfiguration* configuration,
+                                       K22PeripheralId peripheral, uint8_t* registers,
+                                       size_t capacity) {
+    K22PeripheralBlock block;
+    const K22RegisterManifest* manifest =
+        k22_register_manifest_get(configuration->profile->id);
+    if (manifest == NULL ||
+        !k22_profile_peripheral_block(configuration->profile, peripheral, &block)) {
+        return;
+    }
+    for (size_t index = 0u; index < manifest->register_count; index++) {
+        const K22RegisterDescriptor* descriptor = &manifest->registers[index];
+        const uint8_t size = (uint8_t)(descriptor->width / 8u);
+        if (descriptor->address < block.address ||
+            descriptor->address - block.address + size > capacity) {
+            continue;
+        }
+        const uint32_t offset = descriptor->address - block.address;
+        const uint32_t value = descriptor->reset_value & descriptor->reset_mask;
+        for (uint8_t byte = 0u; byte < size; byte++) {
+            registers[offset + byte] = (uint8_t)(value >> (byte * 8u));
+        }
+    }
+}
+
 void k22_io_reset(K22Io* io) {
     if (io == NULL)
         return;
     const K22IoConfiguration configuration = io->configuration;
     memset(io, 0, sizeof(*io));
     io->configuration = configuration;
+    for (uint8_t port = 0u; port < K22_IO_PORT_COUNT; port++) {
+        for (uint8_t pin = 0u; pin < K22_IO_PIN_COUNT; pin++) {
+            const uint32_t address =
+                0x40049000u + (uint32_t)port * 0x1000u + (uint32_t)pin * 4u;
+            const K22RegisterDescriptor* descriptor =
+                k22_register_manifest_lookup(configuration.profile->id, address, 32u);
+            if (descriptor != NULL) {
+                io->port_pcr[port][pin] = descriptor->reset_value & descriptor->reset_mask;
+            }
+        }
+    }
     io->clock_enabled[K22_PERIPHERAL_FLASH_CONFIG] = true;
     io->clock_enabled[K22_PERIPHERAL_MCM] = true;
-    io->usb[0] = 0x04u;
-    io->usb[4] = 0xfbu;
-    io->usb[8] = 0x33u;
-    io->usb[0x0c] = 0x01u;
-    io->can[K22_CAN_MCR / 4] = 0xd890000fu;
-    io->can[K22_CAN_RXMGMASK / 4] = UINT32_MAX;
-    io->can[K22_CAN_RX14MASK / 4] = UINT32_MAX;
-    io->can[K22_CAN_RX15MASK / 4] = UINT32_MAX;
-    for (uint8_t chip_select = 0; chip_select < 6; chip_select++)
-        io->flexbus[((uint32_t)chip_select * 12u + 8u) / 4u] = 0x003ffc00u;
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_USB0, io->usb,
+                               sizeof(io->usb));
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_CAN0, (uint8_t*)io->can,
+                               sizeof(io->can));
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_I2S0, (uint8_t*)io->i2s,
+                               sizeof(io->i2s));
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_FB, (uint8_t*)io->flexbus,
+                               sizeof(io->flexbus));
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_SYSMPU, (uint8_t*)io->sysmpu,
+                               sizeof(io->sysmpu));
     const bool large_profile = configuration.profile->id == K22_PROFILE_MK22FN1M012 ||
                                configuration.profile->id == K22_PROFILE_MK22FX51212;
-    io->mcm[0] = (large_profile ? 0x00370000u : 0x00170000u) | 0x1fu;
+    const uint32_t crossbar_ports =
+        configuration.profile->id >= K22_PROFILE_MK22FN51212 ? 0x1fu : 0x0fu;
+    io->mcm[0] = (large_profile ? 0x00370000u : 0x00170000u) | crossbar_ports;
     if (!large_profile)
         io->mcm[8u / 4u] = 0x00020000u;
-    io->sysmpu[0] = 0x00815101u;
-    for (uint8_t index = 0; index < 12; index++) {
-        const uint32_t descriptor = 0x400u / 4u + (uint32_t)index * 4u;
-        io->sysmpu[descriptor + 1u] = UINT32_MAX;
-        io->sysmpu[descriptor + 2u] = 0x0061f7dfu;
-        io->sysmpu[descriptor + 3u] = 1u;
-        io->sysmpu[(0x800u / 4u) + index] = 0x0061f7dfu;
-    }
     for (uint8_t port = 0; port < K22_IO_PORT_COUNT; port++) {
         io->gpio_filtered[port] = pin_level_unfiltered(io, port);
         io->gpio_pending[port] = io->gpio_filtered[port];
@@ -667,6 +699,26 @@ static bool flexbus_offset_valid(uint32_t offset) {
     return (offset < 0x48u && (offset % 12u) <= 8u) || offset == 0x60u;
 }
 
+bool k22_io_flexbus_transfer(K22Io* io, uint32_t address, uint8_t size, bool write,
+                             uint32_t value) {
+    if (io == NULL || !k22_io_clock_enabled(io, K22_PERIPHERAL_FB) ||
+        (size != 1u && size != 2u && size != 4u))
+        return false;
+    for (uint8_t chip_select = 0u; chip_select < 6u; chip_select++) {
+        const uint32_t base = io->flexbus[chip_select * 3u] & 0xffff0000u;
+        const uint32_t block = io->flexbus[chip_select * 3u + 1u];
+        if ((block & 1u) == 0u)
+            continue;
+        const uint32_t comparison = ~(block & 0xffff0000u) & 0xffff0000u;
+        if ((address & comparison) != (base & comparison))
+            continue;
+        emit(io, K22_IO_EVENT_FLEXBUS_TRANSFER, chip_select, value,
+             (uint32_t)size | (write ? 0x100u : 0u));
+        return true;
+    }
+    return false;
+}
+
 static bool mcm_offset_valid(const K22Io* io, uint32_t offset) {
     if (offset == 0 || offset == 2u || offset == 4u || offset == 8u)
         return true;
@@ -949,6 +1001,39 @@ bool k22_io_i2s_transmit(K22Io* io, uint32_t* sample) {
         return false;
     update_i2s_requests(io);
     return true;
+}
+
+static bool i2s_irq_asserted(uint32_t control) {
+    return ((control & (1u << 8)) != 0 && (control & K22_I2S_REQUEST_FLAG) != 0) ||
+           ((control & (1u << 10)) != 0 && (control & K22_I2S_FIFO_ERROR) != 0) ||
+           ((control & (1u << 11)) != 0 && (control & (1u << 19)) != 0) ||
+           ((control & (1u << 12)) != 0 && (control & (1u << 20)) != 0);
+}
+
+bool k22_io_irq_asserted(const K22Io* io, uint8_t irq) {
+    if (io == NULL)
+        return false;
+    if (irq >= 59u && irq <= 63u) {
+        const uint8_t port = (uint8_t)(irq - 59u);
+        uint32_t pending = io->port_isfr[port];
+        while (pending != 0) {
+            const uint8_t pin = first_set_bit(pending);
+            const uint32_t irqc = (io->port_pcr[port][pin] >> 16) & 15u;
+            if (irqc >= 8u && irqc <= 12u)
+                return true;
+            pending &= ~(1u << pin);
+        }
+        return false;
+    }
+    if (irq == 53u)
+        return (io->usb[K22_USB_ISTAT] & io->usb[K22_USB_INTEN]) != 0;
+    if (irq == 75u)
+        return (io->can[K22_CAN_IFLAG1 / 4u] & io->can[K22_CAN_IMASK1 / 4u]) != 0;
+    if (irq == 28u)
+        return i2s_irq_asserted(io->i2s[K22_I2S_TCSR / 4u]);
+    if (irq == 29u)
+        return i2s_irq_asserted(io->i2s[K22_I2S_RCSR / 4u]);
+    return false;
 }
 
 static bool sysmpu_permission(uint32_t access_control, uint8_t master, bool supervisor,

@@ -64,17 +64,17 @@ static const ExpectedSelection expected_selections[] = {
     EXPECTED(K22_PROFILE_MK22FN25612, K22_PACKAGE_DC_121_XFBGA, 0x000ff03fu, 0x00ff0fcfu,
              0x000fffffu, 0x000000ffu, 0x07000000u, false, false),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
-             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+             0x00000fffu, 0x000000ffu, 0x00000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
-             0x00000fffu, 0x000000ffu, 0x00000000u, false, true),
+             0x00000fffu, 0x000000ffu, 0x00000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_AP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
-             0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
+             0x00030fffu, 0x000000ffu, 0x00000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_BP_80_WLCSP, 0x000ff03fu, 0x000f0c0fu,
-             0x00030fffu, 0x000000ffu, 0x00000000u, false, true),
+             0x00030fffu, 0x000000ffu, 0x00000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_FX_88_HVQFN, 0x000ff03fu, 0x000f0fcfu,
              0x000ff1ffu, 0x000000ffu, 0x00000000u, false, false),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
-             0x0007ffffu, 0x000000ffu, 0x07000000u, false, true),
+             0x0007ffffu, 0x000000ffu, 0x07000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN51212, K22_PACKAGE_DC_121_XFBGA, 0x200ffc3fu, 0x00ff0fcfu,
              0x000fffffu, 0x0000ffffu, 0x07000000u, true, true),
     EXPECTED(K22_PROFILE_MK22FN1M012, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
@@ -155,6 +155,24 @@ static void expect_selection_data(TestState* state, const ExpectedSelection* exp
             exists = expected->dac1;
         if (peripheral == K22_PERIPHERAL_FB)
             exists = expected->flexbus;
+        if (expected->profile == K22_PROFILE_MK22FN1M012 ||
+            expected->profile == K22_PROFILE_MK22FX51212) {
+            const bool at_least_80 = expected->package != K22_PACKAGE_LH_64_LQFP;
+            const bool at_least_100 = expected->package == K22_PACKAGE_LL_100_LQFP ||
+                                      expected->package == K22_PACKAGE_MC_121_MAPBGA ||
+                                      expected->package == K22_PACKAGE_LQ_144_LQFP ||
+                                      expected->package == K22_PACKAGE_MD_144_MAPBGA;
+            const bool at_least_121 = expected->package == K22_PACKAGE_MC_121_MAPBGA ||
+                                      expected->package == K22_PACKAGE_LQ_144_LQFP ||
+                                      expected->package == K22_PACKAGE_MD_144_MAPBGA;
+            if (peripheral == K22_PERIPHERAL_SPI1 || peripheral == K22_PERIPHERAL_UART3 ||
+                peripheral == K22_PERIPHERAL_SDHC)
+                exists = at_least_80;
+            if (peripheral == K22_PERIPHERAL_SPI2 || peripheral == K22_PERIPHERAL_UART4)
+                exists = at_least_100;
+            if (peripheral == K22_PERIPHERAL_UART5 || peripheral == K22_PERIPHERAL_DAC1)
+                exists = at_least_121;
+        }
         TEST_EXPECT(state, k22_package_has_peripheral(
                                selected, (K22PeripheralId)peripheral) == exists);
     }

@@ -50,12 +50,16 @@ typedef enum {
     KINETIS_K22_SERIAL_LPUART0,
     KINETIS_K22_SERIAL_SPI0,
     KINETIS_K22_SERIAL_SPI1,
+    KINETIS_K22_SERIAL_SPI2,
     KINETIS_K22_SERIAL_I2C0,
     KINETIS_K22_SERIAL_I2C1,
     KINETIS_K22_SERIAL_I2C2,
     KINETIS_K22_SERIAL_UART0,
     KINETIS_K22_SERIAL_UART1,
     KINETIS_K22_SERIAL_UART2,
+    KINETIS_K22_SERIAL_UART3,
+    KINETIS_K22_SERIAL_UART4,
+    KINETIS_K22_SERIAL_UART5,
     KINETIS_K22_SERIAL_ENDPOINT_COUNT,
 } KinetisK22SerialEndpoint;
 
@@ -161,6 +165,16 @@ bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
 bool kinetis_k22_can_receive(KinetisK22* device, const KinetisK22CanFrame* frame);
 bool kinetis_k22_i2s_receive(KinetisK22* device, uint32_t sample);
 bool kinetis_k22_i2s_transmit(KinetisK22* device, uint32_t* sample);
+bool kinetis_k22_sdhc_insert(KinetisK22* device, const void* data, size_t size,
+                             bool write_protected);
+void kinetis_k22_sdhc_eject(KinetisK22* device);
+bool kinetis_k22_sdhc_read_card(const KinetisK22* device, size_t offset, void* data,
+                                size_t size);
+bool kinetis_k22_flexbus_attach(KinetisK22* device, uint32_t address, const void* data,
+                                size_t size, bool read_only);
+void kinetis_k22_flexbus_detach(KinetisK22* device);
+bool kinetis_k22_flexbus_read(const KinetisK22* device, size_t offset, void* data,
+                              size_t size);
 bool kinetis_k22_set_usb_charger(KinetisK22* device, KinetisK22UsbCharger charger);
 bool kinetis_k22_uart1_receive(KinetisK22* device, uint8_t value, uint8_t status);
 bool kinetis_k22_uart1_transmit(KinetisK22* device, uint8_t* value);

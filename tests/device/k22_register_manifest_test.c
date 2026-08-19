@@ -1,6 +1,7 @@
 #include "k22_register_manifest.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "test.h"
@@ -129,7 +130,13 @@ static void expect_manifest(TestState* state, K22ProfileId profile,
     TEST_EXPECT(state, manifest->peripheral_count == expected->peripheral_count);
     TEST_EXPECT(state, manifest->register_digest == expected->register_digest);
     TEST_EXPECT(state, manifest->peripheral_digest == expected->peripheral_digest);
-    TEST_EXPECT(state, calculate_register_digest(manifest) == expected->register_digest);
+    const uint64_t calculated_register_digest = calculate_register_digest(manifest);
+    if (calculated_register_digest != expected->register_digest) {
+        fprintf(stderr, "profile %u register digest 0x%016llx, expected 0x%016llx\n",
+                (unsigned)profile, (unsigned long long)calculated_register_digest,
+                (unsigned long long)expected->register_digest);
+    }
+    TEST_EXPECT(state, calculated_register_digest == expected->register_digest);
     TEST_EXPECT(state,
                 calculate_peripheral_digest(manifest) == expected->peripheral_digest);
 

@@ -81,7 +81,7 @@ static void test_reset_clock_and_configuration(TestState* state) {
     k22_io_set_clock(&io, K22_PERIPHERAL_PORTA, true);
     TEST_EXPECT(state, k22_io_clock_enabled(&io, K22_PERIPHERAL_PORTA));
     TEST_EXPECT(state, k22_io_clock_enabled(&io, K22_PERIPHERAL_GPIOA));
-    TEST_EXPECT(state, read_value(state, &io, PORTA, 4) == 0);
+    TEST_EXPECT(state, read_value(state, &io, PORTA, 4) == 0x702u);
     TEST_EXPECT(state, !k22_io_read(&io, PORTA + 16u, 4, &value));
     TEST_EXPECT(state, read_value(state, &io, MCM, 2) == 0x1fu);
     TEST_EXPECT(state, read_value(state, &io, MCM + 2u, 2) == 0x17u);
@@ -105,10 +105,10 @@ static void test_gpio_mux_pull_open_drain_and_lock(TestState* state) {
     write_value(state, &io, GPIOA + 0x14u, 4, 1u);
     write_value(state, &io, GPIOA + 4u, 4, 1u);
     TEST_EXPECT(state, read_value(state, &io, GPIOA, 4) == 1u);
-    TEST_EXPECT(state, read_value(state, &io, GPIOA + 0x10u, 4) == 1u);
+    TEST_EXPECT(state, (read_value(state, &io, GPIOA + 0x10u, 4) & 1u) != 0u);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_GPIO_OUTPUT, 0));
     write_value(state, &io, PORTA, 4, (1u << 8) | (1u << 5) | 3u);
-    TEST_EXPECT(state, read_value(state, &io, GPIOA + 0x10u, 4) == 1u);
+    TEST_EXPECT(state, (read_value(state, &io, GPIOA + 0x10u, 4) & 1u) != 0u);
     TEST_EXPECT(state, k22_io_drive_pin(&io, 0, 0, false));
     TEST_EXPECT(state, (read_value(state, &io, GPIOA + 0x10u, 4) & 1u) == 0);
     TEST_EXPECT(state, k22_io_release_pin(&io, 0, 0));
@@ -140,10 +140,12 @@ static void test_gpio_interrupt_dma_filter_and_bit_band(TestState* state) {
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, false));
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, true));
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_IRQ, 62u));
+    TEST_EXPECT(state, k22_io_irq_asserted(&io, 62u));
     TEST_EXPECT(state, (read_value(state, &io, 0x4004c0a0u, 4) & 1u) != 0);
     write_value(state, &io, 0x4004c000u, 1, 3u);
     TEST_EXPECT(state, (read_value(state, &io, 0x4004c000u, 4) & (1u << 24)) != 0);
     write_value(state, &io, 0x4004c0a0u, 4, 1u);
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 62u));
     TEST_EXPECT(state, (read_value(state, &io, 0x4004c000u, 4) & (1u << 24)) == 0);
     write_value(state, &io, 0x4004c004u, 4, 1u << 16);
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 1, false));
@@ -182,8 +184,10 @@ static void test_usb(TestState* state) {
     TEST_EXPECT(state, read_value(state, &io, USB0 + 0x90u, 1) == 0x30u);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_USB_TOKEN, 3u));
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_IRQ, 53u));
+    TEST_EXPECT(state, k22_io_irq_asserted(&io, 53u));
     write_value(state, &io, USB0 + 0x80u, 1, 1u << 3);
     TEST_EXPECT(state, (read_value(state, &io, USB0 + 0x80u, 1) & (1u << 3)) == 0);
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 53u));
     k22_io_advance(&io, 2500u);
     TEST_EXPECT(state, read_value(state, &io, USB0 + 0xa0u, 1) == 2u);
     TEST_EXPECT(state, (read_value(state, &io, USB0 + 0x80u, 1) & (1u << 2)) != 0);
@@ -212,8 +216,10 @@ static void test_can(TestState* state) {
     TEST_EXPECT(state, read_value(state, &io, CAN0 + 0x84u, 4) == 0x123u);
     TEST_EXPECT(state, read_value(state, &io, CAN0 + 0x88u, 4) == 0x00010203u);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_IRQ, 75u));
+    TEST_EXPECT(state, k22_io_irq_asserted(&io, 75u));
     write_value(state, &io, CAN0 + 0x30u, 4, 1u);
     TEST_EXPECT(state, read_value(state, &io, CAN0 + 0x30u, 4) == 0);
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 75u));
     write_value(state, &io, CAN0 + 0x94u, 4, 0x321u);
     write_value(state, &io, CAN0 + 0x98u, 4, 0x01020304u);
     write_value(state, &io, CAN0 + 0x9cu, 4, 0x05060708u);
@@ -252,6 +258,10 @@ static void test_i2s(TestState* state) {
     TEST_EXPECT(state, (read_value(state, &io, I2S0 + 0x80u, 4) & (1u << 18)) != 0);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_IRQ, 28u));
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_IRQ, 29u));
+    TEST_EXPECT(state, k22_io_irq_asserted(&io, 28u));
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 29u));
+    write_value(state, &io, I2S0, 4, UINT32_C(0x80000000));
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 28u));
 }
 
 static void test_flexbus_sysmpu_copy_and_reset(TestState* state) {
@@ -269,6 +279,10 @@ static void test_flexbus_sysmpu_copy_and_reset(TestState* state) {
     write_value(state, &io, FLEXBUS + 4u, 4, 1u);
     TEST_EXPECT(state, read_value(state, &io, FLEXBUS, 4) == 0x60000000u);
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_FLEXBUS_TRANSFER, 0));
+    TEST_EXPECT(state, k22_io_flexbus_transfer(&io, 0x60001234u, 4u, false, 0u));
+    TEST_EXPECT(state, k22_io_flexbus_transfer(&io, 0x60005678u, 2u, true, 0x55aau));
+    TEST_EXPECT(state, !k22_io_flexbus_transfer(&io, 0x50000000u, 4u, false, 0u));
+    TEST_EXPECT(state, !k22_io_flexbus_transfer(&io, 0x60000000u, 3u, false, 0u));
     TEST_EXPECT(state, read_value(state, &io, SYSMPU, 4) == 0x00815101u);
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x404u, 4) == UINT32_MAX);
     TEST_EXPECT(state, read_value(state, &io, SYSMPU + 0x408u, 4) == 0x0061f7dfu);

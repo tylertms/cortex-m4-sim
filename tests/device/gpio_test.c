@@ -30,6 +30,11 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
+    for (uint8_t pin = 0u; pin < 32u; pin++) {
+        if (pin != 3u) {
+            kinetis_k22_gpio_drive(device, 0u, pin, false);
+        }
+    }
     write32(&state, device, PORTA_PCR3, 1u << 8);
     write32(&state, device, GPIOA_PDDR, 1u << 3);
     write32(&state, device, GPIOA_PSOR, 1u << 3);
@@ -49,8 +54,14 @@ int main(void) {
     kinetis_k22_gpio_drive(device, 0, 3, true);
     TEST_EXPECT(&state, (read32(&state, device, PORTA_PCR3) & (1u << 24)) != 0);
     TEST_EXPECT(&state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), PORTA_IRQ));
+    cortex_m4_set_irq(kinetis_k22_cpu(device), PORTA_IRQ, false);
+    TEST_EXPECT(&state, (read32(&state, device, PORTA_PCR3) & (1u << 24)) != 0);
+    TEST_EXPECT(&state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), PORTA_IRQ));
     write32(&state, device, PORTA_PCR3, 1u << 24);
     TEST_EXPECT(&state, (read32(&state, device, PORTA_PCR3) & (1u << 24)) == 0);
+    cortex_m4_set_irq(kinetis_k22_cpu(device), PORTA_IRQ, false);
+    TEST_EXPECT(&state, (read32(&state, device, PORTA_PCR3) & (1u << 24)) == 0);
+    TEST_EXPECT(&state, !cortex_m4_get_irq_pending(kinetis_k22_cpu(device), PORTA_IRQ));
 
     KinetisK22* copy = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, copy != NULL);
