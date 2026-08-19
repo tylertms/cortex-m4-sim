@@ -332,7 +332,8 @@ static uint32_t advance_pit_channel(K22Timing* timing, uint8_t channel, uint64_t
 
 static void advance_pit(K22Timing* timing, uint32_t cycles) {
     if (!has(timing, K22_PERIPHERAL_PIT) || (timing->sim_scgc6 & (1u << 23u)) == 0 ||
-        (timing->pit_mcr & 2u) != 0) {
+        (timing->pit_mcr & 2u) != 0 ||
+        ((timing->pit_mcr & 1u) != 0u && timing->debug_halted)) {
         return;
     }
     const uint64_t ticks = clock_ticks(&timing->pit_remainder, cycles, timing->bus_clock_hz,
@@ -656,6 +657,18 @@ static uint8_t ftm_dma_source(uint8_t module, uint8_t channel) {
     return bases[module] + channel;
 }
 
+static uint8_t ftm_trigger_bit(uint8_t channel) {
+    static const uint8_t bits[6] = {4u, 5u, 0u, 1u, 2u, 3u};
+    return channel < 6u ? bits[channel] : UINT8_MAX;
+}
+
+static void ftm_trigger(K22Timing* timing, uint8_t index) {
+    K22FtmState* ftm = &timing->ftm[index];
+    ftm->registers[6] |= 0x80u;
+    ftm->trigger_flag_read = false;
+    trigger_adc_alternate(timing, (uint8_t)(8u + index));
+}
+
 static bool ftm_gate(const K22Timing* timing, uint8_t index) {
     if (index == 3u) {
         if (timing->profile->id == K22_PROFILE_MK22FN1M012 ||
@@ -704,6 +717,10 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
             if ((ftm->channel_sc[channel] & 1u) != 0) {
                 request_dma(timing, ftm_dma_source(index, channel));
             }
+            const uint8_t trigger_bit = ftm_trigger_bit(channel);
+            if (trigger_bit != UINT8_MAX &&
+                (ftm->registers[6] & (1u << trigger_bit)) != 0u)
+                ftm_trigger(timing, index);
         }
     }
     ftm->counter = (uint16_t)(first + relative % period);
@@ -712,6 +729,8 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
         if ((ftm->sc & (1u << 6u)) != 0) {
             set_irq(timing, ftm_irq(index), true);
         }
+        if ((ftm->registers[6] & (1u << 6u)) != 0u)
+            ftm_trigger(timing, index);
     }
 }
 
@@ -887,12 +906,12 @@ static bool write_ewm(K22Timing* timing, uint32_t address, uint8_t size, uint32_
     }
 }
 
-static bool ftm_read(const K22Timing* timing, uint8_t index, uint32_t offset, uint8_t size,
+static bool ftm_read(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t size,
                      uint32_t* value) {
     if (size != 4 || (offset & 3u) != 0) {
         return false;
     }
-    const K22FtmState* ftm = &timing->ftm[index];
+    K22FtmState* ftm = &timing->ftm[index];
     if (offset == 0)
         *value = ftm->sc;
     else if (offset == 4)
@@ -916,6 +935,8 @@ static bool ftm_read(const K22Timing* timing, uint8_t index, uint32_t offset, ui
         *value = status;
     } else if (offset >= 0x54u && offset <= 0x98u) {
         *value = ftm->registers[(offset - 0x54u) / 4u];
+        if (offset == 0x6cu && (*value & 0x80u) != 0u)
+            ftm->trigger_flag_read = true;
     } else
         return false;
     return true;
@@ -953,13 +974,24 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                 ftm->channel_sc[channel] &= ~0x80u;
         }
     } else if (offset >= 0x54u && offset <= 0x98u) {
-        ftm->registers[(offset - 0x54u) / 4u] = value;
+        const uint8_t register_index = (uint8_t)((offset - 0x54u) / 4u);
+        if (offset == 0x6cu) {
+            const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
+            uint32_t next = (ftm->registers[register_index] & 0x80u) |
+                            (value & mask & 0x7fu);
+            if ((value & 0x80u) == 0u && ftm->trigger_flag_read)
+                next &= ~0x80u;
+            ftm->registers[register_index] = next;
+            ftm->trigger_flag_read = false;
+        } else {
+            ftm->registers[register_index] = value;
+        }
     } else
         return false;
     return true;
 }
 
-static bool read_timed_register(const K22Timing* timing, uint32_t address, uint8_t size,
+static bool read_timed_register(K22Timing* timing, uint32_t address, uint8_t size,
                                 uint32_t* value) {
     if (address >= PIT_BASE && address < PIT_BASE + 0x140u &&
         has(timing, K22_PERIPHERAL_PIT))
@@ -1319,7 +1351,7 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     }
 }
 
-bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,
+bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size,
                      uint32_t* value) {
     if (timing == NULL || timing->profile == NULL || value == NULL) {
         return false;
@@ -1455,6 +1487,11 @@ void k22_timing_advance(K22Timing* timing, uint32_t core_cycles) {
         if (has(timing, id))
             advance_ftm(timing, index, core_cycles);
     }
+}
+
+void k22_timing_set_debug_halted(K22Timing* timing, bool halted) {
+    if (timing != NULL)
+        timing->debug_halted = halted;
 }
 
 bool k22_timing_copy(K22Timing* destination, const K22Timing* source,

@@ -77,3 +77,13 @@ run_mutation(
   "if ((selection & 0x80u) != 0u && (selection & 15u) == source)"
   "if (false && (selection & 15u) == source)"
   cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
+run_mutation(
+  ftm_channel_trigger src/k22_timing.c
+  "if (trigger_bit != UINT8_MAX &&"
+  "if (false && trigger_bit != UINT8_MAX &&"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  pit_debug_freeze src/k22_timing.c
+  "(timing->pit_mcr & 1u) != 0u && timing->debug_halted"
+  "(timing->pit_mcr & 1u) != 0u && false"
+  cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)

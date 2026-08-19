@@ -43,6 +43,7 @@ typedef struct {
     uint16_t channel_value[8];
     uint32_t registers[20];
     uint64_t remainder;
+    bool trigger_flag_read;
 } K22FtmState;
 
 typedef struct {
@@ -57,6 +58,7 @@ typedef struct {
     uint32_t bus_clock_hz;
     uint32_t flash_clock_hz;
     uint64_t elapsed_core_cycles;
+    bool debug_halted;
     uint32_t sim_sopt1;
     uint32_t sim_sopt1cfg;
     uint32_t sim_sopt2;
@@ -126,10 +128,11 @@ typedef struct {
 bool k22_timing_init(K22Timing* timing, const K22Profile* profile,
                      uint32_t external_oscillator_hz, uint32_t rtc_oscillator_hz,
                      K22TimingSignals signals);
-bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,
+bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size,
                      uint32_t* value);
 bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value);
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
+void k22_timing_set_debug_halted(K22Timing* timing, bool halted);
 bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);

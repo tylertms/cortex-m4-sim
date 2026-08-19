@@ -56,6 +56,8 @@ enum {
     FTM0_MOD = 0x40038008u,
     FTM0_C0SC = 0x4003800cu,
     FTM0_C0V = 0x40038010u,
+    FTM0_EXTTRIG = 0x4003806cu,
+    FTM1_EXTTRIG = 0x4003906cu,
     WDOG_STCTRLH = 0x40052000u,
     WDOG_TOVALH = 0x40052004u,
     WDOG_TOVALL = 0x40052006u,
@@ -123,7 +125,7 @@ static K22TimingSignals signals(Observations* observations) {
     return value;
 }
 
-static void expect_read(TestState* state, const K22Timing* timing, uint32_t address,
+static void expect_read(TestState* state, K22Timing* timing, uint32_t address,
                         uint8_t size, uint32_t expected) {
     uint32_t value = 0xdeadbeefu;
     TEST_EXPECT(state, k22_timing_read(timing, address, size, &value));
@@ -453,6 +455,7 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, FTM0_MOD, 4, 3u);
     expect_write(state, timing, FTM0_C0V, 4, 2u);
     expect_write(state, timing, FTM0_C0SC, 4, 0x41u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x10u);
     expect_write(state, timing, FTM0_SC, 4, 0x48u);
     k22_timing_advance(timing, 4u);
     expect_read(state, timing, FTM0_CNT, 4, 0u);
@@ -460,9 +463,24 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
     TEST_EXPECT(state, observations->irq[42]);
     TEST_EXPECT(state, observations->dma_requests != 0);
     TEST_EXPECT(state, observations->last_dma == 20u);
+    TEST_EXPECT(state, observations->last_trigger_instance == 8u);
+    expect_read(state, timing, FTM0_EXTTRIG, 4, 0x90u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x90u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x10u);
+    expect_read(state, timing, FTM0_EXTTRIG, 4, 0x90u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x10u);
+    expect_read(state, timing, FTM0_EXTTRIG, 4, 0x10u);
+    const uint32_t alternate_before = observations->alternate_triggers;
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x40u);
+    k22_timing_advance(timing, 4u);
+    TEST_EXPECT(state, observations->alternate_triggers == alternate_before + 1u);
+    expect_read(state, timing, FTM0_EXTTRIG, 4, 0xc0u);
+    expect_write(state, timing, FTM0_EXTTRIG, 4, 0x40u);
     expect_write(state, timing, FTM0_C0SC, 4, 0x41u);
     expect_write(state, timing, FTM0_SC, 4, 0x48u);
     TEST_EXPECT(state, !observations->irq[42]);
+    expect_write(state, timing, FTM1_EXTTRIG, 4, UINT32_MAX);
+    expect_read(state, timing, FTM1_EXTTRIG, 4, 0x70u);
 }
 
 static void unlock_watchdog(TestState* state, K22Timing* timing) {
@@ -766,6 +784,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     TEST_EXPECT(state, !k22_timing_write(NULL, 0, 1, 0));
     k22_timing_advance(NULL, 1u);
     k22_timing_reset(NULL, 0, 0);
+    k22_timing_set_debug_halted(NULL, true);
 }
 
 int main(void) {
