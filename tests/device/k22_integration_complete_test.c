@@ -151,6 +151,7 @@ static KinetisK22* create_f12_device(TestState* state, KinetisK22Package package
     KinetisK22Configuration configuration = kinetis_k22_default_configuration();
     configuration.profile = KINETIS_K22_PROFILE_MK22FN1M012;
     configuration.package = package;
+    configuration.flash_size = 1024u * 1024u;
     KinetisK22* device = kinetis_k22_create(configuration);
     TEST_EXPECT(state, device != NULL);
     return device;
@@ -206,6 +207,35 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
     kinetis_k22_advance(device, 40u);
     TEST_EXPECT(state, read32(device, target, &value));
     TEST_EXPECT(state, value == 0x12345678u);
+}
+
+static void launch_swap_command(TestState* state, KinetisK22* device, uint32_t address,
+                                uint8_t control) {
+    const uint8_t command[5] = {0x46u, (uint8_t)(address >> 16u), (uint8_t)(address >> 8u),
+                                (uint8_t)address, control};
+    for (uint8_t index = 0u; index < sizeof(command); index++)
+        TEST_EXPECT(state, cpu_write8(device, flash_fccob_address(index), command[index]));
+    TEST_EXPECT(state, cpu_write8(device, FTFA_FSTAT, 0x80u));
+    kinetis_k22_advance(device, 40u);
+}
+
+static void expect_integrated_flash_swap(TestState* state) {
+    KinetisK22* device = create_f12_device(state, KINETIS_K22_PACKAGE_MC_121_MAPBGA);
+    uint8_t lower = 0x11u;
+    uint8_t upper = 0x22u;
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x20u, &lower, sizeof(lower)));
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x80020u, &upper, sizeof(upper)));
+    launch_swap_command(state, device, 0x1000u, 1u);
+    launch_swap_command(state, device, 0x1000u, 4u);
+    TEST_EXPECT(state, kinetis_k22_reset(device));
+    uint8_t value = 0u;
+    TEST_EXPECT(state, read8(device, 0x20u, &value));
+    TEST_EXPECT(state, value == upper);
+    TEST_EXPECT(state, read8(device, 0x80020u, &value));
+    TEST_EXPECT(state, value == lower);
+    TEST_EXPECT(state, read8(device, FTFA_FSTAT + 1u, &value));
+    TEST_EXPECT(state, (value & 8u) != 0u);
+    kinetis_k22_destroy(device);
 }
 
 static void expect_io_irq_levels(TestState* state, KinetisK22* device) {
@@ -748,6 +778,7 @@ int main(void) {
     expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
     expect_fmc_cache(&state);
+    expect_integrated_flash_swap(&state);
     KinetisK22* device = create_device(&state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
     TEST_EXPECT(&state, kinetis_k22_reset(device));
     TEST_EXPECT(&state, kinetis_k22_core_clock_hz(device) == 20971520u);

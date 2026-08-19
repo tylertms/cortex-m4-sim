@@ -74,6 +74,26 @@ run_mutation(
   "!(data_flash && data->flexram_eeprom)" "true"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
+  flash_swap_mapping src/k22_data.c
+  "return address ^ (data->profile->program_flash_size / 2u);" "return address;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_swap_initial_state src/k22_data.c
+  "data->flash_swap_mode = 3u;" "data->flash_swap_mode = 2u;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_swap_erase_transition src/k22_data.c
+  "if (data->flash_swap_mode != 2u)" "if (data->flash_swap_mode == 2u)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_swap_reset_transition src/k22_data.c
+  "if (data->flash_swap_mode == 4u)" "if (data->flash_swap_mode == 3u)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_swap_configuration_guard src/k22_data.c
+  "(address < 0x400u || address >= 0x410u)" "true"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
   flash_protection_range src/k22_data.c "region <= last" "region < last"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(

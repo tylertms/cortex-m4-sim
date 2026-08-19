@@ -69,5 +69,6 @@ void k22_data_dac_trigger(K22Data* data, uint8_t instance);
 void k22_data_rng_seed(K22Data* data, uint32_t seed);
 bool k22_data_set_flash_configuration(K22Data* data, const uint8_t* bytes, size_t size);
 bool k22_data_flash_read(K22Data* data, bool data_flash, uint32_t offset, uint8_t size);
+uint32_t k22_data_program_flash_address(const K22Data* data, uint32_t address);
 
 #endif

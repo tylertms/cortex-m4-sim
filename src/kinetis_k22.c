@@ -116,8 +116,9 @@ static uint8_t fmc_replacement_way(KinetisK22* device, uint8_t set, bool instruc
 
 static uint8_t fmc_source_byte(KinetisK22* device, uint8_t bank, uint32_t offset) {
     if (bank == 0u)
-        return offset < device->configuration.flash_size ? device->flash[offset]
-                                                         : UINT8_MAX;
+        return offset < device->configuration.flash_size
+                   ? device->flash[k22_data_program_flash_address(device->data, offset)]
+                   : UINT8_MAX;
     uint32_t value = UINT32_MAX;
     return k22_data_read(device->data, device->profile->flexnvm_address + offset, 1u,
                          &value)
@@ -197,7 +198,11 @@ static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_
                 *value |= (uint32_t)fmc_cached_byte(device, 0u, address + index, access)
                           << (index * 8u);
         } else {
-            *value = load_little_endian(device->flash + address, size);
+            *value = 0u;
+            for (uint8_t index = 0u; index < size; index++)
+                *value |= (uint32_t)device->flash[k22_data_program_flash_address(
+                              device->data, address + index)]
+                          << (index * 8u);
         }
         return true;
     }
@@ -250,7 +255,9 @@ static bool memory_write_unprotected(KinetisK22* device, uint32_t address, uint8
         if (access != CORTEX_M4_ACCESS_DEBUG) {
             return false;
         }
-        store_little_endian(device->flash + address, size, value);
+        for (uint8_t index = 0u; index < size; index++)
+            device->flash[k22_data_program_flash_address(device->data, address + index)] =
+                (uint8_t)(value >> (index * 8u));
         fmc_invalidate_line(device, 0u, address);
         fmc_invalidate_line(device, 0u, address + size - 1u);
         return true;

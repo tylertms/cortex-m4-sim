@@ -85,6 +85,10 @@ struct K22Data {
     uint8_t flash_busy_banks;
     uint32_t flash_busy_start;
     uint32_t flash_busy_length;
+    uint32_t flash_swap_address;
+    uint8_t flash_swap_mode;
+    uint8_t flash_swap_current_block;
+    uint8_t flash_swap_next_block;
     bool flash_key_blocked;
     bool flash_partitioned;
     bool flexram_eeprom;
@@ -889,12 +893,20 @@ static uint32_t flash_address(const K22Data* data) {
            ((uint32_t)flash_fccob(data, 2u) << 8u) | flash_fccob(data, 3u);
 }
 
+uint32_t k22_data_program_flash_address(const K22Data* data, uint32_t address) {
+    if (data == NULL || data->flash_swap_current_block == 0u ||
+        address >= data->profile->program_flash_size)
+        return address;
+    return address ^ (data->profile->program_flash_size / 2u);
+}
+
 static bool flash_store(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
     bool stored = false;
+    const uint32_t physical_address = k22_data_program_flash_address(data, address);
     if (data->bus.program != NULL)
-        stored = data->bus.program(data->bus.context, address, size, value);
+        stored = data->bus.program(data->bus.context, physical_address, size, value);
     else if (data->bus.write != NULL)
-        stored = data->bus.write(data->bus.context, address, size, value);
+        stored = data->bus.write(data->bus.context, physical_address, size, value);
     if (!stored)
         return false;
     if (address < 0x410u && address + size > 0x400u) {
@@ -1207,6 +1219,77 @@ static bool flash_set_flexram(K22Data* data) {
     return true;
 }
 
+static bool flash_swap_address_valid(const K22Data* data, uint32_t address) {
+    const uint32_t block_size = data->profile->program_flash_size / 2u;
+    return (address & 0x0fu) == 0u && address < block_size &&
+           (address < 0x400u || address >= 0x410u);
+}
+
+static bool flash_swap_program_indicator(K22Data* data, uint8_t block, uint16_t value) {
+    const uint32_t logical_address =
+        data->flash_swap_address + ((uint32_t)(block ^ data->flash_swap_current_block) *
+                                    (data->profile->program_flash_size / 2u));
+    return flash_memory_store(data, logical_address, 2u, value);
+}
+
+static bool flash_swap_control(K22Data* data, uint32_t address, bool* verify_failure) {
+    const uint8_t control = flash_fccob(data, 4u);
+    if (!flash_swap_address_valid(data, address))
+        return false;
+    if (control == 0x08u) {
+        flash_set_fccob(data, 5u, data->flash_swap_mode);
+        flash_set_fccob(data, 6u, data->flash_swap_current_block);
+        flash_set_fccob(data, 7u, data->flash_swap_next_block);
+        return true;
+    }
+    if (control == 0x01u) {
+        if (data->flash_swap_mode != 0u)
+            return false;
+        data->flash_swap_address = address;
+        if (!flash_swap_program_indicator(data, 0u, 0xff00u)) {
+            *verify_failure = true;
+            return true;
+        }
+        data->flash_swap_mode = 3u;
+        data->flash_swap_current_block = 0u;
+        data->flash_swap_next_block = 0u;
+        return true;
+    }
+    if (address != data->flash_swap_address)
+        return false;
+    if (control == 0x02u) {
+        if (data->flash_swap_mode != 1u)
+            return false;
+        if (!flash_swap_program_indicator(data, data->flash_swap_current_block, 0xff00u)) {
+            *verify_failure = true;
+            return true;
+        }
+        data->flash_swap_mode = 2u;
+        return true;
+    }
+    if (control == 0x04u) {
+        if (data->flash_swap_mode != 3u)
+            return false;
+        if (!flash_swap_program_indicator(data, data->flash_swap_current_block, 0u)) {
+            *verify_failure = true;
+            return true;
+        }
+        data->flash_swap_mode = 4u;
+        data->flash_swap_next_block = data->flash_swap_current_block ^ 1u;
+        return true;
+    }
+    return false;
+}
+
+static void flash_swap_erased(K22Data* data, uint32_t start, uint32_t length) {
+    if (data->flash_swap_mode != 2u)
+        return;
+    const uint32_t block_size = data->profile->program_flash_size / 2u;
+    const uint32_t nonactive = data->flash_swap_address + block_size;
+    if (start <= nonactive && nonactive - start < length)
+        data->flash_swap_mode = 3u;
+}
+
 static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {
     switch (command) {
     case 0x00u:
@@ -1272,6 +1355,8 @@ static void flash_execute(K22Data* data) {
             valid && flash_memory_range_protected(data, start, sector_size);
         if (valid && !protection_failure)
             valid = flash_erase(data, start, sector_size);
+        if (valid && !protection_failure)
+            flash_swap_erased(data, start, sector_size);
     } else if (command == 0x08u) {
         bool data_flash = false;
         uint32_t block_size = 0u;
@@ -1283,6 +1368,8 @@ static void flash_execute(K22Data* data) {
         protection_failure = valid && flash_memory_range_protected(data, start, block_size);
         if (valid && !protection_failure)
             valid = flash_erase(data, start, block_size);
+        if (valid && !protection_failure)
+            flash_swap_erased(data, start, block_size);
     } else if (command == 0x44u) {
         protection_failure =
             flash_memory_range_protected(data, 0, data->profile->program_flash_size);
@@ -1302,6 +1389,10 @@ static void flash_execute(K22Data* data) {
                 data->flash[1] = (uint8_t)((data->flash[1] & 0xfcu) |
                                            (data->flexram != NULL ? 0x02u : 0u));
                 data->flash[2] = 0xfeu;
+                data->flash_swap_address = 0u;
+                data->flash_swap_mode = 0u;
+                data->flash_swap_current_block = 0u;
+                data->flash_swap_next_block = 0u;
             }
         }
     } else if (command == 0x00u) {
@@ -1374,11 +1465,8 @@ static void flash_execute(K22Data* data) {
         valid = ftfe && flash_set_flexram(data);
     } else if (command == 0x46u) {
         valid = ftfe && data->profile->flexnvm_size == 0u;
-        if (valid) {
-            flash_set_fccob(data, 5u, 0u);
-            flash_set_fccob(data, 6u, 0u);
-            flash_set_fccob(data, 7u, 0u);
-        }
+        if (valid)
+            valid = flash_swap_control(data, address, &verify_failure);
     } else {
         valid = false;
     }
@@ -1587,6 +1675,10 @@ void k22_data_reset(K22Data* data) {
     data->crc_value = UINT32_MAX;
     data->crc_polynomial = 0x00001021u;
     data->crc_control = 0;
+    if (data->flash_swap_mode == 4u) {
+        data->flash_swap_current_block = data->flash_swap_next_block;
+        data->flash_swap_mode = 1u;
+    }
     memset(data->flash, 0, sizeof(data->flash));
     data->flash[0] = 0x80u;
     data->flash[2] = data->flash_config[0x0c];
@@ -1601,6 +1693,8 @@ void k22_data_reset(K22Data* data) {
         data->flash[1] = eeprom_partitioned ? 0x01u : 0x02u;
         data->flexram_eeprom = eeprom_partitioned;
     }
+    if (data->flash_swap_current_block != 0u)
+        data->flash[1] |= 0x08u;
     data->flash_cycles = 0;
     data->flash_busy_banks = 0u;
     data->flash_busy_start = 0u;

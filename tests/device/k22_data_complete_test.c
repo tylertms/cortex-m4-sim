@@ -956,7 +956,7 @@ static void test_flash_command_semantics(TestState* state) {
     flash_command(state, data, 0x0bu, 0x4000u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
     clear_flash_status(state, data);
-    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 4u, 8u);
     flash_command(state, data, 0x46u, 0x4000u, 40u);
     TEST_EXPECT(state, read_fccob(state, data, 5u) == 0u);
     TEST_EXPECT(state, read_fccob(state, data, 6u) == 0u);
@@ -1160,6 +1160,74 @@ static void test_flash_command_guards(TestState* state) {
     k22_data_destroy(data);
 }
 
+static void test_flash_swap_lifecycle(TestState* state) {
+    TestBus bus;
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    K22Data* data = create(state, &bus, K22_PROFILE_MK22FN1M012);
+
+    write_fccob(state, data, 4u, 8u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 5u) == 0u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 0u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 0u);
+
+    write_fccob(state, data, 4u, 1u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x21u) == 0u);
+    TEST_EXPECT(state, bus.flash[0x1000u] == 0u);
+    TEST_EXPECT(state, bus.flash[0x1001u] == 0xffu);
+    write_fccob(state, data, 4u, 8u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 5u) == 3u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 0u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 0u);
+
+    write_fccob(state, data, 4u, 4u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, bus.flash[0x1000u] == 0u);
+    TEST_EXPECT(state, bus.flash[0x1001u] == 0u);
+    k22_data_reset(data);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 8u) != 0u);
+    TEST_EXPECT(state, k22_data_program_flash_address(data, 0x20u) == 0x80020u);
+    TEST_EXPECT(state, k22_data_program_flash_address(data, 0x80020u) == 0x20u);
+    write_fccob(state, data, 4u, 8u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 5u) == 1u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 1u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 1u);
+
+    write_fccob(state, data, 4u, 2u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, bus.flash[0x81000u] == 0u);
+    TEST_EXPECT(state, bus.flash[0x81001u] == 0xffu);
+    flash_command(state, data, 0x09u, 0x81000u, 2000u);
+    write_fccob(state, data, 4u, 8u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 5u) == 3u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 1u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 1u);
+    write_fccob(state, data, 4u, 4u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, bus.flash[0x81000u] == 0u);
+    TEST_EXPECT(state, bus.flash[0x81001u] == 0u);
+    k22_data_reset(data);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 8u) == 0u);
+    TEST_EXPECT(state, k22_data_program_flash_address(data, 0x20u) == 0x20u);
+
+    write_fccob(state, data, 4u, 1u);
+    flash_command(state, data, 0x46u, 0x1000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 8u);
+    flash_command(state, data, 0x46u, 0x1001u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x46u, 0x400u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    k22_data_destroy(data);
+}
+
 static void test_flash_partition_codes(TestState* state) {
     static const struct {
         uint8_t code;
@@ -1214,6 +1282,7 @@ int main(void) {
     test_flash_commands_and_failures(&state);
     test_flash_command_semantics(&state);
     test_flash_command_guards(&state);
+    test_flash_swap_lifecycle(&state);
     test_flash_partition_codes(&state);
     return test_finish(&state);
 }
