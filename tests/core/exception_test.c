@@ -34,6 +34,20 @@ int main(void) {
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x102u);
 
+    const uint16_t stack_handler[] = {0xb500u, 0x2055u, 0xbd00u};
+    TEST_EXPECT(&state,
+                kinetis_k22_load(device, 0x200, stack_handler, sizeof(stack_handler)));
+    TEST_EXPECT(&state, kinetis_k22_reset(device));
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e100u, 4, 1));
+    cortex_m4_set_irq(cpu, 0, true);
+    cortex_m4_step(cpu);
+    cortex_m4_step(cpu);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x100u);
+    TEST_EXPECT(&state, !cortex_m4_get_irq_active(cpu, 0));
+    TEST_EXPECT(&state, cortex_m4_get_fault_status(cpu) == 0);
+    TEST_EXPECT(&state, kinetis_k22_load(device, 0x200, handler, sizeof(handler)));
+
     const uint16_t it_program[] = {0x2000u, 0x2801u, 0xbf08u, 0x3101u, 0xbe00u};
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, it_program, sizeof(it_program)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
