@@ -1,6 +1,6 @@
 #include "cortex_m4_internal.h"
 
-static bool stack_or_pc(uint8_t index) { return index >= 13u; }
+static bool is_sp_or_pc(uint8_t index) { return index == 13u || index == 15u; }
 
 static uint8_t register_count(uint16_t registers) {
     uint8_t count = 0;
@@ -122,26 +122,26 @@ static bool invalid_shifted_register(uint16_t first, uint16_t second) {
     const bool comparison =
         operation == 0u || operation == 4u || operation == 8u || operation == 13u;
     const bool source_alias = operation == 2u || operation == 3u;
-    return stack_or_pc(shifted) || destination == 13u ||
+    return is_sp_or_pc(shifted) || destination == 13u ||
            (destination == 15u && (!set_flags || !comparison)) ||
-           (stack_or_pc(source) && !(source == 15u && source_alias));
+           (is_sp_or_pc(source) && !(source == 15u && source_alias));
 }
 
 static bool invalid_plain_register_operation(uint16_t first, uint16_t second) {
     if ((first & 0xff80u) == 0xfa00u && (second & 0xf0c0u) == 0xf000u) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)((second >> 8) & 15u)) ||
-               stack_or_pc((uint8_t)(second & 15u));
+        return is_sp_or_pc((uint8_t)(first & 15u)) ||
+               is_sp_or_pc((uint8_t)((second >> 8) & 15u)) ||
+               is_sp_or_pc((uint8_t)(second & 15u));
     }
     if (((first & 0xfff0u) == 0xfab0u && (second & 0xf0f0u) == 0xf080u) ||
         ((first & 0xfff0u) == 0xfa90u && (second & 0xf0f0u) == 0xf0a0u)) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)((second >> 8) & 15u));
+        return is_sp_or_pc((uint8_t)(first & 15u)) ||
+               is_sp_or_pc((uint8_t)((second >> 8) & 15u));
     }
     if (((first & 0xfbd0u) == 0xf300u || (first & 0xfbd0u) == 0xf380u) &&
         (second & 0x8000u) == 0) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)((second >> 8) & 15u));
+        return is_sp_or_pc((uint8_t)(first & 15u)) ||
+               is_sp_or_pc((uint8_t)((second >> 8) & 15u));
     }
     return false;
 }
@@ -156,7 +156,7 @@ static bool invalid_bitfield(uint16_t first, uint16_t second) {
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t least_bit =
         (uint8_t)((((second >> 12) & 7u) << 2) | ((second >> 6) & 3u));
-    if (stack_or_pc(destination) || (operation != 0xf360u && stack_or_pc(source)) ||
+    if (is_sp_or_pc(destination) || (operation != 0xf360u && is_sp_or_pc(source)) ||
         (operation == 0xf360u && source == 13u)) {
         return true;
     }
@@ -169,24 +169,24 @@ static bool invalid_bitfield(uint16_t first, uint16_t second) {
 static bool invalid_divide_or_multiply(uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if ((operation == 0xfbb0u || operation == 0xfb90u) && (second & 0xf0f0u) == 0xf0f0u) {
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)((second >> 8) & 15u)) ||
-               stack_or_pc((uint8_t)(second & 15u));
+        return is_sp_or_pc((uint8_t)(first & 15u)) ||
+               is_sp_or_pc((uint8_t)((second >> 8) & 15u)) ||
+               is_sp_or_pc((uint8_t)(second & 15u));
     }
     if (operation == 0xfb00u && (second & 0x00f0u) == 0) {
         const uint8_t accumulator = (uint8_t)(second >> 12);
-        return stack_or_pc((uint8_t)(first & 15u)) ||
-               stack_or_pc((uint8_t)((second >> 8) & 15u)) ||
-               stack_or_pc((uint8_t)(second & 15u)) ||
-               (accumulator != 15u && stack_or_pc(accumulator));
+        return is_sp_or_pc((uint8_t)(first & 15u)) ||
+               is_sp_or_pc((uint8_t)((second >> 8) & 15u)) ||
+               is_sp_or_pc((uint8_t)(second & 15u)) ||
+               (accumulator != 15u && is_sp_or_pc(accumulator));
     }
     if ((operation == 0xfba0u || operation == 0xfb80u || operation == 0xfbe0u ||
          operation == 0xfbc0u) &&
         (second & 0x00f0u) == 0) {
         const uint8_t low = (uint8_t)(second >> 12);
         const uint8_t high = (uint8_t)((second >> 8) & 15u);
-        return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc(low) ||
-               stack_or_pc(high) || stack_or_pc((uint8_t)(second & 15u)) || low == high;
+        return is_sp_or_pc((uint8_t)(first & 15u)) || is_sp_or_pc(low) ||
+               is_sp_or_pc(high) || is_sp_or_pc((uint8_t)(second & 15u)) || low == high;
     }
     return false;
 }
@@ -204,7 +204,7 @@ static bool invalid_doubleword(uint16_t first, uint16_t second) {
     const uint8_t first_target = (uint8_t)(second >> 12);
     const uint8_t second_target = (uint8_t)((second >> 8) & 15u);
     const bool literal = load && base == 15u && pre_index && add && !write_back;
-    return stack_or_pc(first_target) || stack_or_pc(second_target) ||
+    return is_sp_or_pc(first_target) || is_sp_or_pc(second_target) ||
            first_target == second_target || (base == 15u && !literal) ||
            (write_back && (base == first_target || base == second_target));
 }
@@ -232,23 +232,23 @@ static bool invalid_multiple(uint16_t first, uint16_t second) {
 static bool invalid_exclusive(uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if (operation == 0xe850u && (second & 0x0f00u) == 0x0f00u) {
-        return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc((uint8_t)(second >> 12));
+        return is_sp_or_pc((uint8_t)(first & 15u)) || is_sp_or_pc((uint8_t)(second >> 12));
     }
     if (operation == 0xe840u && (second & 0x0800u) == 0) {
         const uint8_t base = (uint8_t)(first & 15u);
         const uint8_t target = (uint8_t)(second >> 12);
         const uint8_t status = (uint8_t)((second >> 8) & 15u);
-        return stack_or_pc(base) || stack_or_pc(target) || stack_or_pc(status) ||
+        return is_sp_or_pc(base) || is_sp_or_pc(target) || is_sp_or_pc(status) ||
                status == base || status == target;
     }
     if (operation == 0xe8d0u && (second & 0x0f0fu) == 0x0f0fu) {
-        return stack_or_pc((uint8_t)(first & 15u)) || stack_or_pc((uint8_t)(second >> 12));
+        return is_sp_or_pc((uint8_t)(first & 15u)) || is_sp_or_pc((uint8_t)(second >> 12));
     }
     if (operation == 0xe8c0u && (second & 0x0f00u) == 0x0f00u) {
         const uint8_t base = (uint8_t)(first & 15u);
         const uint8_t target = (uint8_t)(second >> 12);
         const uint8_t status = (uint8_t)(second & 15u);
-        return stack_or_pc(base) || stack_or_pc(target) || stack_or_pc(status) ||
+        return is_sp_or_pc(base) || is_sp_or_pc(target) || is_sp_or_pc(status) ||
                status == base || status == target;
     }
     return false;
@@ -287,10 +287,10 @@ static bool invalid_memory(uint16_t first, uint16_t second) {
     }
     if ((second & 0x0fc0u) == 0) {
         const uint8_t index = (uint8_t)(second & 15u);
-        return stack_or_pc(index) || (target == 15u && !word);
+        return is_sp_or_pc(index) || (target == 15u && !word);
     }
     if ((second & 0x0f00u) == 0x0e00u) {
-        return stack_or_pc(target);
+        return is_sp_or_pc(target);
     }
     if ((second & 0x0800u) == 0) {
         return true;
@@ -303,10 +303,10 @@ static bool invalid_memory(uint16_t first, uint16_t second) {
 
 static bool invalid_system_encoding(uint16_t first, uint16_t second) {
     if (first == 0xf3efu && (second & 0xf000u) == 0x8000u) {
-        return stack_or_pc((uint8_t)((second >> 8) & 15u));
+        return is_sp_or_pc((uint8_t)((second >> 8) & 15u));
     }
     if ((first & 0xfff0u) == 0xf380u && (second & 0xff00u) == 0x8800u) {
-        return stack_or_pc((uint8_t)(first & 15u));
+        return is_sp_or_pc((uint8_t)(first & 15u));
     }
     if (first == 0xf3bfu && (second & 0xff0fu) == 0x8f0fu) {
         const uint8_t operation = (uint8_t)((second >> 4) & 15u);
@@ -317,14 +317,14 @@ static bool invalid_system_encoding(uint16_t first, uint16_t second) {
 
 static bool invalid_wide_registers(uint16_t first, uint16_t second) {
     if ((first & 0xfbf0u) == 0xf240u || (first & 0xfbf0u) == 0xf2c0u) {
-        return stack_or_pc((uint8_t)((second >> 8) & 15u));
+        return is_sp_or_pc((uint8_t)((second >> 8) & 15u));
     }
     if (((first & 0xfbf0u) == 0xf200u || (first & 0xfbf0u) == 0xf2a0u) &&
         (second & 0x8000u) == 0) {
         return ((second >> 8) & 15u) == 15u;
     }
     if ((first & 0xfff0u) == 0xe8d0u && (second & 0xffe0u) == 0xf000u) {
-        return stack_or_pc((uint8_t)(second & 15u));
+        return is_sp_or_pc((uint8_t)(second & 15u));
     }
     return false;
 }

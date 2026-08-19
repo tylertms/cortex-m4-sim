@@ -66,6 +66,12 @@ int main(void) {
     execute(&state, device);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 2) == 0xffffff07u);
 
+    load_instruction(&state, device, 0xeb14u, 0x045cu);
+    cortex_m4_set_register(cpu, 4, 5);
+    cortex_m4_set_register(cpu, 12, 8);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 4) == 9);
+
     const uint32_t address = 0x20000020u;
     const uint16_t exclusive_program[] = {0xe851u, 0x0f00u, 0xe841u, 0x3200u, 0xbe00u};
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, exclusive_program,
