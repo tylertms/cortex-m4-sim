@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "kinetis_k22_internal.h"
+#include "k22_test.h"
 #include "test.h"
 
 enum {
@@ -632,6 +633,7 @@ static void expect_reset_domains(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, write16(device, WDOG_TOVALH, 0));
     TEST_EXPECT(state, write16(device, WDOG_TOVALL, 1));
     TEST_EXPECT(state, write16(device, WDOG_STCTRLH, 1));
+    kinetis_k22_advance(device, k22_test_core_cycles_for_bus_cycles(device, 260u));
     kinetis_k22_watchdog_advance(device, 1);
 
     uint32_t value = 0;
@@ -650,6 +652,7 @@ static void expect_reset_domains(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, write16(device, WDOG_TOVALH, 0u));
     TEST_EXPECT(state, write16(device, WDOG_TOVALL, 1u));
     TEST_EXPECT(state, write16(device, WDOG_STCTRLH, 5u));
+    kinetis_k22_advance(device, k22_test_core_cycles_for_bus_cycles(device, 260u));
     kinetis_k22_watchdog_advance(device, 1u);
     TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 22u));
 }

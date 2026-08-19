@@ -189,6 +189,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_k22_timing_complete tests/device/k22_timing_complete_test.c
     "device;integration")
   cortex_m4_add_test(
+    device_k22_watchdog_complete tests/device/k22_watchdog_complete_test.c
+    "device;integration")
+  cortex_m4_add_test(
     device_k22_ftm_synchronization tests/device/k22_ftm_synchronization_test.c
     "device;integration")
   cortex_m4_add_test(device_k22_ftm_combine tests/device/k22_ftm_combine_test.c

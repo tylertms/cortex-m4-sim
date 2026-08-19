@@ -146,6 +146,8 @@ bool kinetis_k22_trigger_low_voltage_warning(KinetisK22* device);
 bool kinetis_k22_trigger_low_voltage_detect(KinetisK22* device);
 bool kinetis_k22_set_llwu_pin(KinetisK22* device, uint8_t pin, bool high);
 bool kinetis_k22_trigger_llwu_module(KinetisK22* device, uint8_t module);
+bool kinetis_k22_set_ewm_input(KinetisK22* device, bool high);
+bool kinetis_k22_ewm_output(const KinetisK22* device);
 bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,
                                bool high);
 bool kinetis_k22_set_ftm_fault(KinetisK22* device, uint8_t instance, uint8_t input,

@@ -118,6 +118,7 @@ typedef struct {
     uint8_t smc[4];
     uint8_t smc_run_status;
     bool cpu_sleeping;
+    bool deep_sleeping;
     bool llwu_pin_level[16];
     uint8_t rcm[10];
     uint32_t pit_mcr;
@@ -153,17 +154,41 @@ typedef struct {
     uint64_t pdb_remainder;
     K22FtmState ftm[4];
     uint16_t wdog[12];
+    uint16_t wdog_pending[12];
     uint32_t wdog_counter;
-    uint16_t wdog_unlock_stage;
-    uint16_t wdog_refresh_stage;
+    uint32_t wdog_update_mask;
+    uint8_t wdog_unlock_stage;
+    uint8_t wdog_refresh_stage;
     uint64_t wdog_remainder;
+    uint64_t wdog_bus_remainder;
+    uint64_t wdog_bus_cycles;
+    uint64_t wdog_sequence_deadline;
+    uint64_t wdog_update_ready;
+    uint64_t wdog_update_deadline;
+    uint64_t wdog_reset_deadline;
+    uint64_t wdog_initial_debug_remaining;
+    bool wdog_initial_unlock_required;
+    bool wdog_initial_debug_pause;
+    bool wdog_update_open;
+    bool wdog_update_written;
+    bool wdog_reset_pending;
     uint8_t ewm_ctrl;
     uint8_t ewm_cmpl;
     uint8_t ewm_cmph;
     uint8_t ewm_prescaler;
     uint8_t ewm_service_stage;
+    bool ewm_control_written;
+    bool ewm_cmpl_written;
+    bool ewm_cmph_written;
+    bool ewm_prescaler_written;
+    bool ewm_input;
+    bool ewm_output;
     uint32_t ewm_counter;
     uint64_t ewm_remainder;
+    uint64_t ewm_service_deadline;
+    uint64_t ewm_service_remaining;
+    bool ewm_service_paused;
+    uint64_t reset_generation;
 } K22Timing;
 
 bool k22_timing_init(K22Timing* timing, const K22Profile* profile,
@@ -178,7 +203,10 @@ bool k22_timing_trigger_low_voltage_warning(K22Timing* timing);
 bool k22_timing_trigger_low_voltage_detect(K22Timing* timing);
 bool k22_timing_set_llwu_pin(K22Timing* timing, uint8_t pin, bool high);
 bool k22_timing_trigger_llwu_module(K22Timing* timing, uint8_t module);
-void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping);
+void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping, bool deep_sleep);
+bool k22_timing_set_ewm_input(K22Timing* timing, bool high);
+bool k22_timing_ewm_output(const K22Timing* timing);
+void k22_timing_watchdog_advance(K22Timing* timing, uint32_t ticks);
 bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
                               bool high);
 bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,

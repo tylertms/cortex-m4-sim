@@ -567,22 +567,8 @@ void kinetis_k22_advance(KinetisK22* device, uint32_t cycles) {
 }
 
 void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks) {
-    if (device == NULL || ticks == 0 || (device->timing.wdog[0] & 1u) == 0) {
-        return;
-    }
-    const uint32_t timeout =
-        ((uint32_t)device->timing.wdog[2] << 16u) | device->timing.wdog[3];
-    if (timeout == 0 || device->timing.wdog_counter >= timeout ||
-        ticks >= timeout - device->timing.wdog_counter) {
-        if ((device->timing.wdog[0] & 4u) != 0) {
-            cortex_m4_set_irq(device->cpu, 22, true);
-            device->timing.wdog_counter = 0;
-        } else {
-            kinetis_k22_warm_reset(device, 0x20u, 0);
-        }
-    } else {
-        device->timing.wdog_counter += ticks;
-    }
+    if (device != NULL)
+        k22_timing_watchdog_advance(&device->timing, ticks);
 }
 
 uint32_t kinetis_k22_core_clock_hz(const KinetisK22* device) {

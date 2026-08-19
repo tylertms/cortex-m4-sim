@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "test.h"
+#include "k22_test.h"
 
 enum {
     AIPS0_PACRI = 0x40000050u,
@@ -51,6 +52,7 @@ static KinetisK22* create_device(TestState* state) {
     TEST_EXPECT(state, kinetis_k22_load(device, 0u, vectors, sizeof(vectors)));
     TEST_EXPECT(state, kinetis_k22_load(device, 0x100u, &program, sizeof(program)));
     TEST_EXPECT(state, kinetis_k22_reset(device));
+    TEST_EXPECT(state, k22_test_disable_watchdog(device));
     return device;
 }
 
@@ -255,6 +257,7 @@ static void test_retention(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, read32(state, device, RFSYS_REG0) == 0u);
     TEST_EXPECT(state, kinetis_k22_reset(device));
     TEST_EXPECT(state, read32(state, device, RFVBAT_REG0) == 0u);
+    TEST_EXPECT(state, k22_test_disable_watchdog(device));
 }
 
 int main(void) {

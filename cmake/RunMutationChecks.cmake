@@ -679,3 +679,78 @@ run_mutation(
   "if (ftm_quadrature_enabled(ftm) && channel < 2u) {"
   "if (false && channel < 2u) {"
   cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  wdog_initial_window src/k22_timing.c
+  "timing->wdog_update_deadline = 256u;"
+  "timing->wdog_update_deadline = 255u;"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_unlock_sequence_window src/k22_timing.c
+  "timing->wdog_sequence_deadline = timing->wdog_bus_cycles + 20u;\n        return;"
+  "timing->wdog_sequence_deadline = timing->wdog_bus_cycles + 19u;\n        return;"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_window_boundary src/k22_timing.c
+  "timing->wdog_counter < window)"
+  "timing->wdog_counter <= window)"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_initial_debug_window src/k22_timing.c
+  "timing->wdog_initial_unlock_required && !timing->wdog_initial_debug_pause &&"
+  "timing->wdog_initial_unlock_required && timing->wdog_initial_debug_pause &&"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_test_disable src/k22_timing.c
+  "(timing->wdog[0] & 0x4c00u) != 0x0c00u"
+  "(timing->wdog[0] & 0x0c00u) != 0x0c00u"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_prescaler_mask src/k22_timing.c
+  "timing->wdog[11] &= 0x0700u;"
+  "timing->wdog[11] &= 0x07ffu;"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_timer_output src/k22_timing.c
+  "register_value = (uint16_t)timing->wdog_counter;"
+  "register_value = timing->wdog[index];"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  wdog_reset_count src/k22_timing.c
+  "(uint16_t)(wdog_reset_count + 1u)"
+  "(uint16_t)(wdog_reset_count + 2u)"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_service_window src/k22_timing.c
+  "timing->ewm_service_deadline = timing->wdog_bus_cycles + 15u;"
+  "timing->ewm_service_deadline = timing->wdog_bus_cycles + 14u;"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_sleep_pause src/k22_timing.c
+  "timing->ewm_output || timing->cpu_sleeping)"
+  "timing->ewm_output)"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_service_pause src/k22_timing.c
+  "timing->wdog_bus_cycles + timing->ewm_service_remaining;"
+  "timing->wdog_bus_cycles + timing->ewm_service_remaining - 1u;"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_high_boundary src/k22_timing.c
+  "timing->ewm_counter >= timing->ewm_cmph)"
+  "timing->ewm_counter > timing->ewm_cmph)"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_low_boundary src/k22_timing.c
+  "timing->ewm_counter > timing->ewm_cmpl &&"
+  "timing->ewm_counter >= timing->ewm_cmpl &&"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_input_polarity src/k22_timing.c
+  "timing->ewm_input ==\n                                            ((timing->ewm_ctrl & 2u) != 0u);"
+  "timing->ewm_input !=\n                                            ((timing->ewm_ctrl & 2u) != 0u);"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  ewm_output_latch src/k22_timing.c
+  "timing->ewm_output = true;\n    update_watchdog_irq(timing);"
+  "timing->ewm_output = false;\n    update_watchdog_irq(timing);"
+  cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)

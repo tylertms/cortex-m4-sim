@@ -895,8 +895,9 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
 }
 
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
-    k22_timing_set_cpu_sleeping(&device->timing,
-                                device->cpu != NULL && device->cpu->sleeping);
+    k22_timing_set_cpu_sleeping(
+        &device->timing, device->cpu != NULL && device->cpu->sleeping,
+        device->cpu != NULL && (device->cpu->scr & 4u) != 0u);
     k22_timing_set_debug_halted(&device->timing,
                                 device->cpu != NULL && device->cpu->debug.halted);
     k22_data_set_debug_halted(device->data,
@@ -959,6 +960,14 @@ bool kinetis_k22_set_llwu_pin(KinetisK22* device, uint8_t pin, bool high) {
 
 bool kinetis_k22_trigger_llwu_module(KinetisK22* device, uint8_t module) {
     return device != NULL && k22_timing_trigger_llwu_module(&device->timing, module);
+}
+
+bool kinetis_k22_set_ewm_input(KinetisK22* device, bool high) {
+    return device != NULL && k22_timing_set_ewm_input(&device->timing, high);
+}
+
+bool kinetis_k22_ewm_output(const KinetisK22* device) {
+    return device != NULL && k22_timing_ewm_output(&device->timing);
 }
 
 bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,

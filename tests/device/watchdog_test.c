@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "test.h"
+#include "k22_test.h"
 
 enum {
     WDOG_STCTRLH = 0x40052000u,
@@ -84,6 +85,7 @@ static void configure(TestState* state, KinetisK22* device, uint16_t timeout,
     write16(state, device, WDOG_TOVALH, 0);
     write16(state, device, WDOG_TOVALL, timeout);
     write16(state, device, WDOG_STCTRLH, enabled ? 1u : 0u);
+    kinetis_k22_advance(device, k22_test_core_cycles_for_bus_cycles(device, 260u));
 }
 
 int main(void) {

@@ -182,6 +182,14 @@ static uint32_t cycles_for_ticks(const K22Timing* timing, uint32_t ticks,
     return (uint32_t)(((uint64_t)timing->core_clock_hz * ticks + clock_hz - 1u) / clock_hz);
 }
 
+static void disable_watchdog_fixture(K22Timing* timing) {
+    timing->wdog[0] = 0u;
+    timing->wdog_pending[0] = 0u;
+    timing->wdog_initial_unlock_required = false;
+    timing->wdog_update_open = false;
+    timing->wdog_reset_pending = false;
+}
+
 static void test_profiles_and_reset(TestState* state) {
     for (K22ProfileId id = 0; id < K22_PROFILE_COUNT; id++) {
         K22Timing timing;
@@ -277,9 +285,14 @@ static void test_low_voltage_control(TestState* state, K22Timing* timing,
 
 static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
                                     Observations* observations) {
+    k22_timing_set_cpu_sleeping(timing, true, true);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 2u);
+    k22_timing_set_cpu_sleeping(timing, false, false);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 1u);
+
     expect_write(state, timing, SMC_PMPROT, 1u, 0x0au);
     expect_write(state, timing, SMC_PMCTRL, 1u, 3u);
-    k22_timing_set_cpu_sleeping(timing, true);
+    k22_timing_set_cpu_sleeping(timing, true, true);
     expect_read(state, timing, SMC_PMSTAT, 1u, 0x20u);
     expect_write(state, timing, LLWU_PE1, 1u, 1u);
     TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 0u, false));
@@ -288,11 +301,11 @@ static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
     TEST_EXPECT(state, observations->irq[21u]);
     expect_write(state, timing, LLWU_F1, 1u, 1u);
     TEST_EXPECT(state, !observations->irq[21u]);
-    k22_timing_set_cpu_sleeping(timing, false);
+    k22_timing_set_cpu_sleeping(timing, false, false);
     expect_read(state, timing, SMC_PMSTAT, 1u, 1u);
 
     expect_write(state, timing, LLWU_FILT1, 1u, 0x22u);
-    k22_timing_set_cpu_sleeping(timing, true);
+    k22_timing_set_cpu_sleeping(timing, true, true);
     TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 2u, false));
     TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 2u, true));
     expect_read(state, timing, LLWU_FILT1, 1u, 0xa2u);
@@ -306,7 +319,7 @@ static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
     expect_write(state, timing, SMC_PMPROT, 1u, 8u);
     expect_write(state, timing, SMC_PMCTRL, 1u, 3u);
     expect_write(state, timing, LLWU_ME, 1u, 8u);
-    k22_timing_set_cpu_sleeping(timing, true);
+    k22_timing_set_cpu_sleeping(timing, true, true);
     TEST_EXPECT(state, k22_timing_trigger_llwu_module(timing, 3u));
     expect_read(state, timing, LLWU_F3, 1u, 8u);
     TEST_EXPECT(state, observations->irq[21u]);
@@ -326,9 +339,9 @@ static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
     memset(observations, 0, sizeof(*observations));
     expect_write(state, timing, SMC_PMPROT, 1u, 0x20u);
     expect_write(state, timing, SMC_PMCTRL, 1u, 2u);
-    k22_timing_set_cpu_sleeping(timing, true);
+    k22_timing_set_cpu_sleeping(timing, true, true);
     expect_read(state, timing, SMC_PMSTAT, 1u, 0x10u);
-    k22_timing_set_cpu_sleeping(timing, false);
+    k22_timing_set_cpu_sleeping(timing, false, false);
     expect_read(state, timing, SMC_PMSTAT, 1u, 1u);
 
     k22_timing_reset(timing, 0x82u, 0u);
@@ -336,7 +349,7 @@ static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
     expect_write(state, timing, SMC_PMPROT, 1u, 2u);
     expect_write(state, timing, SMC_PMCTRL, 1u, 4u);
     expect_write(state, timing, LLWU_PE1, 1u, 4u);
-    k22_timing_set_cpu_sleeping(timing, true);
+    k22_timing_set_cpu_sleeping(timing, true, true);
     expect_read(state, timing, SMC_PMSTAT, 1u, 0x40u);
     TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 1u, true));
     TEST_EXPECT(state, observations->resets == 1u);
@@ -346,7 +359,7 @@ static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
     TEST_EXPECT(state, !k22_timing_set_llwu_pin(timing, 16u, false));
     TEST_EXPECT(state, !k22_timing_trigger_llwu_module(NULL, 0u));
     TEST_EXPECT(state, !k22_timing_trigger_llwu_module(timing, 8u));
-    k22_timing_set_cpu_sleeping(NULL, true);
+    k22_timing_set_cpu_sleeping(NULL, true, true);
 }
 
 static void test_pit(TestState* state, K22Timing* timing, Observations* observations) {
@@ -599,6 +612,7 @@ static void test_rtc_protection_and_compensation(TestState* state,
     K22Timing timing;
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    disable_watchdog_fixture(&timing);
     expect_write(state, &timing, RTC_TSR, 4, 1u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
     k22_timing_advance(&timing, timing.core_clock_hz);
@@ -879,6 +893,7 @@ static void test_ftm_input_capture(TestState* state, const K22Profile* profile) 
     Observations observations = {0};
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    disable_watchdog_fixture(&timing);
     expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 24u));
     expect_write(state, &timing, FTM0_CNTIN, 4, 5u);
     expect_write(state, &timing, FTM0_MOD, 4, 100u);
@@ -939,6 +954,7 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     Observations observations = {0};
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    disable_watchdog_fixture(&timing);
     expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 24u));
     expect_write(state, &timing, FTM0_MOD, 4, 5u);
     expect_write(state, &timing, FTM0_C0V, 4, 3u);
@@ -1147,6 +1163,7 @@ static void test_watchdogs(TestState* state, K22Timing* timing,
     expect_write(state, timing, WDOG_TOVALL, 2, 3u);
     expect_write(state, timing, WDOG_PRESC, 2, 0);
     expect_write(state, timing, WDOG_STCTRLH, 2, 1u);
+    k22_timing_advance(timing, cycles_for_ticks(timing, 260u, timing->bus_clock_hz));
     k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
     expect_write(state, timing, WDOG_REFRESH, 2, 0xa602u);
     expect_write(state, timing, WDOG_REFRESH, 2, 0xb480u);
@@ -1156,15 +1173,23 @@ static void test_watchdogs(TestState* state, K22Timing* timing,
     TEST_EXPECT(state, observations->resets == 1u);
     TEST_EXPECT(state, observations->last_srs0 == 0x20u);
     expect_read(state, timing, RCM_SRS0, 1, 0x20u);
+    expect_read(state, timing, WDOG_STCTRLH + 0x14u, 2, 1u);
+    disable_watchdog_fixture(timing);
+    TEST_EXPECT(state, k22_timing_ewm_output(timing));
     expect_write(state, timing, EWM_CMPL, 1, 1u);
     expect_write(state, timing, EWM_CMPH, 1, 3u);
-    expect_write(state, timing, EWM_CTRL, 1, 1u);
+    expect_write(state, timing, EWM_CTRL, 1, 9u);
+    TEST_EXPECT(state, !k22_timing_ewm_output(timing));
     k22_timing_advance(timing, cycles_for_ticks(timing, 2u, 1000u));
     expect_write(state, timing, EWM_SERV, 1, 0xb4u);
     expect_write(state, timing, EWM_SERV, 1, 0x2cu);
-    k22_timing_advance(timing, cycles_for_ticks(timing, 4u, 1000u));
-    TEST_EXPECT(state, observations->resets == 2u);
-    TEST_EXPECT(state, observations->last_srs1 == 2u);
+    TEST_EXPECT(state, !k22_timing_ewm_output(timing));
+    k22_timing_advance(timing, cycles_for_ticks(timing, 3u, 1000u));
+    TEST_EXPECT(state, k22_timing_ewm_output(timing));
+    TEST_EXPECT(state, observations->irq[22u]);
+    TEST_EXPECT(state, observations->resets == 1u);
+    expect_write(state, timing, EWM_CTRL, 1, 1u);
+    TEST_EXPECT(state, !observations->irq[22u]);
 }
 
 static void test_copy_and_split_advance(TestState* state, const K22Profile* profile) {
@@ -1174,6 +1199,7 @@ static void test_copy_and_split_advance(TestState* state, const K22Profile* prof
     K22Timing second;
     TEST_EXPECT(state, k22_timing_init(&first, profile, 8000000u, 32768u,
                                        signals(&first_observations)));
+    disable_watchdog_fixture(&first);
     expect_write(state, &first, SIM_SCGC6, 4, first.sim_scgc6 | (1u << 23u));
     expect_write(state, &first, PIT_MCR, 4, 0);
     expect_write(state, &first, PIT_LDVAL0, 4, 6u);
@@ -1189,6 +1215,7 @@ static void test_copy_and_split_advance(TestState* state, const K22Profile* prof
     TEST_EXPECT(state, first.elapsed_core_cycles == second.elapsed_core_cycles);
 
     k22_timing_reset(&first, 0x82u, 0u);
+    disable_watchdog_fixture(&first);
     expect_write(state, &first, SIM_SCGC5, 4, first.sim_scgc5 | 1u);
     expect_write(state, &first, LPTMR_PSR, 4, 9u);
     expect_write(state, &first, LPTMR_CMR, 4, 4u);
@@ -1341,7 +1368,8 @@ static void test_watchdog_surface(TestState* state, K22Timing* timing,
                         k22_timing_read(timing, EWM_CTRL + offset, 1, &(uint32_t){0}));
     }
     expect_write(state, timing, EWM_SERV, 1, 0);
-    TEST_EXPECT(state, observations->resets != 0);
+    TEST_EXPECT(state, observations->resets == 0u);
+    TEST_EXPECT(state, k22_timing_ewm_output(timing));
 }
 
 static void test_register_surface(TestState* state, const K22Profile* profile) {
@@ -1349,12 +1377,16 @@ static void test_register_surface(TestState* state, const K22Profile* profile) {
     Observations observations = {0};
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    disable_watchdog_fixture(&timing);
     test_sim_surface(state, &timing);
     k22_timing_reset(&timing, 0x82u, 0);
+    disable_watchdog_fixture(&timing);
     test_control_surface(state, &timing, &observations);
     k22_timing_reset(&timing, 0x82u, 0);
+    disable_watchdog_fixture(&timing);
     test_timer_register_surface(state, &timing);
     k22_timing_reset(&timing, 0x82u, 0);
+    disable_watchdog_fixture(&timing);
     test_ftm_surface(state, &timing);
     k22_timing_reset(&timing, 0x82u, 0);
     test_watchdog_surface(state, &timing, &observations);
@@ -1365,6 +1397,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     Observations observations = {0};
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    disable_watchdog_fixture(&timing);
     timing.external_oscillator_hz = 0u;
     expect_write(state, &timing, MCG_C1, 1, 0x80u);
     TEST_EXPECT(state, k22_timing_core_clock_hz(&timing) == timing.slow_irc_hz);
@@ -1406,6 +1439,8 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, WDOG_WINH, 2, 0u);
     expect_write(state, &timing, WDOG_WINL, 2, 2u);
     expect_write(state, &timing, WDOG_STCTRLH, 2, 9u);
+    k22_timing_advance(&timing,
+                       cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
     expect_write(state, &timing, WDOG_REFRESH, 2, 0xa602u);
     expect_write(state, &timing, WDOG_REFRESH, 2, 0xb480u);
     TEST_EXPECT(state, observations.resets == 1u);
@@ -1415,6 +1450,8 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, WDOG_TOVALL, 2, 1u);
     expect_write(state, &timing, WDOG_PRESC, 2, 0);
     expect_write(state, &timing, WDOG_STCTRLH, 2, 5u);
+    k22_timing_advance(&timing,
+                       cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
     k22_timing_advance(&timing, cycles_for_ticks(&timing, 1u, 1000u));
     TEST_EXPECT(state, observations.irq[22]);
     k22_timing_reset(&timing, 0x82u, 0);
@@ -1429,8 +1466,9 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     TEST_EXPECT(state, !k22_timing_read(&timing, FTM0_SC, 2, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(&timing, FTM0_SC, 2, 0));
     TEST_EXPECT(state, !k22_timing_read(&timing, FTM0_SC + 0x9cu, 4, &(uint32_t){0}));
-    TEST_EXPECT(state, !k22_timing_read(&timing, WDOG_STCTRLH, 1, &(uint32_t){0}));
-    TEST_EXPECT(state, !k22_timing_write(&timing, WDOG_STCTRLH, 1, 0));
+    TEST_EXPECT(state, !k22_timing_read(&timing, WDOG_STCTRLH + 1u, 2,
+                                        &(uint32_t){0}));
+    TEST_EXPECT(state, !k22_timing_write(&timing, WDOG_STCTRLH + 1u, 2, 0));
     TEST_EXPECT(state, !k22_timing_read(&timing, EWM_CTRL + 4u, 1, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(&timing, EWM_CTRL + 4u, 1, 0));
     TEST_EXPECT(state, !k22_timing_read(NULL, 0, 1, &(uint32_t){0}));
@@ -1457,6 +1495,7 @@ int main(void) {
     test_low_leakage_wakeup(&state, &timing, &observations);
     k22_timing_reset(&timing, 0x82u, 0);
     memset(&observations, 0, sizeof(observations));
+    disable_watchdog_fixture(&timing);
     test_pit(&state, &timing, &observations);
     test_lptmr(&state, &timing, &observations);
     test_rtc(&state, &timing, &observations);

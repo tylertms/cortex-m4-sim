@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "test.h"
+#include "k22_test.h"
 
 enum {
     DMA_SERQ = 0x4000801bu,
@@ -37,6 +38,7 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
+    TEST_EXPECT(&state, k22_test_disable_watchdog(device));
     const uint32_t scgc7 = read32(&state, device, SIM_SCGC7) | (1u << 1);
     const uint32_t scgc6 = read32(&state, device, SIM_SCGC6) | (1u << 1);
     const uint32_t scgc4 = read32(&state, device, SIM_SCGC4) | (1u << 11);

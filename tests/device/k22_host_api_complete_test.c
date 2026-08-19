@@ -54,6 +54,10 @@ static void test_data_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_trigger_low_voltage_detect(device));
     TEST_EXPECT(state, !kinetis_k22_trigger_low_voltage_warning(NULL));
     TEST_EXPECT(state, !kinetis_k22_trigger_low_voltage_detect(NULL));
+    TEST_EXPECT(state, kinetis_k22_set_ewm_input(device, true));
+    TEST_EXPECT(state, kinetis_k22_ewm_output(device));
+    TEST_EXPECT(state, !kinetis_k22_set_ewm_input(NULL, false));
+    TEST_EXPECT(state, !kinetis_k22_ewm_output(NULL));
     TEST_EXPECT(state, kinetis_k22_set_llwu_pin(device, 0u, true));
     TEST_EXPECT(state, !kinetis_k22_set_llwu_pin(device, 16u, false));
     TEST_EXPECT(state, !kinetis_k22_set_llwu_pin(NULL, 0u, false));
