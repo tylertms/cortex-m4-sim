@@ -52,6 +52,7 @@ struct K22Data {
     uint16_t dma_hardware_requests;
     uint16_t dma_active;
     uint16_t dma_half;
+    uint8_t dma_request_source[DMA_CHANNEL_COUNT];
     uint8_t dma_channel_count;
     uint8_t dma_last_channel;
     bool debug_halted;
@@ -301,7 +302,7 @@ static void dma_complete_major(K22Data* data, uint8_t channel, uint8_t* descript
         dma_queue_channel(data, (uint8_t)((control >> 8) & 15u));
 }
 
-static void dma_service_channel(K22Data* data, uint8_t channel) {
+static bool dma_service_channel(K22Data* data, uint8_t channel) {
     uint8_t* descriptor = data->dma + 0x1000u + (uint32_t)channel * DMA_TCD_SIZE;
     uint16_t current = (uint16_t)load_bytes(descriptor, 0x16, 2);
     uint16_t count = dma_iteration_count(current);
@@ -322,7 +323,7 @@ static void dma_service_channel(K22Data* data, uint8_t channel) {
     if (count == 0 || bytes == 0 || source_size == 0 || destination_size == 0 ||
         bytes % source_size != 0 || bytes % destination_size != 0) {
         dma_error(data, channel, 1u << 4);
-        return;
+        return false;
     }
     uint32_t source = load_bytes(descriptor, 0, 4);
     uint32_t destination = load_bytes(descriptor, 0x10, 4);
@@ -344,7 +345,7 @@ static void dma_service_channel(K22Data* data, uint8_t channel) {
                 dma_error(data, channel, 1u << 2);
                 data->dma_active &= (uint16_t)~(1u << channel);
                 store_bytes(descriptor, 0x1c, 2, running_control);
-                return;
+                return false;
             }
             transfer_buffer |= (uint64_t)value << (buffered_bytes * 8u);
             buffered_bytes = (uint8_t)(buffered_bytes + source_size);
@@ -357,7 +358,7 @@ static void dma_service_channel(K22Data* data, uint8_t channel) {
             dma_error(data, channel, 1u << 2);
             data->dma_active &= (uint16_t)~(1u << channel);
             store_bytes(descriptor, 0x1c, 2, running_control);
-            return;
+            return false;
         }
         destination =
             dma_advance_address(destination, destination_offset, destination_modulo);
@@ -389,6 +390,7 @@ static void dma_service_channel(K22Data* data, uint8_t channel) {
         dma_complete_major(data, channel, descriptor);
     }
     dma_update_interrupts(data);
+    return true;
 }
 
 static bool dma_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
@@ -1505,6 +1507,7 @@ void k22_data_reset(K22Data* data) {
     data->dma_hardware_requests = 0;
     data->dma_active = 0;
     data->dma_half = 0;
+    memset(data->dma_request_source, UINT8_MAX, sizeof(data->dma_request_source));
     data->dma_last_channel = (uint8_t)(data->dma_channel_count - 1u);
     data->debug_halted = false;
     for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++)
@@ -1666,9 +1669,10 @@ bool k22_data_write(K22Data* data, uint32_t address, uint8_t size, uint32_t valu
     return false;
 }
 
-void k22_data_dma_request(K22Data* data, uint8_t source) {
+bool k22_data_dma_request(K22Data* data, uint8_t source) {
     if (data == NULL)
-        return;
+        return false;
+    bool accepted = false;
     const uint16_t enabled = (uint16_t)load_bytes(data->dma, 0x0c, 2);
     for (uint8_t channel = 0; channel < data->dmamux_count; channel++) {
         const uint8_t mux = data->dmamux[channel];
@@ -1676,8 +1680,11 @@ void k22_data_dma_request(K22Data* data, uint8_t source) {
             (enabled & (1u << channel)) != 0) {
             dma_queue_channel(data, channel);
             data->dma_hardware_requests |= (uint16_t)(1u << channel);
+            data->dma_request_source[channel] = source;
+            accepted = true;
         }
     }
+    return accepted;
 }
 
 void k22_data_adc_trigger(K22Data* data, uint8_t instance) {
@@ -1787,7 +1794,11 @@ void k22_data_advance(K22Data* data, uint32_t cycles) {
         data->dma_requests &= (uint16_t)~(1u << channel);
         data->dma_hardware_requests &= (uint16_t)~(1u << channel);
         data->dma_last_channel = channel;
-        dma_service_channel(data, channel);
+        const uint8_t source = data->dma_request_source[channel];
+        data->dma_request_source[channel] = UINT8_MAX;
+        if (dma_service_channel(data, channel) && source != UINT8_MAX &&
+            data->bus.dma_complete != NULL)
+            data->bus.dma_complete(data->bus.context, source);
     }
     for (uint8_t index = 0; index < data->adc_count; index++) {
         K22Adc* adc = &data->adc[index];

@@ -491,8 +491,20 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     destination->configuration = source->configuration;
     destination->cycles = source->cycles;
     destination->cmt_cycles = source->cmt_cycles;
+    destination->cmt_bus_remainder = source->cmt_bus_remainder;
+    destination->cmt_mark_ticks = source->cmt_mark_ticks;
+    destination->cmt_period_ticks = source->cmt_period_ticks;
+    destination->cmt_carrier_high_ticks = source->cmt_carrier_high_ticks;
+    destination->cmt_carrier_period_ticks = source->cmt_carrier_period_ticks;
+    destination->cmt_carrier_offset_ticks = source->cmt_carrier_offset_ticks;
+    destination->cmt_output_delay_ticks = source->cmt_output_delay_ticks;
     destination->usbdcd_cycles = source->usbdcd_cycles;
     destination->cmt_eoc_read = source->cmt_eoc_read;
+    destination->cmt_running = source->cmt_running;
+    destination->cmt_stop_pending = source->cmt_stop_pending;
+    destination->cmt_fsk_secondary = source->cmt_fsk_secondary;
+    destination->cmt_extended_space = source->cmt_extended_space;
+    destination->cmt_dma_pending = source->cmt_dma_pending;
     destination->usb_charger = source->usb_charger;
     memcpy(destination->comparator_output, source->comparator_output,
            sizeof(destination->comparator_output));

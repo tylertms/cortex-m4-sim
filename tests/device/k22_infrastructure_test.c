@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include "test.h"
 #include "k22_test.h"
+#include "test.h"
 
 enum {
     AIPS0_PACRI = 0x40000050u,
@@ -122,9 +122,10 @@ static void test_cmt(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
     kinetis_k22_advance(device, 1u);
     TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
-    TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 45u));
+    TEST_EXPECT(state, !cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 45u));
     kinetis_k22_advance(device, 1u);
     TEST_EXPECT(state, read8(state, device, 0x20000080u) == 0x83u);
+    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
     TEST_EXPECT(state, read16(state, device, DMA_TCD0 + 0x16u) == 1u);
     TEST_EXPECT(state, read16(state, device, DMA_ERQ) == 0u);
     write8(state, device, CMT_CMD2, 1u);
@@ -133,7 +134,11 @@ static void test_cmt(TestState* state, KinetisK22* device) {
     kinetis_k22_advance(device, 1u);
     TEST_EXPECT(state, device->cmt_cycles != 0u);
     write8(state, device, CMT_MSC, 0u);
+    TEST_EXPECT(state, device->cmt_stop_pending);
+    TEST_EXPECT(state, device->cmt_cycles != 0u);
+    kinetis_k22_advance(device, 14u);
     TEST_EXPECT(state, device->cmt_cycles == 0u);
+    TEST_EXPECT(state, !device->cmt_running);
 }
 
 static void test_event_capacity(TestState* state, KinetisK22* device) {

@@ -91,7 +91,7 @@ static void bus_interrupt(void* context, K22DataInterrupt interrupt, bool assert
 }
 
 static K22Data* create(TestState* state, TestBus* bus, K22ProfileId profile) {
-    K22DataBus callbacks = {bus, bus_read, bus_write, bus_write, bus_interrupt};
+    K22DataBus callbacks = {bus, bus_read, bus_write, bus_write, bus_interrupt, NULL};
     K22Data* data = k22_data_create(k22_profile_get(profile), callbacks);
     TEST_EXPECT(state, data != NULL);
     bus->data = data;
@@ -100,7 +100,7 @@ static K22Data* create(TestState* state, TestBus* bus, K22ProfileId profile) {
 
 static K22Data* create_without_program(TestState* state, TestBus* bus,
                                        K22ProfileId profile) {
-    K22DataBus callbacks = {bus, bus_read, bus_write, NULL, bus_interrupt};
+    K22DataBus callbacks = {bus, bus_read, bus_write, NULL, bus_interrupt, NULL};
     K22Data* data = k22_data_create(k22_profile_get(profile), callbacks);
     TEST_EXPECT(state, data != NULL);
     bus->data = data;

@@ -1,4 +1,8 @@
 function(run_mutation name source_file before after target test_pattern)
+  if(DEFINED MUTATION_FILTER AND NOT "${MUTATION_FILTER}" STREQUAL "" AND
+     NOT name MATCHES "${MUTATION_FILTER}")
+    return()
+  endif()
   set(mutation_root "${MUTATION_DIRECTORY}/${name}")
   file(REMOVE_RECURSE "${mutation_root}")
   file(MAKE_DIRECTORY "${mutation_root}")
@@ -754,3 +758,63 @@ run_mutation(
   "timing->ewm_output = true;\n    update_watchdog_irq(timing);"
   "timing->ewm_output = false;\n    update_watchdog_irq(timing);"
   cortex_m4_device_k22_watchdog_complete_test device_k22_watchdog_complete)
+run_mutation(
+  cmt_time_resolution src/kinetis_k22_peripherals.c
+  "uint64_t unit = clock_ticks * 8u;"
+  "uint64_t unit = clock_ticks * 7u;"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_primary_prescaler src/kinetis_k22_peripherals.c
+  "raw_load(device, K22_CMT + 0x0au, 1u) + 1u;"
+  "raw_load(device, K22_CMT + 0x0au, 1u) + 2u;"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_fsk_selection src/kinetis_k22_peripherals.c
+  "if ((control & 0x0cu) == 4u)"
+  "if ((control & 0x0cu) != 4u)"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_stop_boundary src/kinetis_k22_peripherals.c
+  "if (device->cmt_stop_pending ||"
+  "if (!device->cmt_stop_pending ||"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_dma_irq_exclusion src/kinetis_k22_peripherals.c
+  "(control & 0x82u) == 0x82u && (dma & 1u) == 0u);"
+  "(control & 0x82u) == 0x82u && (dma & 1u) != 0u);"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_dma_acceptance src/kinetis_k22_peripherals.c
+  "device->cmt_dma_pending = k22_data_dma_request(device->data, 47u);"
+  "device->cmt_dma_pending = true;"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_dma_completion_source src/kinetis_k22_peripherals.c
+  "if (source == 47u && device->cmt_dma_pending)"
+  "if (source == 46u && device->cmt_dma_pending)"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_eoc_read_clear src/kinetis_k22_peripherals.c
+  "address == K22_CMT + 7u || address == K22_CMT + 9u"
+  "address == K22_CMT + 6u || address == K22_CMT + 8u"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_deep_sleep_pause src/kinetis_k22_peripherals.c
+  "device->cpu->sleeping && (device->cpu->scr & 4u) != 0u"
+  "device->cpu->sleeping && (device->cpu->scr & 4u) == 0u"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_output_polarity src/kinetis_k22_peripherals.c
+  "*high = active == ((output & 0x40u) != 0u);"
+  "*high = active != ((output & 0x40u) != 0u);"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_output_delay src/kinetis_k22_peripherals.c
+  "primary + 2u : primary * 2u + 3u;"
+  "primary + 1u : primary * 2u + 3u;"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  cmt_extended_space src/kinetis_k22_peripherals.c
+  "device->cmt_extended_space ? 0u : (mark + 1u) * unit;"
+  "device->cmt_extended_space ? (mark + 1u) * unit : 0u;"
+  cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)

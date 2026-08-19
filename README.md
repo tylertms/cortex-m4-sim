@@ -69,7 +69,7 @@ The parent build does not build the standalone tests.
 
 ## Tests
 
-CTest runs 61 isolated native C executables. No external test framework is
+CTest runs 62 isolated native C executables. No external test framework is
 necessary.
 
 Run all tests:
@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change 145 critical behaviors in temporary source copies.
+The mutation checks change 157 critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -140,6 +140,7 @@ The checks cover these behaviors:
 - Flash protection ranges
 - SYSMPU access control
 - LPTMR input filtering
+- CMT cycle, output, interrupt, DMA, and power behavior
 - PIT enable transitions
 - LPTMR initial input state
 - ADC alternate-trigger routing

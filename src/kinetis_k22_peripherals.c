@@ -99,82 +99,154 @@ static bool axbs_write_allowed(const KinetisK22* device, uint32_t address) {
     return (control & 0x80000000u) == 0u;
 }
 
+static void cmt_clear_eoc(KinetisK22* device);
+
 static bool cmt_read(KinetisK22* device, uint32_t address, uint8_t size, uint32_t* value) {
     if (address < K22_CMT || address >= K22_CMT + 0x0cu || size != 1u) {
         return false;
     }
     *value = raw_load(device, address, 1u);
-    if (address == K22_CMT + 5u && (*value & 0x80u) != 0u) {
+    if (address == K22_CMT + 5u && (*value & 0x80u) != 0u)
         device->cmt_eoc_read = true;
-    }
+    else if ((address == K22_CMT + 7u || address == K22_CMT + 9u) && device->cmt_eoc_read &&
+             (raw_load(device, K22_CMT + 0x0bu, 1u) & 1u) == 0u)
+        cmt_clear_eoc(device);
     return true;
+}
+
+static void cmt_refresh_irq(KinetisK22* device) {
+    const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+    const uint8_t dma = (uint8_t)raw_load(device, K22_CMT + 0x0bu, 1u);
+    if (device->cpu != NULL)
+        cortex_m4_set_irq_level(device->cpu, 45u,
+                                (control & 0x82u) == 0x82u && (dma & 1u) == 0u);
+}
+
+static void cmt_refresh_dma(KinetisK22* device) {
+    const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+    const uint8_t dma = (uint8_t)raw_load(device, K22_CMT + 0x0bu, 1u);
+    if ((control & 0x82u) == 0x82u && (dma & 1u) != 0u && !device->cmt_dma_pending)
+        device->cmt_dma_pending = k22_data_dma_request(device->data, 47u);
 }
 
 static void cmt_raise_cycle(KinetisK22* device, uint8_t control) {
     raw_store(device, K22_CMT + 5u, 1u, control | 0x80u);
-    if ((control & 2u) != 0u && device->cpu != NULL) {
-        cortex_m4_set_irq_level(device->cpu, 45u, true);
-    }
-    if ((raw_load(device, K22_CMT + 0x0bu, 1u) & 1u) != 0u) {
-        k22_data_dma_request(device->data, 47u);
-    }
+    cmt_refresh_dma(device);
+    cmt_refresh_irq(device);
+}
+
+static uint64_t cmt_clock_ticks(const KinetisK22* device) {
+    const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+    const uint64_t primary = raw_load(device, K22_CMT + 0x0au, 1u) + 1u;
+    return primary << ((control >> 5u) & 3u);
+}
+
+static void cmt_load_cycle(KinetisK22* device) {
+    const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+    const uint64_t clock_ticks = cmt_clock_ticks(device);
+    const uint64_t mark =
+        (raw_load(device, K22_CMT + 6u, 1u) << 8u) | raw_load(device, K22_CMT + 7u, 1u);
+    const uint64_t space =
+        (raw_load(device, K22_CMT + 8u, 1u) << 8u) | raw_load(device, K22_CMT + 9u, 1u);
+    uint64_t unit = clock_ticks * 8u;
+    const uint8_t carrier = device->cmt_fsk_secondary ? 2u : 0u;
+    const uint64_t high = raw_load(device, K22_CMT + carrier, 1u);
+    const uint64_t low = raw_load(device, K22_CMT + carrier + 1u, 1u);
+    device->cmt_carrier_high_ticks = high * clock_ticks;
+    device->cmt_carrier_period_ticks = (high + low) * clock_ticks;
+    if ((control & 4u) != 0u && (control & 8u) == 0u &&
+        device->cmt_carrier_period_ticks != 0u)
+        unit = device->cmt_carrier_period_ticks;
+    device->cmt_extended_space = (control & 0x10u) != 0u;
+    device->cmt_mark_ticks = device->cmt_extended_space ? 0u : (mark + 1u) * unit;
+    device->cmt_period_ticks = (mark + 1u + space) * unit;
+    device->cmt_carrier_offset_ticks = 0u;
+    device->cmt_cycles = 0u;
+}
+
+static void cmt_start(KinetisK22* device, uint8_t control) {
+    device->cmt_running = true;
+    device->cmt_stop_pending = false;
+    device->cmt_fsk_secondary = false;
+    cmt_load_cycle(device);
+    const uint64_t primary = raw_load(device, K22_CMT + 0x0au, 1u);
+    device->cmt_output_delay_ticks =
+        ((control >> 5u) & 3u) == 0u ? primary + 2u : primary * 2u + 3u;
+    device->cmt_carrier_offset_ticks = device->cmt_output_delay_ticks;
+    cmt_raise_cycle(device, control);
+}
+
+static void cmt_clear_eoc(KinetisK22* device) {
+    raw_store(device, K22_CMT + 5u, 1u, raw_load(device, K22_CMT + 5u, 1u) & 0x7fu);
+    device->cmt_eoc_read = false;
+    cmt_refresh_irq(device);
 }
 
 static bool cmt_write(KinetisK22* device, uint32_t address, uint8_t size, uint32_t value) {
-    if (address < K22_CMT || address >= K22_CMT + 0x0cu || size != 1u) {
+    if (address < K22_CMT || address >= K22_CMT + 0x0cu || size != 1u)
         return false;
-    }
     const uint32_t offset = address - K22_CMT;
     if (offset == 5u) {
         const uint8_t previous = (uint8_t)raw_load(device, address, 1u);
         const uint8_t control = (uint8_t)(value & 0x7fu);
         raw_store(device, address, 1u, (previous & 0x80u) | control);
-        if ((value & 1u) == 0u) {
-            device->cmt_cycles = 0u;
-        } else if ((previous & 1u) == 0u) {
-            device->cmt_cycles = 0u;
-            cmt_raise_cycle(device, control);
-        }
+        if ((control & 1u) == 0u && device->cmt_running)
+            device->cmt_stop_pending = true;
+        else if ((control & 1u) != 0u && !device->cmt_running)
+            cmt_start(device, control);
+        else if ((control & 1u) != 0u)
+            device->cmt_stop_pending = false;
+        cmt_refresh_dma(device);
+        cmt_refresh_irq(device);
         return true;
     }
     const K22RegisterDescriptor* descriptor =
         k22_register_manifest_lookup(device->profile->id, address, 8u);
-    if (descriptor == NULL || (descriptor->access & K22_REGISTER_ACCESS_WRITE) == 0u) {
+    if (descriptor == NULL || (descriptor->access & K22_REGISTER_ACCESS_WRITE) == 0u)
         return false;
-    }
     raw_store(device, address, 1u, value & descriptor->write_mask);
-    if ((offset == 7u || offset == 9u) && device->cmt_eoc_read) {
-        raw_store(device, K22_CMT + 5u, 1u, raw_load(device, K22_CMT + 5u, 1u) & 0x7fu);
-        device->cmt_eoc_read = false;
-        if (device->cpu != NULL) {
-            cortex_m4_set_irq_level(device->cpu, 45u, false);
-        }
+    if ((offset == 7u || offset == 9u) && device->cmt_eoc_read &&
+        (raw_load(device, K22_CMT + 0x0bu, 1u) & 1u) == 0u)
+        cmt_clear_eoc(device);
+    if (offset == 0x0bu) {
+        cmt_refresh_dma(device);
+        cmt_refresh_irq(device);
     }
     return true;
 }
 
-static uint64_t cmt_period(const KinetisK22* device) {
-    const uint32_t mark =
-        (raw_load(device, K22_CMT + 6u, 1u) << 8u) | raw_load(device, K22_CMT + 7u, 1u);
-    const uint32_t space =
-        (raw_load(device, K22_CMT + 8u, 1u) << 8u) | raw_load(device, K22_CMT + 9u, 1u);
-    const uint32_t primary = raw_load(device, K22_CMT + 0x0au, 1u) + 1u;
-    const uint32_t secondary = 1u << ((raw_load(device, K22_CMT + 5u, 1u) >> 5u) & 3u);
-    return (uint64_t)(mark + space + 1u) * 8u * primary * secondary;
-}
-
 static void cmt_advance(KinetisK22* device, uint32_t cycles) {
-    const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
-    if ((control & 1u) == 0u) {
+    if (!device->cmt_running ||
+        (device->cpu != NULL && device->cpu->sleeping && (device->cpu->scr & 4u) != 0u))
         return;
+    const uint64_t core_hz = k22_timing_core_clock_hz(&device->timing);
+    const uint64_t bus_hz = k22_timing_bus_clock_hz(&device->timing);
+    const uint64_t scaled = device->cmt_bus_remainder + (uint64_t)cycles * bus_hz;
+    uint64_t ticks = core_hz == 0u ? 0u : scaled / core_hz;
+    device->cmt_bus_remainder = core_hz == 0u ? 0u : scaled % core_hz;
+    if (device->cmt_output_delay_ticks > ticks)
+        device->cmt_output_delay_ticks -= ticks;
+    else
+        device->cmt_output_delay_ticks = 0u;
+    while (ticks != 0u && device->cmt_running) {
+        const uint64_t remaining = device->cmt_period_ticks - device->cmt_cycles;
+        if (ticks < remaining) {
+            device->cmt_cycles += ticks;
+            break;
+        }
+        ticks -= remaining;
+        if (device->cmt_stop_pending || (raw_load(device, K22_CMT + 5u, 1u) & 1u) == 0u) {
+            device->cmt_running = false;
+            device->cmt_stop_pending = false;
+            device->cmt_cycles = 0u;
+            break;
+        }
+        const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+        if ((control & 0x0cu) == 4u)
+            device->cmt_fsk_secondary = !device->cmt_fsk_secondary;
+        cmt_load_cycle(device);
+        cmt_raise_cycle(device, control);
     }
-    device->cmt_cycles += cycles;
-    const uint64_t period = cmt_period(device);
-    if (device->cmt_cycles < period) {
-        return;
-    }
-    device->cmt_cycles %= period;
-    cmt_raise_cycle(device, control);
 }
 
 static bool usbdcd_read(KinetisK22* device, uint32_t address, uint8_t size,
@@ -376,6 +448,14 @@ static void data_interrupt(void* context, K22DataInterrupt interrupt, bool asser
     }
     if (device->cpu != NULL && interrupt < K22_DATA_INTERRUPT_COUNT) {
         cortex_m4_set_irq_level(device->cpu, data_irq(interrupt), asserted);
+    }
+}
+
+static void data_dma_complete(void* context, uint8_t source) {
+    KinetisK22* device = context;
+    if (source == 47u && device->cmt_dma_pending) {
+        device->cmt_dma_pending = false;
+        cmt_clear_eoc(device);
     }
 }
 
@@ -876,8 +956,20 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
     memcpy(driven, device->io.gpio_external_drive, sizeof(driven));
     reset_manifest(device);
     device->cmt_cycles = 0u;
+    device->cmt_bus_remainder = 0u;
+    device->cmt_mark_ticks = 0u;
+    device->cmt_period_ticks = 0u;
+    device->cmt_carrier_high_ticks = 0u;
+    device->cmt_carrier_period_ticks = 0u;
+    device->cmt_carrier_offset_ticks = 0u;
+    device->cmt_output_delay_ticks = 0u;
     device->usbdcd_cycles = 0u;
     device->cmt_eoc_read = false;
+    device->cmt_running = false;
+    device->cmt_stop_pending = false;
+    device->cmt_fsk_secondary = false;
+    device->cmt_extended_space = false;
+    device->cmt_dma_pending = false;
     memset(device->comparator_output, 0, sizeof(device->comparator_output));
     k22_data_reset(device->data);
     k22_serial_reset(&device->serial);
@@ -895,9 +987,9 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
 }
 
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
-    k22_timing_set_cpu_sleeping(
-        &device->timing, device->cpu != NULL && device->cpu->sleeping,
-        device->cpu != NULL && (device->cpu->scr & 4u) != 0u);
+    k22_timing_set_cpu_sleeping(&device->timing,
+                                device->cpu != NULL && device->cpu->sleeping,
+                                device->cpu != NULL && (device->cpu->scr & 4u) != 0u);
     k22_timing_set_debug_halted(&device->timing,
                                 device->cpu != NULL && device->cpu->debug.halted);
     k22_data_set_debug_halted(device->data,
@@ -968,6 +1060,30 @@ bool kinetis_k22_set_ewm_input(KinetisK22* device, bool high) {
 
 bool kinetis_k22_ewm_output(const KinetisK22* device) {
     return device != NULL && k22_timing_ewm_output(&device->timing);
+}
+
+bool kinetis_k22_get_cmt_output(const KinetisK22* device, bool* driven, bool* high) {
+    if (device == NULL || driven == NULL || high == NULL ||
+        !k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_CMT))
+        return false;
+    const uint8_t output = (uint8_t)raw_load(device, K22_CMT + 4u, 1u);
+    *driven = (output & 0x20u) != 0u;
+    bool active = (output & 0x80u) != 0u;
+    if (device->cmt_running) {
+        const uint8_t control = (uint8_t)raw_load(device, K22_CMT + 5u, 1u);
+        active = false;
+        if (!device->cmt_extended_space && device->cmt_cycles < device->cmt_mark_ticks &&
+            device->cmt_output_delay_ticks == 0u) {
+            const uint64_t carrier_ticks =
+                device->cmt_cycles - device->cmt_carrier_offset_ticks;
+            active =
+                (control & 8u) != 0u || (device->cmt_carrier_period_ticks != 0u &&
+                                         carrier_ticks % device->cmt_carrier_period_ticks <
+                                             device->cmt_carrier_high_ticks);
+        }
+    }
+    *high = active == ((output & 0x40u) != 0u);
+    return true;
 }
 
 bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,
@@ -1281,8 +1397,8 @@ bool kinetis_k22_i2c0_receive(KinetisK22* device, uint8_t value) {
 }
 
 K22DataBus kinetis_k22_data_bus(KinetisK22* device) {
-    const K22DataBus bus = {device, data_bus_read, data_bus_write, flash_bus_write,
-                            data_interrupt};
+    const K22DataBus bus = {device,          data_bus_read,  data_bus_write,
+                            flash_bus_write, data_interrupt, data_dma_complete};
     return bus;
 }
 
