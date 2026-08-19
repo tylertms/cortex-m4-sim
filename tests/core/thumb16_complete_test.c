@@ -35,8 +35,7 @@ static void test_immediate_and_high_register(Fixture* fixture) {
 
     cortex_m4_set_register(fixture->cpu, 0u, 12u);
     execute(fixture, 0x4580u);
-    TEST_EXPECT(fixture->state,
-                (cortex_m4_get_xpsr(fixture->cpu) & (1u << 30u)) != 0u);
+    TEST_EXPECT(fixture->state, (cortex_m4_get_xpsr(fixture->cpu) & (1u << 30u)) != 0u);
 
     cortex_m4_set_register(fixture->cpu, 0u, 0x12345678u);
     execute(fixture, 0x4680u);
@@ -191,7 +190,6 @@ static void test_branches_and_service(Fixture* fixture) {
     TEST_EXPECT(fixture->state, reg(fixture, 15u) == 0x102u);
     execute(fixture, 0xe000u);
     TEST_EXPECT(fixture->state, reg(fixture, 15u) == 0x104u);
-
 }
 
 static void test_control(Fixture* fixture) {

@@ -7,14 +7,13 @@
 #include "cortex_m4_sim/kinetis_k22.h"
 
 static inline uint32_t k22_test_core_cycles_for_bus_cycles(const KinetisK22* device,
-                                                            uint32_t bus_cycles) {
+                                                           uint32_t bus_cycles) {
     const uint64_t core = kinetis_k22_core_clock_hz(device);
     const uint64_t bus = kinetis_k22_bus_clock_hz(device);
     return bus == 0u ? 0u : (uint32_t)((bus_cycles * core + bus - 1u) / bus);
 }
 
-static inline bool k22_test_write16(KinetisK22* device, uint32_t address,
-                                    uint16_t value) {
+static inline bool k22_test_write16(KinetisK22* device, uint32_t address, uint16_t value) {
     return kinetis_k22_write(device, address, &value, sizeof(value));
 }
 

@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include "test.h"
 #include "k22_test.h"
+#include "test.h"
 
 enum {
     DMA_SERQ = 0x4000801bu,

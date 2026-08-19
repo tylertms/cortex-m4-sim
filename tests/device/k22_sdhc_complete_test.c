@@ -236,8 +236,7 @@ static void expect_command_and_transfer_lifecycle(TestState* state) {
     write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
     write_register(state, &sdhc, SDHC_FEVT, (1u << 16u) | (1u << 21u));
     TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) &
-                        ((1u << 16u) | (1u << 21u))) ==
-                           ((1u << 16u) | (1u << 21u)));
+                        ((1u << 16u) | (1u << 21u))) == ((1u << 16u) | (1u << 21u)));
     k22_sdhc_destroy(&sdhc);
 }
 

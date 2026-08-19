@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include "test.h"
 #include "k22_test.h"
+#include "test.h"
 
 enum {
     WDOG_STCTRLH = 0x40052000u,

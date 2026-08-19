@@ -13,8 +13,7 @@ typedef struct {
 
 static void execute(Fixture* fixture, uint16_t first, uint16_t second) {
     fixture->cpu->registers[15] = 0x104u;
-    TEST_EXPECT(fixture->state,
-                cortex_m4_execute_thumb32(fixture->cpu, first, second));
+    TEST_EXPECT(fixture->state, cortex_m4_execute_thumb32(fixture->cpu, first, second));
 }
 
 static void test_branches(Fixture* fixture) {
@@ -39,13 +38,11 @@ static void test_special_registers(Fixture* fixture) {
     fixture->cpu->basepri = 0x80u;
     fixture->cpu->faultmask = 1u;
     fixture->cpu->control = 3u;
-    const uint8_t selectors[] = {0u, 1u, 2u, 3u, 5u, 6u, 7u, 8u, 9u,
-                                 16u, 17u, 18u, 19u, 20u, 31u};
-    const uint32_t expected[] = {0xa0000000u, 0xa0000007u, 0x01000000u,
-                                 0xa1000007u, 7u,          0x01000000u,
-                                 0x01000007u, 0x20001000u,
-                                 0x20002000u, 1u,          0x80u, 0x80u,
-                                 1u,          3u,          0u};
+    const uint8_t selectors[] = {0u, 1u,  2u,  3u,  5u,  6u,  7u, 8u,
+                                 9u, 16u, 17u, 18u, 19u, 20u, 31u};
+    const uint32_t expected[] = {0xa0000000u, 0xa0000007u, 0x01000000u, 0xa1000007u, 7u,
+                                 0x01000000u, 0x01000007u, 0x20001000u, 0x20002000u, 1u,
+                                 0x80u,       0x80u,       1u,          3u,          0u};
     for (size_t index = 0u; index < sizeof(selectors); index++) {
         execute(fixture, 0xf3efu, (uint16_t)(0x8000u | selectors[index]));
         TEST_EXPECT(fixture->state, fixture->cpu->registers[0] == expected[index]);
@@ -95,8 +92,7 @@ static void test_immediates(Fixture* fixture) {
     for (size_t index = 0u; index < sizeof(operations); index++) {
         fixture->cpu->registers[1] = 5u;
         fixture->cpu->xpsr |= CORTEX_M4_XPSR_C;
-        execute(fixture, (uint16_t)(0xf001u | ((uint16_t)operations[index] << 5u)),
-                1u);
+        execute(fixture, (uint16_t)(0xf001u | ((uint16_t)operations[index] << 5u)), 1u);
         TEST_EXPECT(fixture->state, fixture->cpu->registers[0] != 0xdeadbeefu);
     }
 
