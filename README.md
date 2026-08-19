@@ -69,7 +69,7 @@ The parent build does not build the standalone tests.
 
 ## Tests
 
-CTest runs 63 isolated native C executables. No external test framework is
+CTest runs 64 isolated native C executables. No external test framework is
 necessary.
 
 Run all tests:
@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change 170 critical behaviors in temporary source copies.
+The mutation checks change 182 critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:

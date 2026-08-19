@@ -747,7 +747,7 @@ static void apply_fmc_control(KinetisK22* device, uint32_t address, uint8_t size
         return;
     }
     const uint8_t ways = (uint8_t)((value >> 20u) & 0x0fu);
-    const uint8_t sets = device->profile->id >= K22_PROFILE_MK22FN1M012 ? 4u : 8u;
+    const uint8_t sets = 4u;
     for (uint8_t way = 0u; way < 4u; way++) {
         if ((ways & (1u << way)) == 0u) {
             continue;
@@ -757,7 +757,14 @@ static void apply_fmc_control(KinetisK22* device, uint32_t address, uint8_t size
                 K22_FMC + 0x100u + ((uint32_t)way * sets + set) * 4u;
             if (k22_register_manifest_lookup(device->profile->id, tag_address, 32u) !=
                 NULL) {
-                raw_store(device, tag_address, 4u, raw_load(device, tag_address, 4u) & ~1u);
+                raw_store(device, tag_address, 4u, 0u);
+                device->fmc_bank[way][set] = 0u;
+                device->fmc_age[way][set] = 0u;
+                for (uint8_t word = 0u; word < 4u; word++) {
+                    const uint32_t data_address =
+                        K22_FMC + 0x200u + (((uint32_t)way * sets + set) * 4u + word) * 4u;
+                    raw_store(device, data_address, 4u, 0u);
+                }
             }
         }
     }
@@ -817,7 +824,9 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
         return true;
     }
     if (!aips_access_allowed(device, address, access, true) ||
-        (location.id == K22_PERIPHERAL_AXBS && !axbs_write_allowed(device, address))) {
+        (location.id == K22_PERIPHERAL_AXBS && !axbs_write_allowed(device, address)) ||
+        (location.id == K22_PERIPHERAL_FMC &&
+         access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA)) {
         return false;
     }
     if (access != CORTEX_M4_ACCESS_DEBUG &&
@@ -872,6 +881,9 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
     device->cmt_carrier_offset_ticks = 0u;
     device->cmt_output_delay_ticks = 0u;
     k22_usbdcd_reset(&device->usbdcd);
+    memset(device->fmc_bank, 0, sizeof(device->fmc_bank));
+    memset(device->fmc_age, 0, sizeof(device->fmc_age));
+    device->fmc_access_count = 0u;
     device->cmt_eoc_read = false;
     device->cmt_running = false;
     device->cmt_stop_pending = false;

@@ -247,12 +247,12 @@ static void test_fmc_geometry(TestState* state, KinetisK22* device) {
     write32(state, device, FMC_TAGVDW2S0, 0xc1u);
     write32(state, device, FMC_TAGVDW3S0, 0x101u);
     write32(state, device, FMC_PFB0CR, 1u << 20u);
-    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW0S0) == 0x40u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW0S0) == 0u);
     TEST_EXPECT(state, read32(state, device, FMC_TAGVDW1S0) == 0x81u);
     TEST_EXPECT(state, read32(state, device, FMC_TAGVDW2S0) == 0xc1u);
     TEST_EXPECT(state, read32(state, device, FMC_TAGVDW3S0) == 0x101u);
     write32(state, device, FMC_PFB0CR, 1u << 21u);
-    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW1S0) == 0x80u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW1S0) == 0u);
     TEST_EXPECT(state, read32(state, device, FMC_TAGVDW2S0) == 0xc1u);
 }
 

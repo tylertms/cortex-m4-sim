@@ -52,6 +52,9 @@ struct KinetisK22 {
     bool cmt_fsk_secondary;
     bool cmt_extended_space;
     bool cmt_dma_pending;
+    uint8_t fmc_bank[4][4];
+    uint64_t fmc_age[4][4];
+    uint64_t fmc_access_count;
     K22UsbDcd usbdcd;
     K22Data* data;
     K22Io io;

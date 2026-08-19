@@ -177,6 +177,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     "device;integration")
   cortex_m4_add_test(device_k22_data_complete
                      tests/device/k22_data_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_fmc_complete tests/device/k22_fmc_complete_test.c
+                     "device;unit;integration")
   cortex_m4_add_test(device_k22_io_complete tests/device/k22_io_complete_test.c
                      "device;integration")
   cortex_m4_add_test(device_k22_package tests/device/k22_package_test.c

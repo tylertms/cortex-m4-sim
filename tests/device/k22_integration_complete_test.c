@@ -2,15 +2,18 @@
 
 #include <stdint.h>
 
-#include "kinetis_k22_internal.h"
 #include "k22_test.h"
+#include "kinetis_k22_internal.h"
 #include "test.h"
 
 enum {
     FMC_PFAPR = 0x4001f000u,
     FMC_PFB0CR = 0x4001f004u,
     FMC_TAGVDW0S0 = 0x4001f100u,
-    FMC_TAGVDW1S0 = 0x4001f120u,
+    FMC_TAGVDW1S0 = 0x4001f110u,
+    FMC_DATAW0S0UM = 0x4001f200u,
+    FMC_DATAW0S0LM = 0x4001f20cu,
+    FMC_DATAW1S0UM = 0x4001f240u,
     FTFA_FSTAT = 0x40020000u,
     FTFA_FCCOB3 = 0x40020004u,
     PDB_SC = 0x40036000u,
@@ -296,6 +299,24 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, value == 0x00ffffffu);
     TEST_EXPECT(state, !read32(device, FMC_PFAPR + 0x0cu, &value));
     TEST_EXPECT(state, !write32(device, FMC_PFAPR + 0x0cu, UINT32_MAX));
+    TEST_EXPECT(state, !kinetis_k22_peripheral_write(
+                           device, FMC_PFAPR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u));
+
+    uint8_t flash = 0x5au;
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x100u, &flash, sizeof(flash)));
+    TEST_EXPECT(state, write32(device, FMC_PFAPR, 0x10u));
+    TEST_EXPECT(
+        state, !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, kinetis_k22_dma_read(device, 0x100u, 1u, &value));
+    TEST_EXPECT(state, value == 0x5au);
+    TEST_EXPECT(state, write32(device, FMC_PFAPR, 4u));
+    TEST_EXPECT(state, !kinetis_k22_dma_read(device, 0x100u, 1u, &value));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0x5au);
+    TEST_EXPECT(state, write32(device, FMC_PFAPR, UINT32_MAX));
+    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, (value & ~0x18u) | 0x00f00000u));
 
     const uint32_t alias = 0x42000000u + (FMC_TAGVDW0S0 - 0x40000000u) * 32u + 5u * 4u;
     TEST_EXPECT(state, write32(device, alias, 1));
@@ -305,16 +326,24 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, value == 1);
     TEST_EXPECT(state, write32(device, FMC_TAGVDW0S0, 0x21u));
     TEST_EXPECT(state, write32(device, FMC_TAGVDW1S0, 0x41u));
+    TEST_EXPECT(state, write32(device, FMC_DATAW0S0UM, 0x12345678u));
+    TEST_EXPECT(state, write32(device, FMC_DATAW1S0UM, 0x89abcdefu));
     TEST_EXPECT(state, write32(device, FMC_PFB0CR, (1u << 19u) | (1u << 20u)));
     TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
-    TEST_EXPECT(state, value == 0x20u);
+    TEST_EXPECT(state, value == 0u);
     TEST_EXPECT(state, read32(device, FMC_TAGVDW1S0, &value));
     TEST_EXPECT(state, value == 0x41u);
+    TEST_EXPECT(state, read32(device, FMC_DATAW0S0UM, &value));
+    TEST_EXPECT(state, value == 0u);
+    TEST_EXPECT(state, read32(device, FMC_DATAW1S0UM, &value));
+    TEST_EXPECT(state, value == 0x89abcdefu);
     TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
     TEST_EXPECT(state, (value & 0x00f80000u) == 0u);
     TEST_EXPECT(state, write32(device, FMC_PFB0CR, 1u << 21u));
     TEST_EXPECT(state, read32(device, FMC_TAGVDW1S0, &value));
-    TEST_EXPECT(state, value == 0x40u);
+    TEST_EXPECT(state, value == 0u);
+    TEST_EXPECT(state, read32(device, FMC_DATAW1S0UM, &value));
+    TEST_EXPECT(state, value == 0u);
     TEST_EXPECT(state, !read32(device, 0x43ffffffu, &value));
 
     TEST_EXPECT(state, read32(device, MCM_PLASC, &value));
@@ -322,6 +351,33 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, !write32(device, MCM_PLASC, UINT32_MAX));
     TEST_EXPECT(state, read32(device, MCM_PLASC, &value));
     TEST_EXPECT(state, value == 0x0017001fu);
+}
+
+static void expect_fmc_cache(TestState* state) {
+    KinetisK22* device = create_device(state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
+    TEST_EXPECT(state, kinetis_k22_reset(device));
+    uint32_t value = 0u;
+    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, value | 0x0ef00000u));
+    uint8_t byte = 0x5au;
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x100u, &byte, sizeof(byte)));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0x5au);
+    TEST_EXPECT(state, read32(device, FMC_TAGVDW0S0, &value));
+    TEST_EXPECT(state, (value & 1u) != 0u);
+    TEST_EXPECT(state, read32(device, FMC_DATAW0S0LM, &value));
+    TEST_EXPECT(state, (value & 0xffu) == 0x5au);
+    TEST_EXPECT(state, kinetis_k22_flash_controller_write(device, 0x100u, 1u, 0xa5u));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0x5au);
+    TEST_EXPECT(state, read32(device, FMC_PFB0CR, &value));
+    TEST_EXPECT(state, write32(device, FMC_PFB0CR, value | (1u << 20u)));
+    TEST_EXPECT(state,
+                kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0xa5u);
+    kinetis_k22_destroy(device);
 }
 
 static void expect_clock_gates(TestState* state, KinetisK22* device) {
@@ -688,6 +744,7 @@ int main(void) {
     expect_package_serial_extensions(&state);
     expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
+    expect_fmc_cache(&state);
     KinetisK22* device = create_device(&state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
     TEST_EXPECT(&state, kinetis_k22_reset(device));
     TEST_EXPECT(&state, kinetis_k22_core_clock_hz(device) == 20971520u);

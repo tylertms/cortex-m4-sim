@@ -878,3 +878,60 @@ run_mutation(
   "error || timeout != 0u ? STATUS_ERROR : 0u"
   "error ? STATUS_ERROR : 0u"
   cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  fmc_cache_geometry src/kinetis_k22_peripherals.c
+  "const uint8_t sets = 4u;" "const uint8_t sets = 8u;"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_tag_invalidation src/kinetis_k22_peripherals.c
+  "raw_store(device, tag_address, 4u, 0u);"
+  "raw_store(device, tag_address, 4u, raw_load(device, tag_address, 4u) & ~1u);"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_data_invalidation src/kinetis_k22_peripherals.c
+  "for (uint8_t word = 0u; word < 4u; word++)"
+  "for (uint8_t word = 0u; word < 1u; word++)"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_privileged_write src/kinetis_k22_peripherals.c
+  "location.id == K22_PERIPHERAL_FMC &&\n         access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA"
+  "location.id == K22_PERIPHERAL_FMC && false"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_dma_master src/kinetis_k22.c
+  "memory_read_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 2u, value)"
+  "memory_read_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 1u, value)"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_cache_enable src/kinetis_k22.c
+  "return (control & (access == CORTEX_M4_ACCESS_INSTRUCTION ? 8u : 16u)) != 0u;"
+  "return false && (control & (access == CORTEX_M4_ACCESS_INSTRUCTION ? 8u : 16u)) != 0u;"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_cache_hit src/kinetis_k22.c
+  "fmc_raw_load(device, fmc_tag_address(candidate, set)) == tag"
+  "fmc_raw_load(device, fmc_tag_address(candidate, set)) != tag"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_cache_lock src/kinetis_k22.c
+  "(locked & (1u << way)) == 0u" "(locked & (1u << way)) != 0u"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_lru_selection src/kinetis_k22.c
+  "device->fmc_age[way][set] < oldest"
+  "device->fmc_age[way][set] > oldest"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_partitioned_replacement src/kinetis_k22.c
+  "return instruction ? way < 2u : way >= 2u;"
+  "return instruction ? way >= 2u : way < 2u;"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_partitioned_data_way src/kinetis_k22.c
+  "return instruction ? way < 3u : way == 3u;"
+  "return instruction ? way < 3u : way == 2u;"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_cache_word_order src/kinetis_k22.c
+  "(3u - memory_word) * 4u" "memory_word * 4u"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
