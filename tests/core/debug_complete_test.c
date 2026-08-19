@@ -86,9 +86,11 @@ static void test_halt_and_step(TestState* state) {
     cpu.sleeping = true;
     cpu.stop = CORTEX_M4_STOP_LOCKUP;
     TEST_EXPECT(state, (debug_read(state, &cpu, DHCSR, 4) & 0x000c0000u) == 0x000c0000u);
+    cpu.stop = CORTEX_M4_STOP_BREAKPOINT;
     debug_write(state, &cpu, DHCSR, 4, 0xa05f0000u);
     TEST_EXPECT(state, !cpu.debug.halted);
     TEST_EXPECT(state, !cpu.debug.step_armed);
+    TEST_EXPECT(state, cpu.stop == CORTEX_M4_STOP_RUNNING);
 }
 
 static void test_register_transfer(TestState* state) {
@@ -143,6 +145,10 @@ static void test_register_transfer(TestState* state) {
     debug_write(state, &cpu, DCRDR, 4, 0x20004003u);
     debug_write(state, &cpu, DCRSR, 4, (1u << 16) | 13u);
     TEST_EXPECT(state, cpu.psp == 0x20004000u);
+    cpu.control = 0u;
+    debug_write(state, &cpu, DCRDR, 4, 0x20005003u);
+    debug_write(state, &cpu, DCRSR, 4, (1u << 16) | 13u);
+    TEST_EXPECT(state, cpu.msp == 0x20005000u);
     debug_write(state, &cpu, DCRDR, 4, 0x12345679u);
     debug_write(state, &cpu, DCRSR, 4, (1u << 16) | 15u);
     TEST_EXPECT(state, cpu.registers[15] == 0x12345678u);
@@ -192,6 +198,10 @@ static void test_debug_monitor_and_vector_catch(TestState* state) {
         cortex_m4_debug_exception(&cpu, caught[index]);
         TEST_EXPECT(state, cpu.debug.halted);
     }
+    cpu.debug.halted = false;
+    cpu.debug.dhcsr_control = 1u;
+    debug_write(state, &cpu, DEMCR, 4, 1u << 19u);
+    TEST_EXPECT(state, cpu.debug.halted);
 }
 
 static void test_dwt(TestState* state) {
@@ -245,6 +255,11 @@ static void test_dwt(TestState* state) {
     TEST_EXPECT(state, (cpu.system_pending & (1u << 12)) != 0);
     TEST_EXPECT(state, debug_read(state, &cpu, DWT_BASE + 0x20u, 4) == 105u);
     TEST_EXPECT(state, debug_read(state, &cpu, DWT_BASE + 0x24u, 4) == 2u);
+    debug_write(state, &cpu, DWT_BASE + 4u, 4, UINT32_MAX - 2u);
+    debug_write(state, &cpu, DWT_BASE + 0x20u, 4, 1u);
+    debug_write(state, &cpu, DWT_BASE + 0x28u, 4, 0x84u);
+    cortex_m4_debug_advance(&cpu, 5u, false);
+    TEST_EXPECT(state, (cpu.debug.dwt_comparators[0].function & (1u << 24)) != 0u);
     cpu.registers[15] = 0x1234u;
     TEST_EXPECT(state, debug_read(state, &cpu, DWT_BASE + 0x1cu, 4) == 0x1234u);
     debug_write(state, &cpu, DWT_BASE + 8u, 4, 0x1ffu);
@@ -263,6 +278,11 @@ static void test_dwt(TestState* state) {
     cortex_m4_debug_memory_access(&cpu, 0x20000200u, 1u, false, 0x5au);
     TEST_EXPECT(state, (cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0);
     TEST_EXPECT(state, (cpu.system_pending & (1u << 12)) != 0);
+    debug_write(state, &cpu, DWT_BASE + 0x40u, 4, 0xa55au);
+    debug_write(state, &cpu, DWT_BASE + 0x38u, 4, 4u | (1u << 10));
+    debug_write(state, &cpu, DWT_BASE + 0x48u, 4, 5u | (1u << 8) | (1u << 10) | (1u << 12));
+    cortex_m4_debug_memory_access(&cpu, 0x20000200u, 2u, false, 0xa55au);
+    TEST_EXPECT(state, (cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0u);
 }
 
 static void test_fpb(TestState* state) {
@@ -320,7 +340,10 @@ static void test_itm_and_tpiu(TestState* state) {
     TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == 0x5au);
     debug_write(state, &cpu, ITM_BASE + 1u, 1, 0xa5u);
     TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == 0xa55au);
+    debug_write(state, &cpu, ITM_BASE + 2u, 2, 0x3cc3u);
+    TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == 0x3cc3a55au);
     TEST_EXPECT(state, debug_read(state, &cpu, ITM_BASE, 1) == 1u);
+    TEST_EXPECT(state, debug_read(state, &cpu, ITM_BASE, 2) == 1u);
     TEST_EXPECT(state, debug_read(state, &cpu, ITM_BASE + 0xe80u, 4) == 1u);
     TEST_EXPECT(state, debug_read(state, &cpu, ITM_BASE + 0xe40u, 4) == 0x0fu);
     debug_write(state, &cpu, ITM_BASE + 0xef8u, 4, 3u);
