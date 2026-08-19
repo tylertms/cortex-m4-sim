@@ -63,8 +63,10 @@ typedef struct {
     bool modulo_pending;
     bool initial_pending;
     bool software_sync_pending;
+    bool hardware_sync_pending;
     bool write_protection_read;
     bool counting_down;
+    uint8_t hardware_trigger_pending_mask;
     uint8_t overflow_count;
 } K22FtmState;
 
@@ -158,6 +160,7 @@ void k22_timing_set_debug_halted(K22Timing* timing, bool halted);
 bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
 bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
                               bool high);
+bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_t trigger);
 bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
                                bool* high);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);

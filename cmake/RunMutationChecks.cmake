@@ -323,3 +323,33 @@ run_mutation(
   "ftm->registers[17] &= ~(1u << 9u);"
   "ftm->registers[17] |= 1u << 9u;"
   cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_trigger_selection src/k22_timing.c
+  "const uint8_t detected = pending & enabled;"
+  "const uint8_t detected = pending | enabled;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_trigger_mode src/k22_timing.c
+  "if ((ftm->registers[14] & 1u) == 0u)"
+  "if ((ftm->registers[14] & 1u) != 0u)"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_output_sync src/k22_timing.c
+  "if ((synconf & (1u << 20u)) != 0u && (synconf & (1u << 5u)) != 0u)"
+  "if (false && (synconf & (1u << 5u)) != 0u)"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_write_buffer_sync src/k22_timing.c
+  "if ((synconf & (1u << 17u)) != 0u)"
+  "if (false)"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_counter_reset src/k22_timing.c
+  "if ((synconf & (1u << 16u)) != 0u) {"
+  "if (false) {"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_deferred_sync src/k22_timing.c
+  "    } else {\n        ftm->hardware_sync_pending = true;\n    }"
+  "    } else {\n        ftm->hardware_sync_pending = false;\n    }"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)

@@ -717,6 +717,16 @@ bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t chann
     return true;
 }
 
+bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_t trigger) {
+    if (timing == NULL || timing->profile == NULL || instance >= 4u || trigger >= 3u)
+        return false;
+    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
+    if (!has(timing, peripheral))
+        return false;
+    timing->ftm[instance].hardware_trigger_pending_mask |= (uint8_t)(1u << trigger);
+    return true;
+}
+
 bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
                                bool* high) {
     if (timing == NULL || high == NULL || timing->profile == NULL || instance >= 4u ||
@@ -1152,6 +1162,12 @@ static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
         ftm->registers[1] &= ~0x80u;
         ftm->software_sync_pending = false;
     }
+    if (ftm->hardware_sync_pending && (((ftm->registers[1] & 1u) != 0u && minimum) ||
+                                       ((ftm->registers[1] & 2u) != 0u && maximum))) {
+        if ((ftm->registers[14] & (1u << 17u)) != 0u)
+            ftm_apply_synchronized_write_buffers(ftm, true);
+        ftm->hardware_sync_pending = false;
+    }
     const bool intermediate =
         maximum || (channel_matches & (uint8_t)ftm->registers[17]) != 0u;
     if ((ftm->registers[17] & (1u << 9u)) != 0u && intermediate)
@@ -1197,9 +1213,46 @@ static void ftm_apply_software_sync(K22FtmState* ftm) {
     }
 }
 
+static void ftm_apply_hardware_sync(K22FtmState* ftm) {
+    const uint32_t synconf = ftm->registers[14];
+    if ((synconf & (1u << 20u)) != 0u && (synconf & (1u << 5u)) != 0u)
+        ftm_apply_swoctrl(ftm);
+    if ((synconf & (1u << 19u)) != 0u && (synconf & (1u << 4u)) != 0u)
+        ftm_apply_invctrl(ftm);
+    if ((synconf & (1u << 18u)) != 0u && (ftm->registers[1] & 8u) != 0u)
+        ftm_apply_outmask(ftm);
+    if ((synconf & (1u << 16u)) != 0u) {
+        if ((synconf & (1u << 17u)) != 0u)
+            ftm_apply_synchronized_write_buffers(ftm, true);
+        ftm->counter = ftm->initial;
+        ftm->counting_down = false;
+        ftm->overflow_count = 0u;
+        ftm->remainder = 0u;
+        ftm->hardware_sync_pending = false;
+    } else {
+        ftm->hardware_sync_pending = true;
+    }
+}
+
+static void ftm_process_hardware_triggers(K22Timing* timing, uint8_t index) {
+    K22FtmState* ftm = &timing->ftm[index];
+    if (ftm->hardware_trigger_pending_mask == 0u || !ftm_gate(timing, index))
+        return;
+    const uint8_t pending = ftm->hardware_trigger_pending_mask;
+    ftm->hardware_trigger_pending_mask = 0u;
+    const uint8_t enabled = (uint8_t)((ftm->registers[1] >> 4u) & 7u);
+    const uint8_t detected = pending & enabled;
+    if (detected == 0u)
+        return;
+    if ((ftm->registers[14] & 1u) == 0u)
+        ftm->registers[1] &= ~((uint32_t)detected << 4u);
+    ftm_apply_hardware_sync(ftm);
+}
+
 static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     K22FtmState* ftm = &timing->ftm[index];
     ftm_apply_system_clock_updates(ftm);
+    ftm_process_hardware_triggers(timing, index);
     const uint8_t channels = ftm_channel_count(index);
     uint32_t remaining = cycles;
     while (remaining != 0u) {
