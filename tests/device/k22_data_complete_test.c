@@ -1177,6 +1177,16 @@ static void test_flash_swap_lifecycle(TestState* state) {
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x21u) == 0u);
     TEST_EXPECT(state, bus.flash[0x1000u] == 0u);
     TEST_EXPECT(state, bus.flash[0x1001u] == 0xffu);
+    const uint8_t phrase[8] = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u};
+    set_flash_data(state, data, phrase, sizeof(phrase));
+    flash_command(state, data, 0x07u, 0x1000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x10u) != 0u);
+    TEST_EXPECT(state, bus.flash[0x1001u] == 0xffu);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x09u, 0x1000u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x10u) != 0u);
+    TEST_EXPECT(state, bus.flash[0x1001u] == 0xffu);
+    clear_flash_status(state, data);
     write_fccob(state, data, 4u, 8u);
     flash_command(state, data, 0x46u, 0x1000u, 40u);
     TEST_EXPECT(state, read_fccob(state, data, 5u) == 3u);
@@ -1187,6 +1197,10 @@ static void test_flash_swap_lifecycle(TestState* state) {
     flash_command(state, data, 0x46u, 0x1000u, 40u);
     TEST_EXPECT(state, bus.flash[0x1000u] == 0u);
     TEST_EXPECT(state, bus.flash[0x1001u] == 0u);
+    flash_command(state, data, 0x09u, 0x81000u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x10u) != 0u);
+    TEST_EXPECT(state, bus.flash[0x81000u] == 0xffu);
+    clear_flash_status(state, data);
     k22_data_reset(data);
     TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 8u) != 0u);
     TEST_EXPECT(state, k22_data_program_flash_address(data, 0x20u) == 0x80020u);

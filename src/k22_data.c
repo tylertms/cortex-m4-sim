@@ -1290,6 +1290,21 @@ static void flash_swap_erased(K22Data* data, uint32_t start, uint32_t length) {
         data->flash_swap_mode = 3u;
 }
 
+static bool flash_swap_range_protected(const K22Data* data, uint32_t start, uint32_t length,
+                                       bool erase) {
+    if (data->flash_swap_mode == 0u || length == 0u)
+        return false;
+    const uint32_t block_size = data->profile->program_flash_size / 2u;
+    const uint32_t active = data->flash_swap_address;
+    const uint32_t nonactive = active + block_size;
+    const bool active_overlap = start <= active && active - start < length;
+    const bool nonactive_overlap = start <= nonactive && nonactive - start < length;
+    if (active_overlap)
+        return true;
+    return nonactive_overlap &&
+           (!erase || (data->flash_swap_mode != 2u && data->flash_swap_mode != 3u));
+}
+
 static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {
     switch (command) {
     case 0x00u:
@@ -1342,7 +1357,8 @@ static void flash_execute(K22Data* data) {
         valid = address % (program_words * 4u) == 0u &&
                 flash_memory_range(data, address, program_words * 4u, &data_flash, &offset);
         protection_failure =
-            valid && flash_memory_range_protected(data, address, program_words * 4u);
+            valid && (flash_memory_range_protected(data, address, program_words * 4u) ||
+                      flash_swap_range_protected(data, address, program_words * 4u, false));
         if (valid && !protection_failure)
             valid = flash_program_words(data, address, program_words, &verify_failure);
     } else if (command == 0x09u) {
@@ -1352,7 +1368,8 @@ static void flash_execute(K22Data* data) {
         valid = (address & 0x0fu) == 0u &&
                 flash_memory_range(data, start, sector_size, &data_flash, &offset);
         protection_failure =
-            valid && flash_memory_range_protected(data, start, sector_size);
+            valid && (flash_memory_range_protected(data, start, sector_size) ||
+                      flash_swap_range_protected(data, start, sector_size, true));
         if (valid && !protection_failure)
             valid = flash_erase(data, start, sector_size);
         if (valid && !protection_failure)
@@ -1365,7 +1382,9 @@ static void flash_execute(K22Data* data) {
                 flash_block_range(data, address, &start, &block_size, &data_flash) &&
                 (ftfe || data->profile->program_flash_size == 0x80000u) &&
                 !(data_flash && data->flexram_eeprom);
-        protection_failure = valid && flash_memory_range_protected(data, start, block_size);
+        protection_failure =
+            valid && (flash_memory_range_protected(data, start, block_size) ||
+                      flash_swap_range_protected(data, start, block_size, true));
         if (valid && !protection_failure)
             valid = flash_erase(data, start, block_size);
         if (valid && !protection_failure)
@@ -1454,7 +1473,9 @@ static void flash_execute(K22Data* data) {
                 count != 0u && length <= 1024u && (address & 0x0fu) == 0u &&
                 length <= sector_size - (address & (sector_size - 1u)) &&
                 flash_memory_range(data, address, length, &data_flash, &offset);
-        protection_failure = valid && flash_memory_range_protected(data, address, length);
+        protection_failure =
+            valid && (flash_memory_range_protected(data, address, length) ||
+                      flash_swap_range_protected(data, address, length, false));
         if (valid && !protection_failure)
             valid = flash_program_buffer(data, address, length, &verify_failure);
     } else if (command == 0x45u) {

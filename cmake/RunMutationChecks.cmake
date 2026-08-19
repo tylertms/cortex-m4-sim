@@ -94,6 +94,15 @@ run_mutation(
   "(address < 0x400u || address >= 0x410u)" "true"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
+  flash_swap_active_protection src/k22_data.c
+  "if (active_overlap)\n        return true;" "if (active_overlap)\n        return false;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_swap_nonactive_protection src/k22_data.c
+  "data->flash_swap_mode != 2u && data->flash_swap_mode != 3u"
+  "data->flash_swap_mode == 2u && data->flash_swap_mode == 3u"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
   flash_protection_range src/k22_data.c "region <= last" "region < last"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
