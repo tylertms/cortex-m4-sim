@@ -10,4 +10,4 @@ k22_data.c:933|Defensive fallback for a partition code rejected before storage
 k22_data.c:934|Return for a partition code rejected before storage
 k22_data.c:1462|Allocation cleanup after a FlexNVM or FlexRAM allocation failure
 k22_data.c:1463|Return after a FlexNVM or FlexRAM allocation failure
-k22_timing.c:163|Defensive clamp for an impossible clock value in a valid profile
+k22_timing.c:177|Defensive clamp for an impossible clock value in a valid profile

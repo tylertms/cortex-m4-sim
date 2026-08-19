@@ -35,6 +35,7 @@ enum {
     PDB_BASE = 0x40036000u,
     WDOG_BASE = 0x40052000u,
     EWM_BASE = 0x40061000u,
+    IRQ_LVD = 20u,
     IRQ_LLWU = 21u,
     IRQ_WDOG_EWM = 22u,
     IRQ_FTM0 = 42u,
@@ -50,6 +51,19 @@ static void set_irq(const K22Timing* timing, uint8_t irq, bool asserted) {
     if (timing->signals.irq != NULL) {
         timing->signals.irq(timing->signals.context, irq, asserted);
     }
+}
+
+static void update_pmc_irq(const K22Timing* timing) {
+    const bool detect = (timing->pmc[0] & 0xa0u) == 0xa0u;
+    const bool warning = (timing->pmc[1] & 0xa0u) == 0xa0u;
+    set_irq(timing, IRQ_LVD, detect || warning);
+}
+
+static void update_llwu_irq(const K22Timing* timing) {
+    const bool pin = (timing->llwu[5] | timing->llwu[6]) != 0u;
+    const bool module = timing->llwu[7] != 0u;
+    const bool filter = ((timing->llwu[8] | timing->llwu[9]) & 0x80u) != 0u;
+    set_irq(timing, IRQ_LLWU, pin || module || filter);
 }
 
 static void request_dma(const K22Timing* timing, uint8_t source) {
@@ -2359,6 +2373,7 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->pmc[2] = 4u;
     timing->smc[2] = 3u;
     timing->smc[3] = 1u;
+    timing->smc_run_status = 1u;
     timing->rcm[0] = srs0;
     timing->rcm[1] = srs1;
     if (srs0 == 0x82u && srs1 == 0) {
@@ -2508,19 +2523,39 @@ static bool write_control_register(K22Timing* timing, uint32_t address, uint8_t 
         const uint8_t offset = (uint8_t)(address - LLWU_BASE);
         if (offset == 5u || offset == 6u)
             timing->llwu[offset] &= (uint8_t)~value;
+        else if (offset == 8u || offset == 9u)
+            timing->llwu[offset] =
+                (timing->llwu[offset] & 0x80u & (uint8_t)~value) |
+                ((uint8_t)value & 0x6fu);
         else if (offset != 7u)
             timing->llwu[offset] = (uint8_t)value;
-        if ((timing->llwu[5] | timing->llwu[6] | timing->llwu[7]) == 0)
-            set_irq(timing, IRQ_LLWU, false);
+        update_llwu_irq(timing);
         return true;
     }
     if (contains(timing, K22_PERIPHERAL_PMC, address, size)) {
         const uint8_t offset = (uint8_t)(address - PMC_BASE);
-        const uint8_t flags = offset < 2u ? 0xc0u : 8u;
-        timing->pmc[offset] = ((uint8_t)value & (uint8_t)~flags) |
-                              (timing->pmc[offset] & flags & (uint8_t)~value);
-        if ((timing->pmc[0] & 0x20u) == 0 && (timing->pmc[1] & 0x20u) == 0)
-            set_irq(timing, 20u, false);
+        if (offset == 0u) {
+            uint8_t flag = timing->pmc[0] & 0x80u;
+            if (((uint8_t)value & 0x40u) != 0u)
+                flag = 0u;
+            uint8_t reset_enable = timing->pmc[0] & 0x10u;
+            if (!timing->pmc_lvdre_written) {
+                reset_enable = (uint8_t)value & 0x10u;
+                timing->pmc_lvdre_written = true;
+            }
+            timing->pmc[0] = flag | reset_enable | ((uint8_t)value & 0x23u);
+        } else if (offset == 1u) {
+            uint8_t flag = timing->pmc[1] & 0x80u;
+            if (((uint8_t)value & 0x40u) != 0u)
+                flag = 0u;
+            timing->pmc[1] = flag | ((uint8_t)value & 0x23u);
+        } else {
+            uint8_t status = timing->pmc[2] & 0x0cu;
+            if (((uint8_t)value & 8u) != 0u)
+                status &= (uint8_t)~8u;
+            timing->pmc[2] = status | ((uint8_t)value & 0x11u);
+        }
+        update_pmc_irq(timing);
         return true;
     }
     if (contains(timing, K22_PERIPHERAL_SMC, address, size)) {
@@ -2530,12 +2565,14 @@ static bool write_control_register(K22Timing* timing, uint32_t address, uint8_t 
         else if (offset == 1u) {
             timing->smc[1] = (uint8_t)value & 0xe7u;
             const uint8_t mode = (uint8_t)value & 0x60u;
-            if (mode == 0x40u && (timing->smc[0] & 0x20u) != 0)
-                timing->smc[3] = 4u;
-            else if (mode == 0x60u && (timing->smc[0] & 0x80u) != 0)
-                timing->smc[3] = 0x80u;
-            else
-                timing->smc[3] = 1u;
+            if (mode == 0x40u && (timing->smc[0] & 0x20u) != 0u)
+                timing->smc_run_status = 4u;
+            else if (mode == 0x60u && (timing->smc[0] & 0x80u) != 0u)
+                timing->smc_run_status = 0x80u;
+            else if (mode == 0u)
+                timing->smc_run_status = 1u;
+            if (!timing->cpu_sleeping)
+                timing->smc[3] = timing->smc_run_status;
         } else if (offset == 2u)
             timing->smc[2] = (uint8_t)value;
         return true;
@@ -2591,6 +2628,104 @@ void k22_timing_advance(K22Timing* timing, uint32_t core_cycles) {
 void k22_timing_set_debug_halted(K22Timing* timing, bool halted) {
     if (timing != NULL)
         timing->debug_halted = halted;
+}
+
+bool k22_timing_trigger_low_voltage_warning(K22Timing* timing) {
+    if (timing == NULL || timing->profile == NULL || !has(timing, K22_PERIPHERAL_PMC))
+        return false;
+    if (timing->smc[3] != 1u && timing->smc[3] != 2u && timing->smc[3] != 0x80u)
+        return true;
+    timing->pmc[1] |= 0x80u;
+    update_pmc_irq(timing);
+    return true;
+}
+
+bool k22_timing_trigger_low_voltage_detect(K22Timing* timing) {
+    if (timing == NULL || timing->profile == NULL || !has(timing, K22_PERIPHERAL_PMC))
+        return false;
+    if (timing->smc[3] != 1u && timing->smc[3] != 2u && timing->smc[3] != 0x80u)
+        return true;
+    timing->pmc[0] |= 0x80u;
+    if ((timing->pmc[0] & 0x10u) != 0u)
+        signal_reset(timing, 2u, 0u);
+    else
+        update_pmc_irq(timing);
+    return true;
+}
+
+static bool llwu_edge_detected(uint8_t edge, bool previous, bool high) {
+    return (edge == 1u && !previous && high) || (edge == 2u && previous && !high) ||
+           (edge == 3u && previous != high);
+}
+
+static bool llwu_low_leakage(const K22Timing* timing) {
+    return timing->smc[3] == 0x20u || timing->smc[3] == 0x40u;
+}
+
+static void llwu_wake(K22Timing* timing) {
+    if (timing->smc[3] == 0x40u)
+        signal_reset(timing, 1u, 0u);
+    else
+        update_llwu_irq(timing);
+}
+
+bool k22_timing_set_llwu_pin(K22Timing* timing, uint8_t pin, bool high) {
+    if (timing == NULL || timing->profile == NULL || pin >= 16u ||
+        !has(timing, K22_PERIPHERAL_LLWU))
+        return false;
+    const bool previous = timing->llwu_pin_level[pin];
+    timing->llwu_pin_level[pin] = high;
+    if (!llwu_low_leakage(timing))
+        return true;
+    bool wake = false;
+    const uint8_t pin_edge =
+        (timing->llwu[pin / 4u] >> ((pin & 3u) * 2u)) & 3u;
+    if (llwu_edge_detected(pin_edge, previous, high)) {
+        timing->llwu[5u + pin / 8u] |= (uint8_t)(1u << (pin & 7u));
+        wake = true;
+    }
+    for (uint8_t filter = 0u; filter < 2u; filter++) {
+        const uint8_t control = timing->llwu[8u + filter];
+        if ((control & 15u) == pin &&
+            llwu_edge_detected((control >> 5u) & 3u, previous, high)) {
+            timing->llwu[8u + filter] |= 0x80u;
+            wake = true;
+        }
+    }
+    if (wake)
+        llwu_wake(timing);
+    return true;
+}
+
+bool k22_timing_trigger_llwu_module(K22Timing* timing, uint8_t module) {
+    if (timing == NULL || timing->profile == NULL || module >= 8u ||
+        !has(timing, K22_PERIPHERAL_LLWU))
+        return false;
+    if (llwu_low_leakage(timing) && (timing->llwu[4] & (1u << module)) != 0u) {
+        timing->llwu[7] |= (uint8_t)(1u << module);
+        llwu_wake(timing);
+    }
+    return true;
+}
+
+void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping) {
+    if (timing == NULL || timing->profile == NULL || timing->cpu_sleeping == sleeping)
+        return;
+    timing->cpu_sleeping = sleeping;
+    if (!sleeping) {
+        if (timing->smc[3] != 0x40u)
+            timing->smc[3] = timing->smc_run_status;
+        return;
+    }
+    const uint8_t stop_mode = timing->smc[1] & 7u;
+    if (stop_mode == 0u)
+        timing->smc[3] = 2u;
+    else if (stop_mode == 2u && (timing->smc[0] & 0x20u) != 0u)
+        timing->smc[3] = 0x10u;
+    else if (stop_mode == 3u && (timing->smc[0] & 8u) != 0u)
+        timing->smc[3] = 0x20u;
+    else if (stop_mode == 4u && (timing->smc[0] & 2u) != 0u)
+        timing->smc[3] = 0x40u;
 }
 
 bool k22_timing_copy(K22Timing* destination, const K22Timing* source,

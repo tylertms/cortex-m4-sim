@@ -110,6 +110,51 @@ run_mutation(
   "(load_bytes(data->dma, 0u, 4u) & 0x10u) != 0u"
   "false" cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
+  pmc_flag_acknowledge src/k22_timing.c
+  "if (((uint8_t)value & 0x40u) != 0u)"
+  "if (((uint8_t)value & 0x80u) != 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  pmc_reset_enable_lock src/k22_timing.c
+  "if (!timing->pmc_lvdre_written)"
+  "if (timing->pmc_lvdre_written)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  pmc_detect_reset src/k22_timing.c
+  "if ((timing->pmc[0] & 0x10u) != 0u)"
+  "if ((timing->pmc[0] & 0x10u) == 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  pmc_warning_interrupt src/k22_timing.c
+  "const bool warning = (timing->pmc[1] & 0xa0u) == 0xa0u;"
+  "const bool warning = (timing->pmc[1] & 0xa0u) == 0u;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  smc_lls_entry src/k22_timing.c
+  "stop_mode == 3u && (timing->smc[0] & 8u) != 0u"
+  "stop_mode == 4u && (timing->smc[0] & 8u) != 0u"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  smc_vlls_entry src/k22_timing.c
+  "stop_mode == 4u && (timing->smc[0] & 2u) != 0u"
+  "stop_mode == 5u && (timing->smc[0] & 2u) != 0u"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  llwu_rising_edge src/k22_timing.c
+  "edge == 1u && !previous && high"
+  "edge == 2u && !previous && high"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  llwu_module_enable src/k22_timing.c
+  "(timing->llwu[4] & (1u << module)) != 0u"
+  "(timing->llwu[4] & (1u << module)) == 0u"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  llwu_filter_acknowledge src/k22_timing.c
+  "timing->llwu[offset] & 0x80u & (uint8_t)~value"
+  "((timing->llwu[offset] & 0x80u) | (uint8_t)value)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
   lptmr_filter src/k22_timing.c "const uint32_t threshold = 1u << prescale;"
   "const uint32_t threshold = 2u << prescale;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

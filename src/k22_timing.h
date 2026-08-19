@@ -114,7 +114,11 @@ typedef struct {
     uint8_t osc_div;
     uint8_t llwu[11];
     uint8_t pmc[3];
+    bool pmc_lvdre_written;
     uint8_t smc[4];
+    uint8_t smc_run_status;
+    bool cpu_sleeping;
+    bool llwu_pin_level[16];
     uint8_t rcm[10];
     uint32_t pit_mcr;
     K22PitChannel pit[4];
@@ -170,6 +174,11 @@ bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
 void k22_timing_set_debug_halted(K22Timing* timing, bool halted);
 bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
+bool k22_timing_trigger_low_voltage_warning(K22Timing* timing);
+bool k22_timing_trigger_low_voltage_detect(K22Timing* timing);
+bool k22_timing_set_llwu_pin(K22Timing* timing, uint8_t pin, bool high);
+bool k22_timing_trigger_llwu_module(K22Timing* timing, uint8_t module);
+void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping);
 bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
                               bool high);
 bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,

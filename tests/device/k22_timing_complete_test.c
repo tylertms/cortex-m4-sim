@@ -16,6 +16,14 @@ enum {
     MCG_C5 = 0x40064004u,
     MCG_C6 = 0x40064005u,
     MCG_S = 0x40064006u,
+    LLWU_PE1 = 0x4007c000u,
+    LLWU_ME = 0x4007c004u,
+    LLWU_F1 = 0x4007c005u,
+    LLWU_F3 = 0x4007c007u,
+    LLWU_FILT1 = 0x4007c008u,
+    PMC_LVDSC1 = 0x4007d000u,
+    PMC_LVDSC2 = 0x4007d001u,
+    PMC_REGSC = 0x4007d002u,
     SMC_PMPROT = 0x4007e000u,
     SMC_PMCTRL = 0x4007e001u,
     SMC_PMSTAT = 0x4007e003u,
@@ -229,6 +237,116 @@ static void test_clock_tree_and_power(TestState* state, K22Timing* timing) {
     expect_read(state, timing, SMC_PMSTAT, 1, 1u);
     expect_write(state, timing, RCM_SSRS0, 1, 0x80u);
     expect_read(state, timing, RCM_SSRS0, 1, 2u);
+}
+
+static void test_low_voltage_control(TestState* state, K22Timing* timing,
+                                     Observations* observations) {
+    expect_read(state, timing, PMC_LVDSC1, 1u, 0x10u);
+    expect_read(state, timing, PMC_LVDSC2, 1u, 0u);
+    expect_read(state, timing, PMC_REGSC, 1u, 4u);
+    expect_write(state, timing, PMC_LVDSC1, 1u, 0x20u);
+    expect_write(state, timing, PMC_LVDSC1, 1u, 0x30u);
+    expect_read(state, timing, PMC_LVDSC1, 1u, 0x20u);
+    TEST_EXPECT(state, k22_timing_trigger_low_voltage_detect(timing));
+    expect_read(state, timing, PMC_LVDSC1, 1u, 0xa0u);
+    TEST_EXPECT(state, observations->irq[20u]);
+    expect_write(state, timing, PMC_LVDSC1, 1u, 0x60u);
+    expect_read(state, timing, PMC_LVDSC1, 1u, 0x20u);
+    TEST_EXPECT(state, !observations->irq[20u]);
+
+    expect_write(state, timing, PMC_LVDSC2, 1u, 0x20u);
+    TEST_EXPECT(state, k22_timing_trigger_low_voltage_warning(timing));
+    expect_read(state, timing, PMC_LVDSC2, 1u, 0xa0u);
+    TEST_EXPECT(state, observations->irq[20u]);
+    expect_write(state, timing, PMC_LVDSC2, 1u, 0x60u);
+    expect_read(state, timing, PMC_LVDSC2, 1u, 0x20u);
+    TEST_EXPECT(state, !observations->irq[20u]);
+
+    timing->pmc[2] |= 8u;
+    expect_write(state, timing, PMC_REGSC, 1u, 0x19u);
+    expect_read(state, timing, PMC_REGSC, 1u, 0x15u);
+
+    const uint32_t reset_count = observations->resets;
+    k22_timing_reset(timing, 0x82u, 0u);
+    TEST_EXPECT(state, k22_timing_trigger_low_voltage_detect(timing));
+    TEST_EXPECT(state, observations->resets == reset_count + 1u);
+    expect_read(state, timing, RCM_SRS0, 1u, 2u);
+    TEST_EXPECT(state, !k22_timing_trigger_low_voltage_warning(NULL));
+    TEST_EXPECT(state, !k22_timing_trigger_low_voltage_detect(NULL));
+}
+
+static void test_low_leakage_wakeup(TestState* state, K22Timing* timing,
+                                    Observations* observations) {
+    expect_write(state, timing, SMC_PMPROT, 1u, 0x0au);
+    expect_write(state, timing, SMC_PMCTRL, 1u, 3u);
+    k22_timing_set_cpu_sleeping(timing, true);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 0x20u);
+    expect_write(state, timing, LLWU_PE1, 1u, 1u);
+    TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 0u, false));
+    TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 0u, true));
+    expect_read(state, timing, LLWU_F1, 1u, 1u);
+    TEST_EXPECT(state, observations->irq[21u]);
+    expect_write(state, timing, LLWU_F1, 1u, 1u);
+    TEST_EXPECT(state, !observations->irq[21u]);
+    k22_timing_set_cpu_sleeping(timing, false);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 1u);
+
+    expect_write(state, timing, LLWU_FILT1, 1u, 0x22u);
+    k22_timing_set_cpu_sleeping(timing, true);
+    TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 2u, false));
+    TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 2u, true));
+    expect_read(state, timing, LLWU_FILT1, 1u, 0xa2u);
+    TEST_EXPECT(state, observations->irq[21u]);
+    expect_write(state, timing, LLWU_FILT1, 1u, 0x80u);
+    expect_read(state, timing, LLWU_FILT1, 1u, 0u);
+    TEST_EXPECT(state, !observations->irq[21u]);
+
+    k22_timing_reset(timing, 0x82u, 0u);
+    memset(observations, 0, sizeof(*observations));
+    expect_write(state, timing, SMC_PMPROT, 1u, 8u);
+    expect_write(state, timing, SMC_PMCTRL, 1u, 3u);
+    expect_write(state, timing, LLWU_ME, 1u, 8u);
+    k22_timing_set_cpu_sleeping(timing, true);
+    TEST_EXPECT(state, k22_timing_trigger_llwu_module(timing, 3u));
+    expect_read(state, timing, LLWU_F3, 1u, 8u);
+    TEST_EXPECT(state, observations->irq[21u]);
+
+    k22_timing_reset(timing, 0x82u, 0u);
+    memset(observations, 0, sizeof(*observations));
+    expect_write(state, timing, SMC_PMPROT, 1u, 0x20u);
+    expect_write(state, timing, SMC_PMCTRL, 1u, 0x40u);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 4u);
+    TEST_EXPECT(state, k22_timing_trigger_low_voltage_warning(timing));
+    TEST_EXPECT(state, k22_timing_trigger_low_voltage_detect(timing));
+    expect_read(state, timing, PMC_LVDSC1, 1u, 0x10u);
+    expect_read(state, timing, PMC_LVDSC2, 1u, 0u);
+    TEST_EXPECT(state, observations->resets == 0u);
+
+    k22_timing_reset(timing, 0x82u, 0u);
+    memset(observations, 0, sizeof(*observations));
+    expect_write(state, timing, SMC_PMPROT, 1u, 0x20u);
+    expect_write(state, timing, SMC_PMCTRL, 1u, 2u);
+    k22_timing_set_cpu_sleeping(timing, true);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 0x10u);
+    k22_timing_set_cpu_sleeping(timing, false);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 1u);
+
+    k22_timing_reset(timing, 0x82u, 0u);
+    memset(observations, 0, sizeof(*observations));
+    expect_write(state, timing, SMC_PMPROT, 1u, 2u);
+    expect_write(state, timing, SMC_PMCTRL, 1u, 4u);
+    expect_write(state, timing, LLWU_PE1, 1u, 4u);
+    k22_timing_set_cpu_sleeping(timing, true);
+    expect_read(state, timing, SMC_PMSTAT, 1u, 0x40u);
+    TEST_EXPECT(state, k22_timing_set_llwu_pin(timing, 1u, true));
+    TEST_EXPECT(state, observations->resets == 1u);
+    expect_read(state, timing, RCM_SRS0, 1u, 1u);
+
+    TEST_EXPECT(state, !k22_timing_set_llwu_pin(NULL, 0u, false));
+    TEST_EXPECT(state, !k22_timing_set_llwu_pin(timing, 16u, false));
+    TEST_EXPECT(state, !k22_timing_trigger_llwu_module(NULL, 0u));
+    TEST_EXPECT(state, !k22_timing_trigger_llwu_module(timing, 8u));
+    k22_timing_set_cpu_sleeping(NULL, true);
 }
 
 static void test_pit(TestState* state, K22Timing* timing, Observations* observations) {
@@ -1331,6 +1449,12 @@ int main(void) {
     TEST_EXPECT(&state, k22_timing_init(&timing, profile, 8000000u, 32768u,
                                         signals(&observations)));
     test_clock_tree_and_power(&state, &timing);
+    k22_timing_reset(&timing, 0x82u, 0);
+    memset(&observations, 0, sizeof(observations));
+    test_low_voltage_control(&state, &timing, &observations);
+    k22_timing_reset(&timing, 0x82u, 0);
+    memset(&observations, 0, sizeof(observations));
+    test_low_leakage_wakeup(&state, &timing, &observations);
     k22_timing_reset(&timing, 0x82u, 0);
     memset(&observations, 0, sizeof(observations));
     test_pit(&state, &timing, &observations);

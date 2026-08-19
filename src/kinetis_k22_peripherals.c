@@ -895,6 +895,8 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
 }
 
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
+    k22_timing_set_cpu_sleeping(&device->timing,
+                                device->cpu != NULL && device->cpu->sleeping);
     k22_timing_set_debug_halted(&device->timing,
                                 device->cpu != NULL && device->cpu->debug.halted);
     k22_data_set_debug_halted(device->data,
@@ -941,6 +943,22 @@ bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t inp
 
 bool kinetis_k22_set_lptmr_input(KinetisK22* device, uint8_t input, bool high) {
     return device != NULL && k22_timing_set_lptmr_input(&device->timing, input, high);
+}
+
+bool kinetis_k22_trigger_low_voltage_warning(KinetisK22* device) {
+    return device != NULL && k22_timing_trigger_low_voltage_warning(&device->timing);
+}
+
+bool kinetis_k22_trigger_low_voltage_detect(KinetisK22* device) {
+    return device != NULL && k22_timing_trigger_low_voltage_detect(&device->timing);
+}
+
+bool kinetis_k22_set_llwu_pin(KinetisK22* device, uint8_t pin, bool high) {
+    return device != NULL && k22_timing_set_llwu_pin(&device->timing, pin, high);
+}
+
+bool kinetis_k22_trigger_llwu_module(KinetisK22* device, uint8_t module) {
+    return device != NULL && k22_timing_trigger_llwu_module(&device->timing, module);
 }
 
 bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,

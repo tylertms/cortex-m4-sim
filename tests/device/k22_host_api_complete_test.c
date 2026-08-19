@@ -50,6 +50,16 @@ static void test_data_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_set_lptmr_input(device, 2u, true));
     TEST_EXPECT(state, !kinetis_k22_set_lptmr_input(device, 3u, false));
     TEST_EXPECT(state, !kinetis_k22_set_lptmr_input(NULL, 0u, false));
+    TEST_EXPECT(state, kinetis_k22_trigger_low_voltage_warning(device));
+    TEST_EXPECT(state, kinetis_k22_trigger_low_voltage_detect(device));
+    TEST_EXPECT(state, !kinetis_k22_trigger_low_voltage_warning(NULL));
+    TEST_EXPECT(state, !kinetis_k22_trigger_low_voltage_detect(NULL));
+    TEST_EXPECT(state, kinetis_k22_set_llwu_pin(device, 0u, true));
+    TEST_EXPECT(state, !kinetis_k22_set_llwu_pin(device, 16u, false));
+    TEST_EXPECT(state, !kinetis_k22_set_llwu_pin(NULL, 0u, false));
+    TEST_EXPECT(state, kinetis_k22_trigger_llwu_module(device, 0u));
+    TEST_EXPECT(state, !kinetis_k22_trigger_llwu_module(device, 8u));
+    TEST_EXPECT(state, !kinetis_k22_trigger_llwu_module(NULL, 0u));
     TEST_EXPECT(state, kinetis_k22_set_ftm_input(device, 0u, 0u, true));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(device, 4u, 0u, false));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(NULL, 0u, 0u, false));
