@@ -125,6 +125,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(core_fpu tests/core/fpu_test.c "core;integration")
   cortex_m4_add_test(core_fpu_complete tests/core/fpu_complete_test.c
                      "core;unit;integration")
+  cortex_m4_add_test(core_fpu_edge_complete tests/core/fpu_edge_complete_test.c
+                     "core;unit;integration")
   cortex_m4_add_test(core_mpu_complete tests/core/mpu_complete_test.c
                      "core;unit;integration")
   cortex_m4_add_test(core_instruction_census
