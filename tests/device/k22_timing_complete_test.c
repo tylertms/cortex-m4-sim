@@ -189,6 +189,10 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
     expect_write(state, timing, LPTMR_CSR, 4, 0x41u);
     TEST_EXPECT(state, !observations->irq[58]);
     expect_read(state, timing, LPTMR_CNR, 4, 0u);
+    expect_write(state, timing, LPTMR_CMR, 4, 0u);
+    expect_write(state, timing, LPTMR_CSR, 4, 1u);
+    k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
+    expect_read(state, timing, LPTMR_CSR, 4, 0x81u);
 }
 
 static void test_rtc(TestState* state, K22Timing* timing, Observations* observations) {

@@ -416,7 +416,7 @@ static void advance_lptmr(K22Timing* timing, uint32_t cycles) {
         return;
     }
     const uint64_t total = (uint64_t)timing->lptmr_counter + ticks;
-    if (compare != 0 && total >= compare) {
+    if (total >= compare) {
         timing->lptmr_csr |= 0x80u;
         if ((timing->lptmr_csr & 0x40u) != 0) {
             set_irq(timing, IRQ_LPTMR, true);
