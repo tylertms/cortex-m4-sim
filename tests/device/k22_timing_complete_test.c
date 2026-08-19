@@ -894,8 +894,8 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, FTM0_CNT, 4, 0u);
     expect_write(state, &timing, FTM0_SC, 4, 8u);
     k22_timing_advance(&timing, 3u);
-    expect_ftm_output(state, &timing, false);
-    expect_read(state, &timing, FTM0_C0SC, 4, 0x14u);
+    expect_ftm_output(state, &timing, true);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0x94u);
 
     expect_write(state, &timing, FTM0_SC, 4, 0u);
     expect_write(state, &timing, FTM0_QDCTRL, 4, 0u);

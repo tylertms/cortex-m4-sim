@@ -157,7 +157,7 @@ static void test_mode_selection(TestState* state) {
 
     configure(state, &timing, &recorder, 0x28u, 0x08u, 2u, 5u, 7u, 1u);
     write_register(state, &timing, FTM0_QDCTRL, 1u);
-    advance_and_expect(state, &timing, 2u, false, false);
+    advance_and_expect(state, &timing, 2u, true, true);
 }
 
 static void test_buffered_values(TestState* state) {

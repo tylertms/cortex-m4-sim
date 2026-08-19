@@ -73,6 +73,7 @@ typedef struct {
     bool fault_aggregate_read;
     bool fault_output_active;
     bool fault_release_pending;
+    bool quadrature_capable;
     bool counting_down;
     uint8_t hardware_trigger_pending_mask;
     uint8_t fault_flags_read_mask;

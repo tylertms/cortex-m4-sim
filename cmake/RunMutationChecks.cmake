@@ -385,8 +385,8 @@ run_mutation(
   cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
 run_mutation(
   ftm_complementary_selection src/k22_timing.c
-  "    return (ftm->registers[11] & 1u) == 0u && (pair & 2u) != 0u && (pair & 4u) == 0u &&"
-  "    return (ftm->registers[11] & 1u) == 0u && (pair & 2u) == 0u && (pair & 4u) == 0u &&"
+  "    return !ftm_quadrature_enabled(ftm) && (pair & 2u) != 0u && (pair & 4u) == 0u &&"
+  "    return !ftm_quadrature_enabled(ftm) && (pair & 2u) == 0u && (pair & 4u) == 0u &&"
   cortex_m4_device_k22_ftm_combine_test device_k22_ftm_combine)
 run_mutation(
   ftm_combine_compare_order src/k22_timing.c
@@ -508,3 +508,78 @@ run_mutation(
   "ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u"
   "ftm_has_deadtime(ftm, channels) || (ftm_fault_processing_active(ftm) && false) ? 1u"
   cortex_m4_device_k22_ftm_fault_test device_k22_ftm_fault)
+run_mutation(
+  ftm_quadrature_capability src/k22_timing.c
+  "timing->ftm[index].quadrature_capable = index == 1u || index == 2u;"
+  "timing->ftm[index].quadrature_capable = index == 0u || index == 2u;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_enable src/k22_timing.c
+  "return ftm->quadrature_capable && (ftm->registers[11] & 1u) != 0u;"
+  "return (ftm->registers[11] & 1u) != 0u;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_output_precedence src/k22_timing.c
+  "        *high = false;"
+  "        *high = true;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_system_clock src/k22_timing.c
+  "    if (ftm_quadrature_enabled(ftm))\n        return;"
+  "    if (false)\n        return;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_filter_enable src/k22_timing.c
+  "(ftm->registers[11] & (1u << (7u - channel))) == 0u"
+  "(ftm->registers[11] & (1u << (7u - channel))) != 0u"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_polarity src/k22_timing.c
+  "(ftm->registers[11] & (1u << (5u - channel))) != 0u"
+  "(ftm->registers[11] & (1u << (4u - channel))) != 0u"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_count_direction src/k22_timing.c
+  "ftm_quadrature_step(timing, index, phase_b);"
+  "ftm_quadrature_step(timing, index, !phase_b);"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_count_edge src/k22_timing.c
+  "if (channel == 0u && !before && after)"
+  "if (channel == 0u && before && !after)"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_phase_direction src/k22_timing.c
+  "const bool increment = channel == 0u ? after != phase_b : phase_a == after;"
+  "const bool increment = channel == 0u ? after == phase_b : phase_a != after;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_increment_wrap src/k22_timing.c
+  "if (counter == last) {"
+  "if (counter == (uint16_t)(last - 1u)) {"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_decrement_wrap src/k22_timing.c
+  "if (counter == first) {"
+  "if (counter == (uint16_t)(first + 1u)) {"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_status_write src/k22_timing.c
+  "ftm->registers[register_index] = (value & ~6u) | (current & 6u);"
+  "ftm->registers[register_index] = value;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_top_direction src/k22_timing.c
+  "ftm->registers[11] |= 2u;"
+  "ftm->registers[11] &= ~2u;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_bottom_direction src/k22_timing.c
+  "ftm->registers[11] &= ~2u;"
+  "ftm->registers[11] |= 2u;"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)
+run_mutation(
+  ftm_quadrature_input_routing src/k22_timing.c
+  "if (ftm_quadrature_enabled(ftm) && channel < 2u) {"
+  "if (false && channel < 2u) {"
+  cortex_m4_device_k22_ftm_quadrature_test device_k22_ftm_quadrature)

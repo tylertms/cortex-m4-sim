@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change ninety-five critical behaviors in temporary source copies.
+The mutation checks change one hundred ten critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -179,3 +179,6 @@ The checks cover these behaviors:
 - FTM fault flags and interrupt control
 - FTM fault output modes and release timing
 - FTM fault and PWM event ordering
+- FTM quadrature capability and mode precedence
+- FTM quadrature filters, polarity, edges, and direction
+- FTM quadrature counter boundaries and status bits
