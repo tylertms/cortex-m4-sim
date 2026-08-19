@@ -265,11 +265,24 @@ void cortex_m4_set_register(CortexM4* cpu, uint8_t index, uint32_t value) {
     }
 }
 
-uint32_t cortex_m4_get_xpsr(const CortexM4* cpu) { return cpu == NULL ? 0 : cpu->xpsr; }
+uint32_t cortex_m4_xpsr_value(const CortexM4* cpu) {
+    const uint32_t it_state =
+        ((uint32_t)(cpu->it_state & 3u) << 25) | ((uint32_t)(cpu->it_state & 0xfcu) << 8);
+    return cpu->xpsr | it_state;
+}
+
+void cortex_m4_load_xpsr(CortexM4* cpu, uint32_t value) {
+    cpu->it_state = (uint8_t)(((value >> 25) & 3u) | ((value >> 8) & 0xfcu));
+    cpu->xpsr = (value & ~0x0600fc00u) | CORTEX_M4_XPSR_T;
+}
+
+uint32_t cortex_m4_get_xpsr(const CortexM4* cpu) {
+    return cpu == NULL ? 0 : cortex_m4_xpsr_value(cpu);
+}
 
 void cortex_m4_set_xpsr(CortexM4* cpu, uint32_t value) {
     if (cpu != NULL) {
-        cpu->xpsr = value | CORTEX_M4_XPSR_T;
+        cortex_m4_load_xpsr(cpu, value);
     }
 }
 

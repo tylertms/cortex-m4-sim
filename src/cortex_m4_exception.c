@@ -61,7 +61,7 @@ static bool enter_exception(CortexM4* cpu, uint16_t exception) {
         stack_pointer -= 4;
     }
     stack_pointer -= 32;
-    uint32_t stacked_xpsr = cpu->xpsr;
+    uint32_t stacked_xpsr = cortex_m4_xpsr_value(cpu);
     if (align_padding) {
         stacked_xpsr |= 1u << 9;
     }
@@ -91,6 +91,7 @@ static bool enter_exception(CortexM4* cpu, uint16_t exception) {
                          : used_psp  ? EXCEPTION_RETURN_THREAD_PSP
                                      : EXCEPTION_RETURN_THREAD_MSP;
     cpu->registers[15] = vector & ~1u;
+    cpu->it_state = 0;
     cpu->xpsr = (cpu->xpsr & ~0x1ffu) | exception | CORTEX_M4_XPSR_T;
     cpu->control &= ~CORTEX_M4_CONTROL_FPCA;
     cpu->sleeping = false;
@@ -178,7 +179,7 @@ bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value) {
     cpu->registers[12] = frame[4];
     cpu->registers[14] = frame[5];
     cpu->registers[15] = frame[6] & ~1u;
-    cpu->xpsr = frame[7] | CORTEX_M4_XPSR_T;
+    cortex_m4_load_xpsr(cpu, frame[7]);
     if (current_exception >= 16) {
         const uint16_t irq = current_exception - 16;
         const uint32_t mask = 1u << (irq & 31u);

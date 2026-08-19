@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "firmware_image.h"
+#include "cortex_m4_sim/firmware_image.h"
 
 static bool parse_u64(const char* text, uint64_t* value) {
     char* end = NULL;
@@ -80,8 +80,8 @@ int main(int argc, char** argv) {
     }
     uint32_t entry = 0;
     const bool loaded =
-        binary ? firmware_image_load_binary(device, argv[1], (uint32_t)binary_address)
-               : firmware_image_load_elf(device, argv[1], &entry);
+        binary ? cortex_m4_load_binary(device, argv[1], (uint32_t)binary_address)
+               : cortex_m4_load_elf(device, argv[1], &entry);
     if (!loaded) {
         fprintf(stderr, "failed to load the firmware image\n");
         kinetis_k22_destroy(device);

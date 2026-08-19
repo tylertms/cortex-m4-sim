@@ -517,9 +517,6 @@ void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
 }
 
 void kinetis_k22_peripheral_reset(KinetisK22* device) {
-    memset(device->gpio_external, 0, sizeof(device->gpio_external));
-    memset(device->gpio_driven, 0, sizeof(device->gpio_driven));
-    memset(device->adc_channels, 0, sizeof(device->adc_channels));
     memset(device->pit_current, 0, sizeof(device->pit_current));
     memset(&device->uart1_receive, 0, sizeof(device->uart1_receive));
     memset(&device->uart1_transmit, 0, sizeof(device->uart1_transmit));

@@ -178,6 +178,7 @@ void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause) {
     if (device == NULL) {
         return;
     }
+    memset(device->peripheral, 0, K22_PERIPHERAL_SIZE);
     kinetis_k22_peripheral_reset(device);
     device->peripheral[0x7f000u] = cause;
     cortex_m4_reset(device->cpu, device->configuration.vector_table_address);

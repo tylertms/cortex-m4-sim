@@ -1,4 +1,4 @@
-#include "firmware_image.h"
+#include "cortex_m4_sim/firmware_image.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -69,7 +69,7 @@ int main(void) {
     initialize_image(image);
 
     uint32_t entry = 0;
-    TEST_EXPECT(&state, firmware_image_load_elf_data(device, image, sizeof(image), &entry));
+    TEST_EXPECT(&state, cortex_m4_load_elf_data(device, image, sizeof(image), &entry));
     TEST_EXPECT(&state, entry == 0x101u);
     uint32_t value = 0;
     TEST_EXPECT(&state, kinetis_k22_read(device, 0x100u, &value, sizeof(value)));
@@ -80,17 +80,17 @@ int main(void) {
     TEST_EXPECT(&state, value == 0);
 
     image[0] = 0;
-    TEST_EXPECT(&state, !firmware_image_load_elf_data(device, image, sizeof(image), NULL));
+    TEST_EXPECT(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL));
     initialize_image(image);
     write16(image, 18, 3);
-    TEST_EXPECT(&state, !firmware_image_load_elf_data(device, image, sizeof(image), NULL));
+    TEST_EXPECT(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL));
     initialize_image(image);
     write32(image, ELF_HEADER_SIZE + 16, 5);
     write32(image, ELF_HEADER_SIZE + 20, 4);
-    TEST_EXPECT(&state, !firmware_image_load_elf_data(device, image, sizeof(image), NULL));
+    TEST_EXPECT(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL));
     initialize_image(image);
     write32(image, 28, UINT32_MAX);
-    TEST_EXPECT(&state, !firmware_image_load_elf_data(device, image, sizeof(image), NULL));
+    TEST_EXPECT(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL));
 
     kinetis_k22_destroy(device);
     return test_finish(&state);

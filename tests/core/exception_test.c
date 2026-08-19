@@ -33,6 +33,29 @@ int main(void) {
     TEST_EXPECT(&state, !cortex_m4_get_irq_active(cpu, 0));
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x102u);
+
+    const uint16_t it_program[] = {0x2000u, 0x2801u, 0xbf08u, 0x3101u, 0xbe00u};
+    TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, it_program, sizeof(it_program)));
+    TEST_EXPECT(&state, kinetis_k22_reset(device));
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e100u, 4, 1));
+    cortex_m4_step(cpu);
+    cortex_m4_step(cpu);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0x00000800u);
+    cortex_m4_set_irq(cpu, 0, true);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 0) == 0x55u);
+    TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0);
+    uint32_t stacked_xpsr = 0;
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0x20000ffcu, 4, &stacked_xpsr));
+    TEST_EXPECT(&state, (stacked_xpsr & 0x0600fc00u) == 0x00000800u);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0x00000800u);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 1) == 0);
+    TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_BREAKPOINT);
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

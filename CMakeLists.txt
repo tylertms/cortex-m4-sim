@@ -33,7 +33,10 @@ set(cortex_m4_simulator_sources
 add_library(cortex_m4_simulator STATIC ${cortex_m4_simulator_sources})
 add_library(cortex_m4::simulator ALIAS cortex_m4_simulator)
 
-add_executable(cortex_m4_firmware_runner src/firmware_image.c src/main.c)
+add_library(cortex_m4_firmware_image STATIC src/firmware_image.c)
+add_library(cortex_m4::firmware_image ALIAS cortex_m4_firmware_image)
+
+add_executable(cortex_m4_firmware_runner src/main.c)
 add_executable(cortex_m4::firmware_runner ALIAS cortex_m4_firmware_runner)
 
 target_compile_features(cortex_m4_simulator PUBLIC c_std_11)
@@ -42,17 +45,22 @@ target_include_directories(
   PUBLIC include
   PRIVATE src)
 target_compile_features(cortex_m4_firmware_runner PRIVATE c_std_11)
-target_include_directories(cortex_m4_firmware_runner PRIVATE src)
-target_link_libraries(cortex_m4_firmware_runner PRIVATE cortex_m4_simulator)
+target_compile_features(cortex_m4_firmware_image PUBLIC c_std_11)
+target_include_directories(cortex_m4_firmware_image PUBLIC include)
+target_link_libraries(cortex_m4_firmware_image PUBLIC cortex_m4_simulator)
+target_link_libraries(cortex_m4_firmware_runner PRIVATE cortex_m4_firmware_image)
 
 if(MSVC)
   target_compile_options(cortex_m4_simulator PRIVATE /W4 /WX)
   target_compile_options(cortex_m4_firmware_runner PRIVATE /W4 /WX)
+  target_compile_options(cortex_m4_firmware_image PRIVATE /W4 /WX)
 else()
   target_compile_options(cortex_m4_simulator PRIVATE -Wall -Wextra -Wpedantic
                                                      -Werror)
   target_compile_options(cortex_m4_firmware_runner PRIVATE -Wall -Wextra
                                                            -Wpedantic -Werror)
+  target_compile_options(cortex_m4_firmware_image PRIVATE -Wall -Wextra -Wpedantic
+                                                        -Werror)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
@@ -105,7 +113,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(device_clock_power tests/device/clock_power_test.c
                      "device;integration")
   cortex_m4_add_test(firmware_image tests/system/firmware_image_test.c
-                     "runner;system" src/firmware_image.c)
+                     "runner;system")
+  target_link_libraries(cortex_m4_firmware_image_test PRIVATE
+                        cortex_m4_firmware_image)
 
   if(CORTEX_M4_ENABLE_COVERAGE)
     set(coverage_directory "${CMAKE_CURRENT_BINARY_DIR}/coverage")

@@ -540,21 +540,22 @@ static uint32_t decode_branch_offset(uint16_t first, uint16_t second) {
 }
 
 static uint32_t read_special_register(const CortexM4* cpu, uint8_t selector) {
+    const uint32_t xpsr = cortex_m4_xpsr_value(cpu);
     switch (selector) {
     case 0:
-        return cpu->xpsr & 0xf80f0000u;
+        return xpsr & 0xf80f0000u;
     case 1:
-        return cpu->xpsr & 0xf80f01ffu;
+        return xpsr & 0xf80f01ffu;
     case 2:
-        return cpu->xpsr & 0x0700fc00u;
+        return xpsr & 0x0700fc00u;
     case 3:
-        return cpu->xpsr;
+        return xpsr;
     case 5:
         return cpu->xpsr & 0x1ffu;
     case 6:
-        return cpu->xpsr & 0x0700fc00u;
+        return xpsr & 0x0700fc00u;
     case 7:
-        return cpu->xpsr & 0x0700fdffu;
+        return xpsr & 0x0700fdffu;
     case 8:
         return cpu->msp;
     case 9:
