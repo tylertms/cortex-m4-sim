@@ -93,6 +93,26 @@ run_mutation(
   "if ((false && access != CORTEX_M4_ACCESS_DEBUG) ||\n            !k22_data_write(device->data, address, size, value))"
   cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
 run_mutation(
+  flash_collision_bank src/k22_data.c
+  "return (address & 0x800000u) != 0u ? 2u : 1u;"
+  "return (address & 0x800000u) != 0u ? 1u : 2u;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_collision_block src/k22_data.c
+  "(data->flash_busy_banks & bank) == 0u || !same_block"
+  "(data->flash_busy_banks & bank) == 0u || (false && !same_block)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_collision_acknowledge src/k22_data.c
+  "else\n            flash_update_interrupts(data);"
+  "else\n            (void)data;"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_collision_irq src/kinetis_k22_peripherals.c
+  "14, 15, 16, 18, 19, 39, 73, 56, 72, 40, 41, 70, 23,"
+  "14, 15, 16, 18, 18, 39, 73, 56, 72, 40, 41, 70, 23,"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
   package_dac1 src/k22_package.c
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package != K22_PACKAGE_FX_88_HVQFN;"
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package == K22_PACKAGE_FX_88_HVQFN;"

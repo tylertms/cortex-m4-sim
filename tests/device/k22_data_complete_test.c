@@ -594,6 +594,8 @@ static void test_rng_crc(TestState* state) {
     k22_data_destroy(data);
 }
 
+static void set_flash_address(TestState* state, K22Data* data, uint32_t address);
+
 static void test_flash_flex_copy(TestState* state) {
     TestBus bus = {0};
     memset(bus.flash, 0xff, sizeof(bus.flash));
@@ -656,6 +658,43 @@ static void test_flash_flex_copy(TestState* state) {
     TEST_EXPECT(state, read_value(state, copy, 0x10000000u, 4) == 0x55aa0000u);
     TEST_EXPECT(state, read_value(state, copy, 0x14000000u, 4) == 0);
     k22_data_destroy(copy);
+    k22_data_destroy(data);
+}
+
+static void test_flash_collision_lifecycle(TestState* state) {
+    TestBus bus = {0};
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    K22Data* data = create(state, &bus, K22_PROFILE_MK22FX51212);
+    write_value(state, data, FTFA + 1u, 1u, 0xc0u);
+    write_fccob(state, data, 0u, 0x07u);
+    set_flash_address(state, data, 0x1000u);
+    for (uint8_t index = 4u; index < 12u; index++)
+        write_fccob(state, data, index, index);
+    write_value(state, data, FTFA, 1u, 0x80u);
+    TEST_EXPECT(state, !bus.interrupt[K22_DATA_INTERRUPT_FTFA]);
+    TEST_EXPECT(state, !k22_data_flash_read(data, false, 0x1000u, 1u));
+    TEST_EXPECT(state, k22_data_flash_read(data, false, 0x41000u, 1u));
+    TEST_EXPECT(state, k22_data_flash_read(data, true, 0u, 1u));
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x40u) != 0u);
+    TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_FLASH_COLLISION]);
+    write_value(state, data, FTFA, 1u, 0x40u);
+    TEST_EXPECT(state, !bus.interrupt[K22_DATA_INTERRUPT_FLASH_COLLISION]);
+    k22_data_advance(data, 39u);
+    TEST_EXPECT(state, !bus.interrupt[K22_DATA_INTERRUPT_FTFA]);
+    k22_data_advance(data, 1u);
+    TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA]);
+    write_value(state, data, FTFA + 1u, 1u, 0u);
+    TEST_EXPECT(state, !bus.interrupt[K22_DATA_INTERRUPT_FTFA]);
+
+    write_fccob(state, data, 0u, 0x07u);
+    set_flash_address(state, data, 0x800000u);
+    for (uint8_t index = 4u; index < 12u; index++)
+        write_fccob(state, data, index, (uint8_t)(index + 0x10u));
+    write_value(state, data, FTFA, 1u, 0x80u);
+    TEST_EXPECT(state, k22_data_flash_read(data, false, 0u, 1u));
+    TEST_EXPECT(state, !k22_data_flash_read(data, true, 0u, 1u));
+    k22_data_advance(data, 40u);
+    TEST_EXPECT(state, k22_data_flash_read(data, true, 0u, 1u));
     k22_data_destroy(data);
 }
 
@@ -1116,6 +1155,7 @@ int main(void) {
     test_dac_cmp_vref(&state);
     test_rng_crc(&state);
     test_flash_flex_copy(&state);
+    test_flash_collision_lifecycle(&state);
     test_flash_controller_geometry(&state);
     test_flash_commands_and_failures(&state);
     test_flash_command_semantics(&state);

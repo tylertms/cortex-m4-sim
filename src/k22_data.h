@@ -28,6 +28,7 @@ typedef enum {
     K22_DATA_INTERRUPT_DMA15,
     K22_DATA_INTERRUPT_DMA_ERROR,
     K22_DATA_INTERRUPT_FTFA,
+    K22_DATA_INTERRUPT_FLASH_COLLISION,
     K22_DATA_INTERRUPT_ADC0,
     K22_DATA_INTERRUPT_ADC1,
     K22_DATA_INTERRUPT_DAC0,
@@ -67,5 +68,6 @@ bool k22_data_get_dac_output(const K22Data* data, uint8_t instance, uint16_t* va
 void k22_data_dac_trigger(K22Data* data, uint8_t instance);
 void k22_data_rng_seed(K22Data* data, uint32_t seed);
 bool k22_data_set_flash_configuration(K22Data* data, const uint8_t* bytes, size_t size);
+bool k22_data_flash_read(K22Data* data, bool data_flash, uint32_t offset, uint8_t size);
 
 #endif

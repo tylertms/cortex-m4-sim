@@ -82,6 +82,9 @@ struct K22Data {
     uint8_t flash_program_ifr[1024];
     uint8_t flash_data_ifr[1024];
     uint32_t flash_cycles;
+    uint8_t flash_busy_banks;
+    uint32_t flash_busy_start;
+    uint32_t flash_busy_length;
     bool flash_key_blocked;
     bool flash_partitioned;
     bool flexram_eeprom;
@@ -1192,6 +1195,41 @@ static bool flash_set_flexram(K22Data* data) {
     return true;
 }
 
+static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {
+    switch (command) {
+    case 0x00u:
+    case 0x01u:
+    case 0x02u:
+    case 0x03u:
+    case 0x06u:
+    case 0x07u:
+    case 0x08u:
+    case 0x09u:
+    case 0x0bu:
+        return (address & 0x800000u) != 0u ? 2u : 1u;
+    case 0x40u:
+    case 0x44u:
+        return 3u;
+    case 0x41u:
+    case 0x43u:
+    case 0x45u:
+    case 0x46u:
+        return 1u;
+    case 0x80u:
+    case 0x81u:
+        return 2u;
+    default:
+        return 0u;
+    }
+}
+
+static void flash_update_interrupts(K22Data* data) {
+    interrupt(data, K22_DATA_INTERRUPT_FTFA,
+              (data->flash[1] & 0x80u) != 0u && (data->flash[0] & 0x80u) != 0u);
+    interrupt(data, K22_DATA_INTERRUPT_FLASH_COLLISION,
+              (data->flash[1] & 0x40u) != 0u && (data->flash[0] & 0x40u) != 0u);
+}
+
 static void flash_execute(K22Data* data) {
     data->flash[0] &= 0x70u;
     const uint8_t command = flash_fccob(data, 0u);
@@ -1342,6 +1380,19 @@ static void flash_execute(K22Data* data) {
     data->flash_cycles =
         command == 0x08u || command == 0x09u || command == 0x44u || command == 0x80u ? 2000u
                                                                                      : 40u;
+    data->flash_busy_banks =
+        valid && !protection_failure ? flash_busy_banks(command, address) : 0u;
+    data->flash_busy_start = 0u;
+    data->flash_busy_length = 0u;
+    if (data->flash_busy_banks == 1u) {
+        data->flash_busy_length = flash_block_size(data);
+        data->flash_busy_start = address & ~(data->flash_busy_length - 1u);
+    } else if (data->flash_busy_banks == 2u) {
+        data->flash_busy_length = flash_data_size(data);
+    } else if (data->flash_busy_banks == 3u) {
+        data->flash_busy_length = UINT32_MAX;
+    }
+    flash_update_interrupts(data);
 }
 
 static bool flash_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
@@ -1370,10 +1421,13 @@ static bool flash_write(K22Data* data, uint32_t address, uint8_t size, uint32_t 
         data->flash[0] &= (uint8_t)~(value & 0x70u);
         if ((value & 0x80u) != 0 && (data->flash[0] & 0xb0u) == 0x80u)
             flash_execute(data);
+        else
+            flash_update_interrupts(data);
         return true;
     }
     if (offset == 1u && size == 1u) {
         data->flash[1] = (uint8_t)((data->flash[1] & 0x2fu) | (value & 0xd0u));
+        flash_update_interrupts(data);
         return true;
     }
     if (offset >= 4u && offset <= 0x10u - size) {
@@ -1537,6 +1591,9 @@ void k22_data_reset(K22Data* data) {
         data->flexram_eeprom = eeprom_partitioned;
     }
     data->flash_cycles = 0;
+    data->flash_busy_banks = 0u;
+    data->flash_busy_start = 0u;
+    data->flash_busy_length = 0u;
     data->flash_key_blocked = false;
     data->flash_partitioned = data->flash_data_ifr[0x3fcu] != 0xffu;
     if (data->flexram != NULL)
@@ -1777,6 +1834,20 @@ bool k22_data_set_flash_configuration(K22Data* data, const uint8_t* bytes, size_
     return true;
 }
 
+bool k22_data_flash_read(K22Data* data, bool data_flash, uint32_t offset, uint8_t size) {
+    if (data == NULL)
+        return false;
+    const uint8_t bank = data_flash ? 2u : 1u;
+    const bool same_block = data->flash_busy_banks == 3u ||
+                            (offset < data->flash_busy_start + data->flash_busy_length &&
+                             (uint64_t)offset + size > data->flash_busy_start);
+    if (data->flash_cycles == 0u || (data->flash_busy_banks & bank) == 0u || !same_block)
+        return true;
+    data->flash[0] |= 0x40u;
+    flash_update_interrupts(data);
+    return false;
+}
+
 void k22_data_advance(K22Data* data, uint32_t cycles) {
     if (data == NULL || cycles == 0)
         return;
@@ -1834,9 +1905,11 @@ void k22_data_advance(K22Data* data, uint32_t cycles) {
     if (data->flash_cycles != 0) {
         if (cycles >= data->flash_cycles) {
             data->flash_cycles = 0;
+            data->flash_busy_banks = 0u;
+            data->flash_busy_start = 0u;
+            data->flash_busy_length = 0u;
             data->flash[0] |= 0x80u;
-            if ((data->flash[1] & 0x80u) != 0)
-                interrupt(data, K22_DATA_INTERRUPT_FTFA, true);
+            flash_update_interrupts(data);
         } else {
             data->flash_cycles -= cycles;
         }

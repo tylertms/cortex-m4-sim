@@ -199,10 +199,13 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
         TEST_EXPECT(state, cpu_write8(device, flash_fccob_address(index), command[index]));
     TEST_EXPECT(state, cpu_write8(device, FTFA_FSTAT, 0x80u));
     TEST_EXPECT(state, read32(device, target, &value));
-    TEST_EXPECT(state, value == 0x12345678u);
+    TEST_EXPECT(state, value == UINT32_MAX);
     const uint32_t fstat_bit_band =
-        0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 4u * 4u;
+        0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 6u * 4u;
     TEST_EXPECT(state, write32(device, fstat_bit_band, 1u));
+    kinetis_k22_advance(device, 40u);
+    TEST_EXPECT(state, read32(device, target, &value));
+    TEST_EXPECT(state, value == 0x12345678u);
 }
 
 static void expect_io_irq_levels(TestState* state, KinetisK22* device) {

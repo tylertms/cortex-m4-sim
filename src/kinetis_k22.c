@@ -187,6 +187,10 @@ static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_
         if (!flash_access_allowed(device, access, flash_master, false)) {
             return false;
         }
+        if (!k22_data_flash_read(device->data, false, address, size)) {
+            *value = size == 4u ? UINT32_MAX : (1u << (size * 8u)) - 1u;
+            return true;
+        }
         if (fmc_cache_enabled(device, 0u, access)) {
             *value = 0u;
             for (uint8_t index = 0u; index < size; index++)
@@ -207,6 +211,10 @@ static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_
         if (!flash_access_allowed(device, access, flash_master, false))
             return false;
         const uint32_t offset = address - device->profile->flexnvm_address;
+        if (!k22_data_flash_read(device->data, true, offset, size)) {
+            *value = size == 4u ? UINT32_MAX : (1u << (size * 8u)) - 1u;
+            return true;
+        }
         if (fmc_cache_enabled(device, 1u, access)) {
             *value = 0u;
             for (uint8_t index = 0u; index < size; index++)

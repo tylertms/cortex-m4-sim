@@ -83,8 +83,8 @@ static uint32_t fccob_address(uint8_t index) {
     return FTFE + offsets[index];
 }
 
-static void program_flexnvm_phrase(TestState* state, KinetisK22* device, uint32_t offset,
-                                   uint8_t value) {
+static void launch_flexnvm_phrase(TestState* state, KinetisK22* device, uint32_t offset,
+                                  uint8_t value) {
     write_register_byte(state, device, fccob_address(0u), 0x07u);
     write_register_byte(state, device, fccob_address(1u),
                         (uint8_t)((0x800000u + offset) >> 16u));
@@ -93,6 +93,11 @@ static void program_flexnvm_phrase(TestState* state, KinetisK22* device, uint32_
     for (uint8_t index = 4u; index < 12u; index++)
         write_register_byte(state, device, fccob_address(index), value);
     write_register_byte(state, device, FTFE, 0x80u);
+}
+
+static void program_flexnvm_phrase(TestState* state, KinetisK22* device, uint32_t offset,
+                                   uint8_t value) {
+    launch_flexnvm_phrase(state, device, offset, value);
     kinetis_k22_advance(device, 40u);
 }
 
@@ -273,6 +278,26 @@ static void test_bank_one_coherence_and_copy(TestState* state) {
     kinetis_k22_destroy(destination);
 }
 
+static void test_flash_collision_irq(TestState* state) {
+    KinetisK22* device = create_flexnvm_device(state);
+    write_register_byte(state, device, FTFE + 1u, 0xc0u);
+    launch_flexnvm_phrase(state, device, 0x200u, 0x3cu);
+    uint32_t value = 0u;
+    TEST_EXPECT(state, kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u,
+                                               CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0xffu);
+    TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 19u));
+    write_register_byte(state, device, FTFE, 0x40u);
+    cortex_m4_set_irq(kinetis_k22_cpu(device), 19u, false);
+    TEST_EXPECT(state, !cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 19u));
+    kinetis_k22_advance(device, 40u);
+    TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 18u));
+    TEST_EXPECT(state, kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u,
+                                               CORTEX_M4_ACCESS_DATA, &value));
+    TEST_EXPECT(state, value == 0x3cu);
+    kinetis_k22_destroy(device);
+}
+
 int main(void) {
     TestState state = {0};
     test_visible_cache_and_invalidation(&state);
@@ -282,5 +307,6 @@ int main(void) {
     test_copy(&state);
     test_bank_one_cache(&state);
     test_bank_one_coherence_and_copy(&state);
+    test_flash_collision_irq(&state);
     return test_finish(&state);
 }
