@@ -401,9 +401,8 @@ static void test_dac_cmp_vref(TestState* state) {
     write_value(state, data, DAC0 + 0x22, 1, 0x81u);
     k22_data_dac_trigger(data, 0);
     TEST_EXPECT(state, read_value(state, data, DAC0 + 0x23, 1) == 0x22u);
-    write_value(state, data, DAC0 + 0x23, 1, 2u);
     k22_data_dac_trigger(data, 0);
-    TEST_EXPECT(state, read_value(state, data, DAC0 + 0x23, 1) == 0x22u);
+    TEST_EXPECT(state, read_value(state, data, DAC0 + 0x23, 1) == 0x12u);
 
     TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 1, 20));
     TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 2, 10));

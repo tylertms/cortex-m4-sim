@@ -1,0 +1,11 @@
+kinetis_k22.c:335|Allocation cleanup after a device-memory allocation failure
+kinetis_k22.c:336|Return after a device-memory allocation failure
+kinetis_k22.c:345|Allocation cleanup after a subsystem initialization failure
+kinetis_k22.c:346|Return after a subsystem initialization failure
+kinetis_k22.c:350|Allocation cleanup after a data-model allocation failure
+kinetis_k22.c:351|Return after a data-model allocation failure
+kinetis_k22.c:360|Allocation cleanup after a CPU allocation failure
+kinetis_k22.c:361|Return after a CPU allocation failure
+k22_data.c:1029|Allocation cleanup after a FlexRAM allocation failure
+k22_data.c:1030|Return after a FlexRAM allocation failure
+k22_timing.c:153|Defensive clamp for an impossible clock value in a valid profile

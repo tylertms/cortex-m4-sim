@@ -230,6 +230,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
       cortex_m4_coverage_check
       COMMAND
         ${CMAKE_COMMAND} -D COVERAGE_DIRECTORY=${coverage_directory}
+        -D COVERAGE_EXCLUSIONS=${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_exclusions.txt
         -D MINIMUM_LINE_BASIS_POINTS=9980 -D MINIMUM_BRANCH_BASIS_POINTS=9900 -P
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckCoverage.cmake
       DEPENDS cortex_m4_coverage_report
