@@ -32,6 +32,26 @@ static uint8_t current_priority(const CortexM4* cpu) {
     return cpu->irq_priority[exception - 16];
 }
 
+void cortex_m4_raise_fault(CortexM4* cpu, uint8_t exception) {
+    if (cpu == NULL || exception < 4 || exception > 6) {
+        return;
+    }
+    const uint16_t current = (uint16_t)(cpu->xpsr & 0x1ffu);
+    if (current == 2 || current == 3) {
+        cpu->stop = CORTEX_M4_STOP_LOCKUP;
+        return;
+    }
+    const uint32_t enable = 1u << (exception + 12u);
+    if ((cpu->shcsr & enable) != 0) {
+        cpu->system_pending |= 1u << exception;
+    } else {
+        cpu->hfsr |= 1u << 30;
+        cpu->system_pending |= 1u << 3;
+    }
+    cpu->event_register = true;
+    cpu->sleeping = false;
+}
+
 static bool enter_exception(CortexM4* cpu, uint16_t exception) {
     const bool was_thread = (cpu->xpsr & 0x1ffu) == 0;
     const bool used_psp = was_thread && (cpu->control & CORTEX_M4_CONTROL_SPSEL) != 0;
@@ -88,9 +108,16 @@ static bool enter_exception(CortexM4* cpu, uint16_t exception) {
 }
 
 bool cortex_m4_take_pending_exception(CortexM4* cpu) {
+    const uint16_t current = (uint16_t)(cpu->xpsr & 0x1ffu);
+    if ((cpu->system_pending & (1u << 2)) != 0 && current != 2) {
+        return enter_exception(cpu, 2);
+    }
+    if ((cpu->system_pending & (1u << 3)) != 0 && (current == 0 || current > 3)) {
+        return enter_exception(cpu, 3);
+    }
     uint16_t selected_exception = 0;
     uint8_t selected_priority = current_priority(cpu);
-    const uint8_t system_exceptions[] = {11, 14, 15};
+    const uint8_t system_exceptions[] = {4, 5, 6, 11, 12, 14, 15};
     for (uint8_t index = 0;
          index < sizeof(system_exceptions) / sizeof(system_exceptions[0]); index++) {
         const uint8_t exception = system_exceptions[index];

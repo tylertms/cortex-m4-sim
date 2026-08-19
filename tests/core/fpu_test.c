@@ -90,6 +90,64 @@ int main(void) {
     execute(&state, device);
     TEST_EXPECT(&state, (cortex_m4_get_fpscr(cpu) & 0xf0000000u) == 0x80000000u);
 
+    load_instruction(&state, device, 0xed87u, 0x0a01u);
+    cortex_m4_set_register(cpu, 7, 0x20000020u);
+    cortex_m4_set_fp_register(cpu, 0, 0x41200000u);
+    execute(&state, device);
+    uint32_t memory = 0;
+    TEST_EXPECT(&state, kinetis_k22_read(device, 0x20000024u, &memory, sizeof(memory)));
+    TEST_EXPECT(&state, memory == 0x41200000u);
+
+    load_instruction(&state, device, 0xed97u, 0x0a01u);
+    memory = 0x41200000u;
+    TEST_EXPECT(&state, kinetis_k22_write(device, 0x20000024u, &memory, sizeof(memory)));
+    cortex_m4_set_register(cpu, 7, 0x20000020u);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_fp_register(cpu, 0) == 0x41200000u);
+
+    load_instruction(&state, device, 0xeeb0u, 0x0a67u);
+    cortex_m4_set_fp_register(cpu, 15, 0xc0600000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_fp_register(cpu, 0) == 0xc0600000u);
+
+    load_instruction(&state, device, 0xeef1u, 0x7a04u);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_fp_register(cpu, 15) == 0x40a00000u);
+
+    load_instruction(&state, device, 0xeeb4u, 0x7ae7u);
+    cortex_m4_set_fp_register(cpu, 14, 0x3f800000u);
+    cortex_m4_set_fp_register(cpu, 15, 0x3f800000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, (cortex_m4_get_fpscr(cpu) & 0xf0000000u) == 0x60000000u);
+
+    load_instruction(&state, device, 0xeeb4u, 0x7ae7u);
+    cortex_m4_set_fp_register(cpu, 14, 0x7fc00000u);
+    cortex_m4_set_fp_register(cpu, 15, 0x3f800000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, (cortex_m4_get_fpscr(cpu) & 0xf0000000u) == 0x30000000u);
+
+    load_instruction(&state, device, 0xeef1u, 0xfa10u);
+    cortex_m4_set_fpscr(cpu, 0xa0000000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, (cortex_m4_get_xpsr(cpu) & 0xf0000000u) == 0xa0000000u);
+
+    load_instruction(&state, device, 0xeefdu, 0x7ae7u);
+    cortex_m4_set_fp_register(cpu, 15, 0x7fc00000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_fp_register(cpu, 15) == 0x80000000u);
+    TEST_EXPECT(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0);
+
+    load_instruction(&state, device, 0xeefcu, 0x7ae7u);
+    cortex_m4_set_fp_register(cpu, 15, 0xbf800000u);
+    execute(&state, device);
+    TEST_EXPECT(&state, cortex_m4_get_fp_register(cpu, 15) == 0);
+    TEST_EXPECT(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0);
+
+    load_instruction(&state, device, 0xee37u, 0x7a27u);
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000ed88u, 4, 0));
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, (cortex_m4_get_fault_status(cpu) & (1u << 19)) != 0);
+
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

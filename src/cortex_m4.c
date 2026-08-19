@@ -35,8 +35,12 @@ bool cortex_m4_copy(CortexM4* destination, const CortexM4* source) {
         return false;
     }
     const CortexM4Bus bus = destination->bus;
+    const CortexM4Trace trace = destination->trace;
+    void* const trace_context = destination->trace_context;
     *destination = *source;
     destination->bus = bus;
+    destination->trace = trace;
+    destination->trace_context = trace_context;
     return true;
 }
 
@@ -45,8 +49,17 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
         return false;
     }
     CortexM4Bus bus = cpu->bus;
+    const CortexM4Trace trace = cpu->trace;
+    void* const trace_context = cpu->trace_context;
+    uint32_t breakpoints[8];
+    memcpy(breakpoints, cpu->breakpoints, sizeof(breakpoints));
+    const uint8_t breakpoint_enabled = cpu->breakpoint_enabled;
     memset(cpu, 0, sizeof(*cpu));
     cpu->bus = bus;
+    cpu->trace = trace;
+    cpu->trace_context = trace_context;
+    memcpy(cpu->breakpoints, breakpoints, sizeof(breakpoints));
+    cpu->breakpoint_enabled = breakpoint_enabled;
     cpu->vtor = vector_table_address & 0xffffff80u;
     cpu->xpsr = CORTEX_M4_XPSR_T;
     cpu->stop = CORTEX_M4_STOP_RUNNING;
@@ -90,9 +103,17 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         return cortex_m4_result(cpu);
     }
     const uint32_t address = cpu->registers[15];
+    for (uint8_t index = 0; index < 8; index++) {
+        if ((cpu->breakpoint_enabled & (1u << index)) != 0 &&
+            cpu->breakpoints[index] == address) {
+            cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
+            return cortex_m4_result(cpu);
+        }
+    }
     uint32_t first_value = 0;
     if (!cortex_m4_bus_read(cpu, address, 2, CORTEX_M4_ACCESS_INSTRUCTION, &first_value)) {
-        cpu->stop = CORTEX_M4_STOP_BUS_FAULT;
+        cpu->cfsr |= 1u << 8;
+        cortex_m4_raise_fault(cpu, 5);
         return cortex_m4_result(cpu);
     }
     const uint16_t first = (uint16_t)first_value;
@@ -105,17 +126,24 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         uint32_t second_value = 0;
         if (!cortex_m4_bus_read(cpu, address + 2, 2, CORTEX_M4_ACCESS_INSTRUCTION,
                                 &second_value)) {
-            cpu->stop = CORTEX_M4_STOP_BUS_FAULT;
+            cpu->cfsr |= 1u << 8;
+            cortex_m4_raise_fault(cpu, 5);
             return cortex_m4_result(cpu);
         }
         const uint16_t second = (uint16_t)second_value;
         cpu->registers[15] = address + 4;
         cpu->current_opcode = ((uint32_t)first << 16) | second;
+        if (cpu->trace != NULL) {
+            cpu->trace(cpu->trace_context, address, cpu->current_opcode, execute);
+        }
         if (execute) {
             supported = cortex_m4_execute_thumb32(cpu, first, second);
         }
     } else {
         cpu->current_opcode = first;
+        if (cpu->trace != NULL) {
+            cpu->trace(cpu->trace_context, address, cpu->current_opcode, execute);
+        }
         if (execute) {
             supported = cortex_m4_execute_thumb16(cpu, first);
         }
@@ -130,8 +158,16 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
     }
     cpu->instructions++;
     cortex_m4_advance(cpu, 1);
+    if (cpu->reset_requested) {
+        cpu->reset_requested = false;
+        if (cpu->bus.reset != NULL) {
+            cpu->bus.reset(cpu->bus.context);
+        }
+        return cortex_m4_result(cpu);
+    }
     if (!supported && cpu->stop == CORTEX_M4_STOP_RUNNING) {
-        cpu->stop = CORTEX_M4_STOP_UNSUPPORTED;
+        cpu->cfsr |= 1u << 16;
+        cortex_m4_raise_fault(cpu, 6);
     }
     return cortex_m4_result(cpu);
 }
@@ -147,8 +183,9 @@ CortexM4Result cortex_m4_run(CortexM4* cpu, CortexM4RunLimits limits) {
         if ((limits.instruction_limit != 0 &&
              cpu->instructions - start_instructions >= limits.instruction_limit) ||
             (limits.cycle_limit != 0 && cpu->cycles - start_cycles >= limits.cycle_limit)) {
-            cpu->stop = CORTEX_M4_STOP_LIMIT;
-            break;
+            CortexM4Result result = cortex_m4_result(cpu);
+            result.stop = CORTEX_M4_STOP_LIMIT;
+            return result;
         }
         cortex_m4_step(cpu);
     }
@@ -158,6 +195,30 @@ CortexM4Result cortex_m4_run(CortexM4* cpu, CortexM4RunLimits limits) {
 void cortex_m4_request_stop(CortexM4* cpu) {
     if (cpu != NULL) {
         cpu->stop_requested = true;
+    }
+}
+
+bool cortex_m4_set_breakpoint(CortexM4* cpu, uint8_t index, uint32_t address,
+                              bool enabled) {
+    if (cpu == NULL || index >= 8 || (address & 1u) != 0) {
+        return false;
+    }
+    cpu->breakpoints[index] = address;
+    if (enabled) {
+        cpu->breakpoint_enabled |= (uint8_t)(1u << index);
+    } else {
+        cpu->breakpoint_enabled &= (uint8_t)~(1u << index);
+    }
+    if (cpu->stop == CORTEX_M4_STOP_BREAKPOINT) {
+        cpu->stop = CORTEX_M4_STOP_RUNNING;
+    }
+    return true;
+}
+
+void cortex_m4_set_trace(CortexM4* cpu, CortexM4Trace trace, void* context) {
+    if (cpu != NULL) {
+        cpu->trace = trace;
+        cpu->trace_context = context;
     }
 }
 

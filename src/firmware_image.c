@@ -44,18 +44,16 @@ static bool load_file(const char* path, uint8_t** data, size_t* size) {
     return true;
 }
 
-bool firmware_image_load_elf(KinetisK22* device, const char* path,
-                             uint32_t* entry_address) {
-    uint8_t* data = NULL;
-    size_t size = 0;
-    if (!load_file(path, &data, &size)) {
+bool firmware_image_load_elf_data(KinetisK22* device, const void* image, size_t size,
+                                  uint32_t* entry_address) {
+    if (device == NULL || image == NULL) {
         return false;
     }
+    const uint8_t* data = image;
     bool loaded = size >= ELF_HEADER_SIZE && data[0] == 0x7f && data[1] == 'E' &&
                   data[2] == 'L' && data[3] == 'F' && data[4] == 1 && data[5] == 1 &&
                   read_u16(data + 18) == 40;
     if (!loaded) {
-        free(data);
         return false;
     }
     const uint32_t header_offset = read_u32(data + 28);
@@ -94,6 +92,29 @@ bool firmware_image_load_elf(KinetisK22* device, const char* path,
     if (loaded && entry_address != NULL) {
         *entry_address = read_u32(data + 24);
     }
+    return loaded;
+}
+
+bool firmware_image_load_elf(KinetisK22* device, const char* path,
+                             uint32_t* entry_address) {
+    uint8_t* data = NULL;
+    size_t size = 0;
+    if (!load_file(path, &data, &size)) {
+        return false;
+    }
+    const bool loaded = firmware_image_load_elf_data(device, data, size, entry_address);
+    free(data);
+    return loaded;
+}
+
+bool firmware_image_load_binary(KinetisK22* device, const char* path,
+                                uint32_t load_address) {
+    uint8_t* data = NULL;
+    size_t size = 0;
+    if (!load_file(path, &data, &size)) {
+        return false;
+    }
+    const bool loaded = kinetis_k22_load(device, load_address, data, size);
     free(data);
     return loaded;
 }

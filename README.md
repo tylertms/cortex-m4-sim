@@ -1,30 +1,40 @@
 # Cortex-M4 Simulator
 
-This repository contains a native C simulator for the Arm Cortex-M4F processor.
-It also contains a Kinetis K22 device model.
+This repository provides a native C simulator for the Arm Cortex-M4F processor.
+It also provides a Kinetis K22 device model.
 
-The CPU model targets the Armv7E-M architecture and FPv4-SP-D16 extension.
-The device model targets the K22 peripherals that the firmware uses.
+The CPU implements the Armv7E-M and FPv4-SP-D16 features used by the target
+firmware. The device implements the K22 interfaces used by that firmware.
 
-The implementation is in progress. The current tests cover the implemented
-CPU instructions, exception paths, memory map, and device peripherals. A green
-test result does not mean that every Arm or K22 feature is complete.
+The exact K22 package and silicon revision are not known. The simulator does
+not claim behavior that depends on that missing identification.
 
-The exact K22 package and silicon revision are not known.
-The simulator does not claim behavior that depends on that missing identification.
+## Supported behavior
 
-## Current support
+The CPU supports the required Thumb and Thumb-2 instructions. It also supports
+the required floating-point, exception, interrupt, fault, and sleep behavior.
 
-The CPU currently supports the Thumb and floating-point instructions used by
-the target firmware. It also supports basic exceptions, NVIC, SCB, SysTick,
-peripheral bit-band access, and bounded execution.
+The system model includes the NVIC, SCB, SysTick, bit-band access, reset,
+breakpoints, instruction tracing, and bounded execution.
 
-The K22 model currently supports flash, SRAM, GPIO, PORT interrupts, PIT, ADC0,
-UART1, SPI0, I2C0, DMA, and selected clock and power registers.
+The K22 model includes these interfaces:
 
-The remaining work includes less common Armv7E-M instructions, complete fault
-and priority behavior, advanced floating-point state, MPU behavior, watchdog
-reset timing, and electrical timing that requires hardware tests.
+- Flash and SRAM
+- SIM, MCG, SMC, and low-power timer registers used during startup
+- GPIO and PORT interrupts
+- PIT channels
+- ADC0
+- UART1
+- SPI0
+- I2C0
+- DMA and DMAMUX
+- Watchdog reset and refresh behavior
+
+The simulator does not implement every optional Cortex-M4 or K22 feature. The
+current target does not use the MPU, USB, or the omitted instruction groups.
+
+Hardware tests must verify electrical timing, analog tolerances, clock accuracy,
+and silicon-specific behavior.
 
 ## Build
 
@@ -40,13 +50,17 @@ Build the simulator:
 cmake --build build/simulator --parallel
 ```
 
-The build provides the `cortex_m4::simulator` static library target.
+The build provides these targets:
+
+- `cortex_m4::simulator` is the static simulator library.
+- `cortex_m4::firmware_runner` loads and runs a firmware image.
+
+The runner accepts an Arm ELF file or a raw binary file. It requires a vector
+table address and uses finite instruction and cycle limits by default.
 
 ## Use from CMake
 
-Add this repository as a Git submodule.
-
-Add the submodule to the parent build:
+Add this repository as a Git submodule. Add the submodule to the parent build:
 
 ```cmake
 add_subdirectory(third_party/cortex-m4-sim EXCLUDE_FROM_ALL)
@@ -57,8 +71,7 @@ The parent build does not build the standalone tests.
 
 ## Tests
 
-CTest runs isolated native C executables.
-The tests do not require an external test framework.
+CTest runs isolated native C executables. No external test framework is needed.
 
 Run all tests:
 
@@ -66,13 +79,26 @@ Run all tests:
 ctest --test-dir build/simulator --parallel --output-on-failure
 ```
 
-The `tests` directory separates core, device, runner, and system tests.
+The `tests` directory has this structure:
+
+- `core` contains instruction, exception, fault, power, and trace tests.
+- `device` contains memory, register, interrupt, and peripheral tests.
+- `system` contains firmware image and runner tests.
+- `support` contains the small assertion helper.
+
+Each ordinary test has a 60-second deadline.
+
+Run one test group:
+
+```
+ctest --test-dir build/simulator -L core --parallel --output-on-failure
+ctest --test-dir build/simulator -L device --parallel --output-on-failure
+ctest --test-dir build/simulator -L system --parallel --output-on-failure
+```
 
 ## Coverage
 
-GCC and gcov measure source coverage.
-
-Configure a coverage build:
+GCC and gcov measure source coverage. Configure a coverage build:
 
 ```
 cmake -S . -B build/coverage -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCORTEX_M4_ENABLE_COVERAGE=ON
@@ -91,5 +117,5 @@ Create the gcov reports:
 cmake --build build/coverage --target cortex_m4_coverage_report
 ```
 
-Coverage measures the native model.
-Hardware tests must measure electrical timing, analog tolerances, and silicon-specific behavior.
+The target writes the reports to `build/coverage/coverage`.
+Coverage measures the native model, not the target hardware.

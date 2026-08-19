@@ -21,6 +21,8 @@ enum {
 
 struct CortexM4 {
     CortexM4Bus bus;
+    CortexM4Trace trace;
+    void* trace_context;
     uint32_t registers[CORTEX_M4_REGISTER_COUNT];
     uint32_t msp;
     uint32_t psp;
@@ -31,6 +33,7 @@ struct CortexM4 {
     uint32_t faultmask;
     uint32_t fpscr;
     uint32_t fp_registers[CORTEX_M4_FP_REGISTER_COUNT];
+    uint32_t breakpoints[8];
     uint32_t vtor;
     uint32_t aircr;
     uint32_t scr;
@@ -56,9 +59,11 @@ struct CortexM4 {
     uint8_t exclusive_size;
     uint8_t exception_depth;
     uint8_t it_state;
+    uint8_t breakpoint_enabled;
     bool exclusive_valid;
     bool event_register;
     bool sleeping;
+    bool reset_requested;
     bool stop_requested;
     CortexM4Stop stop;
     uint64_t instructions;
@@ -77,6 +82,7 @@ bool cortex_m4_core_write(CortexM4* cpu, uint32_t address, uint8_t size, uint32_
 void cortex_m4_advance(CortexM4* cpu, uint32_t cycles);
 bool cortex_m4_take_pending_exception(CortexM4* cpu);
 bool cortex_m4_exception_return(CortexM4* cpu, uint32_t value);
+void cortex_m4_raise_fault(CortexM4* cpu, uint8_t exception);
 bool cortex_m4_execute_thumb16(CortexM4* cpu, uint16_t opcode);
 bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second);
 bool cortex_m4_execute_fpu(CortexM4* cpu, uint16_t first, uint16_t second);

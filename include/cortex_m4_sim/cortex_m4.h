@@ -28,12 +28,16 @@ typedef bool (*CortexM4Read)(void* context, uint32_t address, uint8_t size,
 typedef bool (*CortexM4Write)(void* context, uint32_t address, uint8_t size,
                               CortexM4Access access, uint32_t value);
 typedef void (*CortexM4Advance)(void* context, uint32_t cycles);
+typedef void (*CortexM4Reset)(void* context);
+typedef void (*CortexM4Trace)(void* context, uint32_t address, uint32_t opcode,
+                              bool executed);
 
 typedef struct {
     void* context;
     CortexM4Read read;
     CortexM4Write write;
     CortexM4Advance advance;
+    CortexM4Reset reset;
 } CortexM4Bus;
 
 typedef struct {
@@ -56,6 +60,8 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address);
 CortexM4Result cortex_m4_step(CortexM4* cpu);
 CortexM4Result cortex_m4_run(CortexM4* cpu, CortexM4RunLimits limits);
 void cortex_m4_request_stop(CortexM4* cpu);
+bool cortex_m4_set_breakpoint(CortexM4* cpu, uint8_t index, uint32_t address, bool enabled);
+void cortex_m4_set_trace(CortexM4* cpu, CortexM4Trace trace, void* context);
 
 uint32_t cortex_m4_get_register(const CortexM4* cpu, uint8_t index);
 void cortex_m4_set_register(CortexM4* cpu, uint8_t index, uint32_t value);

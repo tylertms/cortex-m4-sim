@@ -39,6 +39,7 @@ bool kinetis_k22_read(const KinetisK22* device, uint32_t address, void* data, si
 bool kinetis_k22_write(KinetisK22* device, uint32_t address, const void* data, size_t size);
 bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source);
 void kinetis_k22_advance(KinetisK22* device, uint32_t cycles);
+void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks);
 void kinetis_k22_set_adc0_channel(KinetisK22* device, uint8_t channel, uint16_t value);
 void kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high);
 void kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin);

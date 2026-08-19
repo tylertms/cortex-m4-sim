@@ -105,6 +105,8 @@ static void k22_advance_bus(void* context, uint32_t cycles) {
     kinetis_k22_peripheral_advance(device, cycles);
 }
 
+static void k22_reset_bus(void* context) { kinetis_k22_warm_reset(context, 0x04u); }
+
 KinetisK22Configuration kinetis_k22_default_configuration(void) {
     KinetisK22Configuration configuration;
     configuration.flash_size = 512u * 1024u;
@@ -132,7 +134,7 @@ KinetisK22* kinetis_k22_create(KinetisK22Configuration configuration) {
         return NULL;
     }
     memset(device->flash, 0xff, configuration.flash_size);
-    CortexM4Bus bus = {device, k22_read_bus, k22_write_bus, k22_advance_bus};
+    CortexM4Bus bus = {device, k22_read_bus, k22_write_bus, k22_advance_bus, k22_reset_bus};
     device->cpu = cortex_m4_create(bus);
     if (device->cpu == NULL) {
         kinetis_k22_destroy(device);
@@ -168,7 +170,17 @@ bool kinetis_k22_reset(KinetisK22* device) {
     memset(device->peripheral, 0, K22_PERIPHERAL_SIZE);
     device->cycles = 0;
     kinetis_k22_peripheral_reset(device);
+    device->peripheral[0x7f000u] = 0x80u;
     return cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
+}
+
+void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause) {
+    if (device == NULL) {
+        return;
+    }
+    kinetis_k22_peripheral_reset(device);
+    device->peripheral[0x7f000u] = cause;
+    cortex_m4_reset(device->cpu, device->configuration.vector_table_address);
 }
 
 bool kinetis_k22_load(KinetisK22* device, uint32_t address, const void* data, size_t size) {
@@ -254,6 +266,10 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     destination->dma_enabled = source->dma_enabled;
     destination->dma_interrupts = source->dma_interrupts;
     destination->dma_active = source->dma_active;
+    destination->watchdog_unlock_stage = source->watchdog_unlock_stage;
+    destination->watchdog_refresh_stage = source->watchdog_refresh_stage;
+    destination->watchdog_ticks = source->watchdog_ticks;
+    destination->watchdog_cycle_remainder = source->watchdog_cycle_remainder;
     destination->uart1_receive = source->uart1_receive;
     destination->uart1_transmit = source->uart1_transmit;
     destination->spi0_receive = source->spi0_receive;

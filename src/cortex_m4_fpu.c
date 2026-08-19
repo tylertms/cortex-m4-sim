@@ -37,7 +37,7 @@ static bool fpu_enabled(CortexM4* cpu) {
         return true;
     }
     cpu->cfsr |= 1u << 19;
-    cpu->stop = CORTEX_M4_STOP_USAGE_FAULT;
+    cortex_m4_raise_fault(cpu, 6);
     return false;
 }
 
@@ -107,16 +107,16 @@ bool cortex_m4_execute_fpu(CortexM4* cpu, uint16_t first, uint16_t second) {
         if (load) {
             if (!cortex_m4_bus_read(cpu, address, 4, CORTEX_M4_ACCESS_DATA, &value)) {
                 cpu->bfar = address;
-                cpu->cfsr |= 1u << 9;
-                cpu->stop = CORTEX_M4_STOP_BUS_FAULT;
+                cpu->cfsr |= (1u << 15) | (1u << 9);
+                cortex_m4_raise_fault(cpu, 5);
             } else {
                 cpu->fp_registers[target] = value;
             }
         } else if (!cortex_m4_bus_write(cpu, address, 4, CORTEX_M4_ACCESS_DATA,
                                         cpu->fp_registers[target])) {
             cpu->bfar = address;
-            cpu->cfsr |= 1u << 9;
-            cpu->stop = CORTEX_M4_STOP_BUS_FAULT;
+            cpu->cfsr |= (1u << 15) | (1u << 9);
+            cortex_m4_raise_fault(cpu, 5);
         }
         return true;
     }
@@ -182,12 +182,12 @@ bool cortex_m4_execute_fpu(CortexM4* cpu, uint16_t first, uint16_t second) {
         cpu->fp_registers[destination] = float_to_bits(result);
         return true;
     }
-    if ((first & 0xffbfu) == 0xeebdu && (second & 0x0f10u) == 0x0a00u) {
+    if ((first & 0xffbeu) == 0xeebcu && (second & 0x0f10u) == 0x0a00u) {
         if (!fpu_enabled(cpu))
             return true;
         const uint8_t destination = single_destination(first, second);
         const uint8_t source = single_m(second);
-        const bool unsigned_result = (second & 0x0080u) == 0;
+        const bool unsigned_result = (first & 1u) == 0;
         cpu->fp_registers[destination] = convert_float_to_integer(
             cpu, bits_to_float(cpu->fp_registers[source]), unsigned_result);
         return true;

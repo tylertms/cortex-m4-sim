@@ -36,6 +36,10 @@ struct KinetisK22 {
     uint16_t dma_enabled;
     uint16_t dma_interrupts;
     uint16_t dma_active;
+    uint16_t watchdog_unlock_stage;
+    uint16_t watchdog_refresh_stage;
+    uint32_t watchdog_ticks;
+    uint32_t watchdog_cycle_remainder;
     KinetisK22Fifo uart1_receive;
     KinetisK22Fifo uart1_transmit;
     KinetisK22Fifo spi0_receive;
@@ -54,5 +58,6 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
                                   uint32_t value);
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles);
 void kinetis_k22_peripheral_reset(KinetisK22* device);
+void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause);
 
 #endif

@@ -9,6 +9,12 @@ enum {
     K22_MCG_C6 = 0x40064005u,
     K22_MCG_S = 0x40064006u,
     K22_LPTMR0_CSR = 0x40040000u,
+    K22_WDOG_BASE = 0x40052000u,
+    K22_WDOG_STCTRLH = K22_WDOG_BASE,
+    K22_WDOG_TOVALH = K22_WDOG_BASE + 4,
+    K22_WDOG_TOVALL = K22_WDOG_BASE + 6,
+    K22_WDOG_REFRESH = K22_WDOG_BASE + 0x0c,
+    K22_WDOG_UNLOCK = K22_WDOG_BASE + 0x0e,
     K22_ADC0_SC1A = 0x4003b000u,
     K22_ADC0_RA = 0x4003b010u,
     K22_ADC0_SC3 = 0x4003b024u,
@@ -48,6 +54,7 @@ enum {
     K22_PIT0_IRQ = 48,
     K22_PORTA_IRQ = 59,
     K22_I2C0_IRQ = 24,
+    K22_WDOG_CLOCK_DIVIDER = 120000,
 };
 
 static uint32_t raw_load(const KinetisK22* device, uint32_t address, uint8_t size) {
@@ -144,6 +151,23 @@ static int16_t raw_i16(const KinetisK22* device, uint32_t address) {
 
 static int32_t raw_i32(const KinetisK22* device, uint32_t address) {
     return (int32_t)raw_load(device, address, 4);
+}
+
+static uint32_t watchdog_timeout(const KinetisK22* device) {
+    return (raw_load(device, K22_WDOG_TOVALH, 2) << 16) |
+           raw_load(device, K22_WDOG_TOVALL, 2);
+}
+
+void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks) {
+    if (device == NULL || ticks == 0 || (raw_load(device, K22_WDOG_STCTRLH, 2) & 1u) == 0) {
+        return;
+    }
+    const uint32_t timeout = watchdog_timeout(device);
+    if (timeout == 0 || ticks >= timeout - device->watchdog_ticks) {
+        kinetis_k22_warm_reset(device, 0x20u);
+        return;
+    }
+    device->watchdog_ticks += ticks;
 }
 
 static void dma_request(KinetisK22* device, uint8_t source) {
@@ -281,6 +305,33 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
                       (((previous & (1u << 24)) != 0 && (value & (1u << 24)) == 0)
                            ? 1u << 24
                            : 0));
+        return true;
+    }
+    if (address == K22_WDOG_UNLOCK && size == 2) {
+        if (value == 0xc520u) {
+            device->watchdog_unlock_stage = 1;
+        } else if (value == 0xd928u && device->watchdog_unlock_stage == 1) {
+            device->watchdog_unlock_stage = 2;
+        } else {
+            device->watchdog_unlock_stage = 0;
+        }
+        return true;
+    }
+    if (address == K22_WDOG_REFRESH && size == 2) {
+        if (value == 0xa602u) {
+            device->watchdog_refresh_stage = 1;
+        } else if (value == 0xb480u && device->watchdog_refresh_stage == 1) {
+            device->watchdog_ticks = 0;
+            device->watchdog_refresh_stage = 0;
+        } else {
+            device->watchdog_refresh_stage = 0;
+        }
+        return true;
+    }
+    if (address >= K22_WDOG_BASE && address < K22_WDOG_BASE + 0x18u && size == 2) {
+        if (device->watchdog_unlock_stage == 2) {
+            raw_store(device, address, size, value);
+        }
         return true;
     }
     if (address == K22_SMC_PMCTRL && size == 1) {
@@ -427,6 +478,10 @@ bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t 
 }
 
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
+    const uint64_t watchdog_cycles = (uint64_t)device->watchdog_cycle_remainder + cycles;
+    device->watchdog_cycle_remainder = (uint32_t)(watchdog_cycles % K22_WDOG_CLOCK_DIVIDER);
+    kinetis_k22_watchdog_advance(device,
+                                 (uint32_t)(watchdog_cycles / K22_WDOG_CLOCK_DIVIDER));
     const uint32_t total = device->pit_cycle_remainder + cycles;
     const uint32_t pit_ticks = total / 4u;
     device->pit_cycle_remainder = (uint8_t)(total % 4u);
@@ -476,6 +531,13 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
     device->dma_enabled = 0;
     device->dma_interrupts = 0;
     device->dma_active = 0;
+    device->watchdog_unlock_stage = 0;
+    device->watchdog_refresh_stage = 0;
+    device->watchdog_ticks = 0;
+    device->watchdog_cycle_remainder = 0;
+    raw_store(device, K22_WDOG_STCTRLH, 2, 0x01d3u);
+    raw_store(device, K22_WDOG_TOVALH, 2, 0x004cu);
+    raw_store(device, K22_WDOG_TOVALL, 2, 0x4b4cu);
     raw_store(device, K22_SMC_PMSTAT, 1, 1);
     raw_store(device, K22_UART1_S1, 1, 0xc0u);
     raw_store(device, K22_SPI0_MCR, 4, 1u);
