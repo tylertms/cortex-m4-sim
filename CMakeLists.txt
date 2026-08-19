@@ -136,6 +136,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(core_exception_advanced
                      tests/core/exception_advanced_test.c
                      "core;unit;integration")
+  cortex_m4_add_test(core_exception_integration_complete
+                     tests/core/exception_integration_complete_test.c
+                     "core;integration")
   cortex_m4_add_test(core_fault tests/core/fault_test.c "core;integration")
   cortex_m4_add_test(core_system_exception tests/core/system_exception_test.c
                      "core;integration")
