@@ -1,0 +1,49 @@
+function(run_mutation name source_file before after target test_pattern)
+  set(mutation_root "${MUTATION_DIRECTORY}/${name}")
+  file(REMOVE_RECURSE "${mutation_root}")
+  file(MAKE_DIRECTORY "${mutation_root}")
+  file(COPY "${SOURCE_DIRECTORY}/CMakeLists.txt" "${SOURCE_DIRECTORY}/cmake"
+       "${SOURCE_DIRECTORY}/include" "${SOURCE_DIRECTORY}/src"
+       "${SOURCE_DIRECTORY}/tests" DESTINATION "${mutation_root}")
+  set(mutated_file "${mutation_root}/${source_file}")
+  file(READ "${mutated_file}" contents)
+  string(REPLACE "${before}" "${after}" mutated "${contents}")
+  if(mutated STREQUAL contents)
+    message(FATAL_ERROR "Mutation ${name} did not match the source")
+  endif()
+  file(WRITE "${mutated_file}" "${mutated}")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -S "${mutation_root}" -B "${mutation_root}/build"
+            -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_C_COMPILER=${C_COMPILER}
+    RESULT_VARIABLE configure_result
+    OUTPUT_QUIET ERROR_QUIET)
+  if(NOT configure_result EQUAL 0)
+    message(FATAL_ERROR "Mutation ${name} did not configure")
+  endif()
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" --build "${mutation_root}/build" --target "${target}"
+    RESULT_VARIABLE build_result OUTPUT_QUIET ERROR_QUIET)
+  if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "Mutation ${name} did not compile")
+  endif()
+  execute_process(
+    COMMAND "${CTEST_COMMAND}" --test-dir "${mutation_root}/build" -R
+            "${test_pattern}" --output-on-failure
+    RESULT_VARIABLE test_result OUTPUT_QUIET ERROR_QUIET)
+  if(test_result EQUAL 0)
+    message(FATAL_ERROR "Mutation ${name} survived")
+  endif()
+  message(STATUS "Mutation ${name} was rejected")
+endfunction()
+
+run_mutation(
+  it_condition src/cortex_m4_it.c "cpu->it_state == 0 ||"
+  "cpu->it_state != 0 ||" cortex_m4_core_it_complete_test core_it_complete)
+run_mutation(
+  flash_reset src/k22_data.c "data->flash[0] = 0x80u;"
+  "data->flash[0] = 0u;" cortex_m4_device_k22_data_complete_test
+  device_k22_data_complete)
+run_mutation(
+  sysmpu_access src/kinetis_k22.c "if (!sysmpu_access_allowed("
+  "if (false && !sysmpu_access_allowed(" cortex_m4_device_k22_sysmpu_integration_test
+  device_k22_sysmpu_integration)

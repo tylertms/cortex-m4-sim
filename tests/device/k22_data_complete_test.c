@@ -270,8 +270,8 @@ static void test_dma_advanced(TestState* state) {
     write_value(state, data, DMA + 0x1eu, 1, 0u);
 
     bus.ram[0x40] = 0x3cu;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x40u, 1, 0, 1, 0, RAM_BASE + 0x140u, 1,
-              1, 0, 0x0120u);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x40u, 1, 0, 1, 0, RAM_BASE + 0x140u, 1, 1, 0,
+              0x0120u);
     bus.observe_dma_active = true;
     write_value(state, data, DMA + 0x1du, 1, 0u);
     k22_data_advance(data, 1u);
@@ -285,8 +285,7 @@ static void test_dma_advanced(TestState* state) {
     bus.ram[0x50u] = 0x7eu;
     write_value(state, data, DMA, 4, 0x80u);
     write_tcd(state, data, TCD0, RAM_BASE + 0x50u, 1, 0,
-              0xc0000000u | (0xfffffu << 10u) | 1u, 0, RAM_BASE + 0x150u, 1, 2, 0,
-              0);
+              0xc0000000u | (0xfffffu << 10u) | 1u, 0, RAM_BASE + 0x150u, 1, 2, 0, 0);
     write_value(state, data, DMA + 0x1du, 1, 0u);
     k22_data_advance(data, 1u);
     write_value(state, data, DMA + 0x1du, 1, 0u);
@@ -367,8 +366,8 @@ static void test_adc_compare_dma_and_continuous(TestState* state) {
     TEST_EXPECT(state, (read_value(state, data, ADC0, 1) & 0x80u) != 0u);
 
     bus.ram[0xb20u] = 0x4du;
-    write_tcd(state, data, TCD1, RAM_BASE + 0xb20u, 0, 0, 1u, 0,
-              RAM_BASE + 0xa20u, 0, 1u, 0, 0u);
+    write_tcd(state, data, TCD1, RAM_BASE + 0xb20u, 0, 0, 1u, 0, RAM_BASE + 0xa20u, 0, 1u,
+              0, 0u);
     write_value(state, data, DMAMUX + 1u, 1, 0x80u | 41u);
     write_value(state, data, DMA + 0x1bu, 1, 1u);
     write_value(state, data, ADC1 + 0x20u, 1, 0x04u);
@@ -398,6 +397,7 @@ static void test_dac_cmp_vref(TestState* state) {
     write_value(state, data, DAC0 + 0x20, 1, 7u);
     TEST_EXPECT(state, read_value(state, data, DAC0 + 0x20, 1) == 0);
     write_value(state, data, DAC0 + 0x23, 1, 2u);
+    TEST_EXPECT(state, read_value(state, data, DAC0 + 0x23, 1) == 2u);
     write_value(state, data, DAC0 + 0x22, 1, 0x81u);
     k22_data_dac_trigger(data, 0);
     TEST_EXPECT(state, read_value(state, data, DAC0 + 0x23, 1) == 0x22u);
@@ -417,9 +417,9 @@ static void test_dac_cmp_vref(TestState* state) {
     TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 1, 0));
     TEST_EXPECT(state, (read_value(state, data, CMP0 + 3, 1) & 2u) != 0);
     write_value(state, data, CMP0 + 4u, 1, 0xa0u);
+    TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 7, 20));
+    write_value(state, data, CMP0 + 3u, 1, 0x48u);
     write_value(state, data, CMP0 + 5u, 1, (7u << 3u) | 2u);
-    write_value(state, data, CMP0 + 3u, 1, 0x4cu);
-    write_value(state, data, CMP0 + 1u, 1, 1u);
     TEST_EXPECT(state, (read_value(state, data, CMP0 + 3u, 1) & 1u) != 0u);
 
     write_value(state, data, VREF + 1, 1, 0x80u);

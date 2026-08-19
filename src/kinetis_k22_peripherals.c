@@ -671,17 +671,14 @@ manifest_descriptor_for_access(const KinetisK22* device, uint32_t address, uint8
         return exact;
     }
     const K22RegisterManifest* manifest = device->manifest;
-    const K22RegisterDescriptor* covering = NULL;
     const uint32_t end = address + size;
     for (size_t index = 0u; index < manifest->register_count; index++) {
         const K22RegisterDescriptor* candidate = &manifest->registers[index];
         const uint32_t candidate_end = candidate->address + candidate->width / 8u;
-        if (candidate->address <= address && candidate_end >= end &&
-            (covering == NULL || candidate->width < covering->width)) {
-            covering = candidate;
-        }
+        if (candidate->address <= address && candidate_end >= end)
+            return candidate;
     }
-    return covering;
+    return NULL;
 }
 
 static uint32_t manifest_access_mask(const K22RegisterDescriptor* descriptor,

@@ -1273,9 +1273,12 @@ void k22_data_dac_trigger(K22Data* data, uint8_t instance) {
     const uint8_t upper = dac->registers[0x23] & 15u;
     uint8_t flags = 0;
     if ((dac->registers[0x22] & 3u) == 1u) {
-        if (pointer == 0)
+        if (pointer == 0) {
             flags |= 2u;
-        pointer = pointer == 0 ? upper : (uint8_t)(pointer - 1u);
+            pointer = upper;
+        } else {
+            pointer--;
+        }
     } else {
         pointer++;
         if (pointer == upper)

@@ -34,6 +34,10 @@ enum {
     CMT_CMD3 = 0x40062008u,
     CMT_CMD4 = 0x40062009u,
     CMT_DMA = 0x4006200bu,
+    FTM0_SC = 0x40038000u,
+    FTM0_MOD = 0x40038008u,
+    FTM0_C0SC = 0x4003800cu,
+    FTM0_C0V = 0x40038010u,
 };
 
 static KinetisK22* create_device(TestState* state) {
@@ -123,6 +127,35 @@ static void test_cmt(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, read16(state, device, DMA_ERQ) == 0u);
     write8(state, device, CMT_CMD2, 1u);
     TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    write8(state, device, CMT_MSC, 1u);
+    kinetis_k22_advance(device, 1u);
+    TEST_EXPECT(state, device->cmt_cycles != 0u);
+    write8(state, device, CMT_MSC, 0u);
+    TEST_EXPECT(state, device->cmt_cycles == 0u);
+}
+
+static void test_event_capacity(TestState* state, KinetisK22* device) {
+    KinetisK22Event event;
+    while (kinetis_k22_next_event(device, &event)) {
+    }
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_PORTD, true);
+    TEST_EXPECT(state, k22_io_write(&device->io, 0x4004c004u, 4u, 1u << 16u));
+    for (uint32_t index = 0u; index < K22_EVENT_CAPACITY + 1u; index++) {
+        TEST_EXPECT(state, k22_io_drive_pin(&device->io, 3u, 1u, false));
+        TEST_EXPECT(state, k22_io_drive_pin(&device->io, 3u, 1u, true));
+    }
+    TEST_EXPECT(state, device->event_count == K22_EVENT_CAPACITY);
+    TEST_EXPECT(state, device->event_read_index != 0u);
+}
+
+static void test_timing_dma(TestState* state, KinetisK22* device) {
+    write32(state, device, SIM_SCGC6, read32(state, device, SIM_SCGC6) | (1u << 24u));
+    write32(state, device, FTM0_MOD, 7u);
+    write32(state, device, FTM0_C0V, 1u);
+    write32(state, device, FTM0_C0SC, 1u);
+    write32(state, device, FTM0_SC, 8u);
+    kinetis_k22_advance(device, 2u);
+    TEST_EXPECT(state, (read32(state, device, FTM0_C0SC) & (1u << 7u)) != 0u);
 }
 
 static void test_usbdcd(TestState* state, KinetisK22* device) {
@@ -232,6 +265,8 @@ int main(void) {
     test_access_controls(&state, device);
     test_fmc_geometry(&state, device);
     test_retention(&state, device);
+    test_event_capacity(&state, device);
+    test_timing_dma(&state, device);
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

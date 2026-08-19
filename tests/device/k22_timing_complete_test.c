@@ -49,6 +49,8 @@ enum {
     WDOG_STCTRLH = 0x40052000u,
     WDOG_TOVALH = 0x40052004u,
     WDOG_TOVALL = 0x40052006u,
+    WDOG_WINH = 0x40052008u,
+    WDOG_WINL = 0x4005200au,
     WDOG_REFRESH = 0x4005200cu,
     WDOG_UNLOCK = 0x4005200eu,
     WDOG_PRESC = 0x40052016u,
@@ -493,6 +495,10 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     Observations observations = {0};
     TEST_EXPECT(
         state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)));
+    timing.external_oscillator_hz = 0u;
+    expect_write(state, &timing, MCG_C1, 1, 0x80u);
+    TEST_EXPECT(state, k22_timing_core_clock_hz(&timing) == timing.slow_irc_hz);
+    timing.external_oscillator_hz = 8000000u;
     expect_write(state, &timing, MCG_C1 + 1u, 1, 4u);
     expect_write(state, &timing, MCG_C1, 1, 0x80u);
     expect_read(state, &timing, MCG_S, 1, 0x0au);
@@ -517,6 +523,17 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, PDB_SC, 4, 1u);
     k22_timing_advance(&timing, 2u);
     expect_read(state, &timing, PDB_SC, 4, 0u);
+    k22_timing_reset(&timing, 0x82u, 0);
+    memset(&observations, 0, sizeof(observations));
+    unlock_watchdog(state, &timing);
+    expect_write(state, &timing, WDOG_TOVALH, 2, 0u);
+    expect_write(state, &timing, WDOG_TOVALL, 2, 10u);
+    expect_write(state, &timing, WDOG_WINH, 2, 0u);
+    expect_write(state, &timing, WDOG_WINL, 2, 2u);
+    expect_write(state, &timing, WDOG_STCTRLH, 2, 9u);
+    expect_write(state, &timing, WDOG_REFRESH, 2, 0xa602u);
+    expect_write(state, &timing, WDOG_REFRESH, 2, 0xb480u);
+    TEST_EXPECT(state, observations.resets == 1u);
     k22_timing_reset(&timing, 0x82u, 0);
     unlock_watchdog(state, &timing);
     expect_write(state, &timing, WDOG_TOVALH, 2, 0);

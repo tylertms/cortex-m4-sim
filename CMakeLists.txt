@@ -13,6 +13,15 @@ if(PROJECT_IS_TOP_LEVEL)
     add_link_options(--coverage)
     find_program(GCOV_EXECUTABLE gcov REQUIRED)
   endif()
+
+  add_custom_target(
+    cortex_m4_mutation_check
+    COMMAND
+      ${CMAKE_COMMAND} -D SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}
+      -D MUTATION_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/mutations
+      -D C_COMPILER=${CMAKE_C_COMPILER} -D CTEST_COMMAND=${CMAKE_CTEST_COMMAND} -P
+      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunMutationChecks.cmake
+    VERBATIM)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -216,6 +225,14 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
       COMMAND ${GCOV_EXECUTABLE} -b ${coverage_notes}
       WORKING_DIRECTORY "${coverage_directory}"
       DEPENDS cortex_m4_simulator
+      VERBATIM)
+    add_custom_target(
+      cortex_m4_coverage_check
+      COMMAND
+        ${CMAKE_COMMAND} -D COVERAGE_DIRECTORY=${coverage_directory}
+        -D MINIMUM_LINE_BASIS_POINTS=9980 -D MINIMUM_BRANCH_BASIS_POINTS=9900 -P
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckCoverage.cmake
+      DEPENDS cortex_m4_coverage_report
       VERBATIM)
   endif()
 endif()

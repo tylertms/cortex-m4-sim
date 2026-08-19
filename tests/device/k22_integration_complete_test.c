@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include "kinetis_k22_internal.h"
 #include "test.h"
 
 enum {
@@ -152,6 +153,45 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
     TEST_EXPECT(state, cpu_write8(device, FTFA_FSTAT, 0x80u));
     TEST_EXPECT(state, read32(device, target, &value));
     TEST_EXPECT(state, value == 0x12345678u);
+    const uint32_t fstat_bit_band =
+        0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 4u * 4u;
+    TEST_EXPECT(state, write32(device, fstat_bit_band, 1u));
+}
+
+static void expect_memory_domains(TestState* state) {
+    KinetisK22* device = create_f12_device(state, KINETIS_K22_PACKAGE_LQ_144_LQFP);
+    CortexM4* cpu = kinetis_k22_cpu(device);
+    const CortexM4* constant_cpu = kinetis_k22_cpu_const(device);
+    TEST_EXPECT(state, constant_cpu == cpu);
+    TEST_EXPECT(state, kinetis_k22_cpu_const(NULL) == NULL);
+
+    const uint32_t flexram = 0x14000000u;
+    uint32_t value = 0x12345678u;
+    TEST_EXPECT(state, kinetis_k22_write(device, flexram, &value, sizeof(value)));
+    value = 0u;
+    TEST_EXPECT(state, cortex_m4_read_memory(cpu, flexram, 4u, &value));
+    TEST_EXPECT(state, value == 0x12345678u);
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, flexram + 4u, 4u, 0xa5a55a5au));
+    TEST_EXPECT(state, read32(device, flexram + 4u, &value));
+    TEST_EXPECT(state, value == 0xa5a55a5au);
+
+    const uint32_t flash = 0x100u;
+    TEST_EXPECT(state,
+                !kinetis_k22_memory_write(device, flash, 1u, CORTEX_M4_ACCESS_DATA, 0x5au));
+    uint8_t byte = 0x5au;
+    TEST_EXPECT(state, kinetis_k22_write(device, flash, &byte, sizeof(byte)));
+    byte = 0u;
+    TEST_EXPECT(state, read8(device, flash, &byte));
+    TEST_EXPECT(state, byte == 0x5au);
+    kinetis_k22_destroy(device);
+
+    KinetisK22Configuration small = kinetis_k22_default_configuration();
+    small.flash_size = 8u;
+    KinetisK22* short_flash = kinetis_k22_create(small);
+    TEST_EXPECT(state, short_flash != NULL);
+    TEST_EXPECT(state, kinetis_k22_reset(short_flash));
+    kinetis_k22_warm_reset(NULL, 0u, 0u);
+    kinetis_k22_destroy(short_flash);
 }
 
 static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
@@ -374,6 +414,14 @@ static void expect_reset_domains(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, (cause & 0xa2u) == 0xa2u);
     TEST_EXPECT(state, read32(device, GPIOA_PDIR, &value));
     TEST_EXPECT(state, (value & 1u) != 0);
+
+    TEST_EXPECT(state, write16(device, WDOG_UNLOCK, 0xc520u));
+    TEST_EXPECT(state, write16(device, WDOG_UNLOCK, 0xd928u));
+    TEST_EXPECT(state, write16(device, WDOG_TOVALH, 0u));
+    TEST_EXPECT(state, write16(device, WDOG_TOVALL, 1u));
+    TEST_EXPECT(state, write16(device, WDOG_STCTRLH, 5u));
+    kinetis_k22_watchdog_advance(device, 1u);
+    TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 22u));
 }
 
 static void expect_copy(TestState* state, KinetisK22* source) {
@@ -423,5 +471,6 @@ int main(void) {
     }
     TEST_EXPECT(&state, !kinetis_k22_next_event(device, &event));
     kinetis_k22_destroy(device);
+    expect_memory_domains(&state);
     return test_finish(&state);
 }

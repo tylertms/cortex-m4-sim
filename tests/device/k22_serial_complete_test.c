@@ -10,6 +10,7 @@ enum {
     I2C0_BASE = 0x40066000u,
     I2C2_BASE = 0x400e6000u,
     UART0_BASE = 0x4006a000u,
+    UART_S1 = 4u,
 };
 
 static uint32_t read_register(TestState* state, K22Serial* serial, uint32_t address,
@@ -71,6 +72,9 @@ static void test_profiles_and_gates(TestState* state) {
 static void test_uart_transfer_status_interrupt_and_dma(TestState* state) {
     K22Serial serial = create_serial(state, K22_PROFILE_MK22FN51212);
     TEST_EXPECT(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_UART0, true));
+    serial.uart[0].registers[UART_S1] |= 0x10u;
+    write_register(state, &serial, UART0_BASE + 3, 1, 0x10u);
+    TEST_EXPECT(state, k22_serial_irq(&serial, K22_SERIAL_IRQ_UART0));
     write_register(state, &serial, UART0_BASE, 1, 0);
     write_register(state, &serial, UART0_BASE + 1, 1, 1);
     write_register(state, &serial, UART0_BASE + 3, 1, 0x2cu);
@@ -235,6 +239,10 @@ static void test_i2c_master_events_timing_irq_and_dma(TestState* state) {
     TEST_EXPECT(state, read_register(state, &serial, I2C0_BASE + 4, 1) == 0x5au);
     expect_event(state, &serial, K22_SERIAL_I2C0, K22_SERIAL_EVENT_I2C_READ, 0);
     write_register(state, &serial, I2C0_BASE + 2, 1, 0xc1u);
+    expect_event(state, &serial, K22_SERIAL_I2C0, K22_SERIAL_EVENT_I2C_STOP, 0);
+    write_register(state, &serial, I2C0_BASE + 2, 1, 0xe1u);
+    expect_event(state, &serial, K22_SERIAL_I2C0, K22_SERIAL_EVENT_I2C_START, 0);
+    write_register(state, &serial, I2C0_BASE + 2, 1, 0u);
     expect_event(state, &serial, K22_SERIAL_I2C0, K22_SERIAL_EVENT_I2C_STOP, 0);
 }
 
