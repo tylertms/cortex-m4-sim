@@ -726,8 +726,11 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
     if (!has(timing, peripheral))
         return false;
     const K22FtmState* ftm = &timing->ftm[instance];
-    bool output = ftm->channel_output[channel];
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    const bool combined = ((ftm->registers[4] >> pair_shift) & 1u) != 0u;
+    const bool inverted_pair = (ftm->registers[15] & (1u << (channel / 2u))) != 0u;
+    const uint8_t source_channel = combined && inverted_pair ? channel ^ 1u : channel;
+    bool output = ftm->channel_output[source_channel];
     const bool dual_capture = ((ftm->registers[4] >> pair_shift) & 4u) != 0u;
     const bool software_enabled = (ftm->registers[16] & (1u << channel)) != 0u;
     if ((ftm->registers[11] & 1u) == 0u && !dual_capture && software_enabled) {
@@ -1027,8 +1030,59 @@ static void ftm_capture_input(K22Timing* timing, uint8_t index, uint8_t channel,
     update_ftm_irq(timing, index);
 }
 
+static void ftm_apply_outmask(K22FtmState* ftm) {
+    if (ftm->outmask_pending) {
+        ftm->registers[3] = ftm->outmask_buffer;
+        ftm->outmask_pending = false;
+    }
+}
+
+static void ftm_apply_invctrl(K22FtmState* ftm) {
+    if (ftm->invctrl_pending) {
+        ftm->registers[15] = ftm->invctrl_buffer;
+        ftm->invctrl_pending = false;
+    }
+}
+
+static void ftm_apply_swoctrl(K22FtmState* ftm) {
+    if (ftm->swoctrl_pending) {
+        ftm->registers[16] = ftm->swoctrl_buffer;
+        ftm->swoctrl_pending = false;
+    }
+}
+
+static void ftm_apply_system_clock_updates(K22FtmState* ftm) {
+    if ((ftm->registers[1] & 8u) == 0u)
+        ftm_apply_outmask(ftm);
+    if ((ftm->registers[14] & (1u << 4u)) == 0u)
+        ftm_apply_invctrl(ftm);
+    if ((ftm->registers[14] & (1u << 5u)) == 0u)
+        ftm_apply_swoctrl(ftm);
+}
+
+static void ftm_apply_software_sync(K22FtmState* ftm) {
+    const uint32_t synconf = ftm->registers[14];
+    const bool enhanced = (synconf & (1u << 7u)) != 0u;
+    if ((synconf & (1u << 12u)) != 0u)
+        ftm_apply_swoctrl(ftm);
+    if ((synconf & (1u << 11u)) != 0u)
+        ftm_apply_invctrl(ftm);
+    if ((enhanced && (synconf & (1u << 10u)) != 0u) ||
+        (!enhanced && (ftm->registers[0] & 8u) == 0u &&
+         (ftm->registers[1] & 8u) != 0u))
+        ftm_apply_outmask(ftm);
+    if ((enhanced && (synconf & (1u << 8u)) != 0u) ||
+        (!enhanced && (ftm->registers[1] & 4u) != 0u)) {
+        ftm->counter = ftm->initial;
+        ftm->counting_down = false;
+        ftm->overflow_count = 0u;
+        ftm->remainder = 0u;
+    }
+}
+
 static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     K22FtmState* ftm = &timing->ftm[index];
+    ftm_apply_system_clock_updates(ftm);
     const uint8_t channels = ftm_channel_count(index);
     uint32_t remaining = cycles;
     while (remaining != 0u) {
@@ -1384,6 +1438,13 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                     ftm->channel_output[channel] =
                         (ftm->registers[2] & (1u << channel)) != 0u;
             }
+        } else if (offset == 0x58u) {
+            ftm->registers[1] = value & 0x7fu;
+            if ((value & 0x80u) != 0u)
+                ftm_apply_software_sync(ftm);
+        } else if (offset == 0x60u) {
+            ftm->outmask_buffer = value;
+            ftm->outmask_pending = true;
         } else if (offset == 0x74u) {
             if ((value & 0x40u) != 0u) {
                 ftm->registers[8] |= 0x40u;
@@ -1398,6 +1459,12 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                 next &= ~0x80u;
             ftm->registers[register_index] = next;
             ftm->trigger_flag_read = false;
+        } else if (offset == 0x90u) {
+            ftm->invctrl_buffer = value;
+            ftm->invctrl_pending = true;
+        } else if (offset == 0x94u) {
+            ftm->swoctrl_buffer = value;
+            ftm->swoctrl_pending = true;
         } else {
             const uint32_t protected_mask = ftm_write_protected_mask(register_index);
             if ((ftm->registers[0] & 4u) == 0u)

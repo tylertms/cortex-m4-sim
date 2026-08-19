@@ -268,3 +268,28 @@ run_mutation(
   "0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, 0x7f7f7f7fu,"
   "0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, UINT32_MAX,"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_inverting_control src/k22_timing.c
+  "const uint8_t source_channel = combined && inverted_pair ? channel ^ 1u : channel;"
+  "const uint8_t source_channel = combined && !inverted_pair ? channel ^ 1u : channel;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_outmask_system_sync src/k22_timing.c
+  "if ((ftm->registers[1] & 8u) == 0u)"
+  "if (false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_invctrl_system_sync src/k22_timing.c
+  "if ((ftm->registers[14] & (1u << 4u)) == 0u)"
+  "if (false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_swoctrl_software_sync src/k22_timing.c
+  "if ((synconf & (1u << 12u)) != 0u)"
+  "if (false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_counter_software_sync src/k22_timing.c
+  "(enhanced && (synconf & (1u << 8u)) != 0u)"
+  "(false && (synconf & (1u << 8u)) != 0u)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

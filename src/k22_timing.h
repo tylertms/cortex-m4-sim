@@ -42,6 +42,9 @@ typedef struct {
     uint32_t channel_sc[8];
     uint16_t channel_value[8];
     uint32_t registers[20];
+    uint32_t outmask_buffer;
+    uint32_t invctrl_buffer;
+    uint32_t swoctrl_buffer;
     uint64_t remainder;
     bool trigger_flag_read;
     bool overflow_flag_read;
@@ -50,6 +53,9 @@ typedef struct {
     bool channel_filtered_input[8];
     bool channel_output[8];
     uint32_t channel_input_age[8];
+    bool outmask_pending;
+    bool invctrl_pending;
+    bool swoctrl_pending;
     bool write_protection_read;
     bool counting_down;
     uint8_t overflow_count;
