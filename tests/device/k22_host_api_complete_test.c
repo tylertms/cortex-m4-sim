@@ -175,9 +175,13 @@ static void test_io_api(TestState* state, KinetisK22* device) {
 
 static void test_guards(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_NONE));
+    TEST_EXPECT(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_ERROR));
     TEST_EXPECT(state,
                 !kinetis_k22_set_usb_charger(device, (KinetisK22UsbCharger)UINT8_MAX));
     TEST_EXPECT(state, !kinetis_k22_set_usb_charger(NULL, KINETIS_K22_USB_CHARGER_NONE));
+    TEST_EXPECT(state, kinetis_k22_set_usb_pullup(device, true));
+    TEST_EXPECT(state, kinetis_k22_set_usb_pullup(device, false));
+    TEST_EXPECT(state, !kinetis_k22_set_usb_pullup(NULL, true));
     KinetisK22Event event;
     while (kinetis_k22_next_event(device, &event)) {
     }

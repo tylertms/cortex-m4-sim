@@ -818,3 +818,63 @@ run_mutation(
   "device->cmt_extended_space ? 0u : (mark + 1u) * unit;"
   "device->cmt_extended_space ? (mark + 1u) * unit : 0u;"
   cortex_m4_device_k22_cmt_complete_test device_k22_cmt_complete)
+run_mutation(
+  usbdcd_reset_interrupt_enable src/k22_usbdcd.c
+  "usbdcd->control = CONTROL_IE;" "usbdcd->control = 0u;"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_start_elapsed_time src/k22_usbdcd.c
+  "(usbdcd->timer0 & 0x03ff0000u) | (usbdcd->timer0 >> 16u)"
+  "(usbdcd->timer0 & 0x03ff0000u)"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_active_configuration_lock src/k22_usbdcd.c
+  "if ((usbdcd->status & STATUS_ACTIVE) != 0u)" "if (false)"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_clock_unit src/k22_usbdcd.c
+  "return (usbdcd->clock & 1u) != 0u ? speed * 1000u : speed;"
+  "return (usbdcd->clock & 1u) != 0u ? speed : speed * 1000u;"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_standard_result src/k22_usbdcd.c
+  "finish(usbdcd, 2u, 1u, false);" "finish(usbdcd, 2u, 2u, false);"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_primary_delay src/k22_usbdcd.c
+  "set_phase(usbdcd, K22_USBDCD_SECONDARY_DELAY);"
+  "set_phase(usbdcd, K22_USBDCD_SECONDARY_DETECTION);"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_debounce_restart src/k22_usbdcd.c
+  "usbdcd->phase_elapsed = 0u;\n        } else if"
+  "usbdcd->phase_elapsed = usbdcd->phase_elapsed;\n        } else if"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_timeout_boundary src/k22_usbdcd.c
+  "if (elapsed >= 1000u &&" "if (elapsed > 1000u &&"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_timer_saturation src/k22_usbdcd.c
+  "if (elapsed < 0x0fffu)" "if (elapsed <= 0x0fffu)"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_software_reset_start src/k22_usbdcd.c
+  "CONTROL_IE | CONTROL_BC12 | CONTROL_START"
+  "CONTROL_IE | CONTROL_BC12"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_irq_enable src/k22_usbdcd.c
+  "(usbdcd->control & (CONTROL_IF | CONTROL_IE)) == (CONTROL_IF | CONTROL_IE)"
+  "(usbdcd->control & CONTROL_IF) == CONTROL_IF"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_dedicated_result src/k22_usbdcd.c
+  "usbdcd->charger == KINETIS_K22_USB_CHARGER_DEDICATED ? 3u : 2u"
+  "usbdcd->charger == KINETIS_K22_USB_CHARGER_DEDICATED ? 2u : 3u"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)
+run_mutation(
+  usbdcd_timeout_error_retention src/k22_usbdcd.c
+  "error || timeout != 0u ? STATUS_ERROR : 0u"
+  "error ? STATUS_ERROR : 0u"
+  cortex_m4_device_k22_usbdcd_complete_test device_k22_usbdcd_complete)

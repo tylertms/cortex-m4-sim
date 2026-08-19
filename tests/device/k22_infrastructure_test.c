@@ -169,43 +169,45 @@ static void test_usbdcd(TestState* state, KinetisK22* device) {
     write32(state, device, SIM_SCGC6, read32(state, device, SIM_SCGC6) | (1u << 21u));
     TEST_EXPECT(state,
                 kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_STANDARD_HOST));
-    write32(state, device, USBDCD_CLOCK, 1u | (1u << 2u));
+    write32(state, device, USBDCD_CLOCK, 1u << 2u);
     write32(state, device, USBDCD_TIMER0, 0u);
     write32(state, device, USBDCD_TIMER1, 0u);
     write32(state, device, USBDCD_TIMER2, 0u);
     write32(state, device, USBDCD_CONTROL, (1u << 16u) | (1u << 24u));
-    kinetis_k22_advance(device, 1024u);
+    kinetis_k22_advance(device, 3u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & (1u << 22u)) == 0u);
-    TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x000f0000u) == 0x000d0000u);
+    TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x000f0000u) == 0x00090000u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_CONTROL) & (1u << 8u)) != 0u);
     TEST_EXPECT(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 54u));
     write32(state, device, USBDCD_CONTROL, 1u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_CONTROL) & (1u << 8u)) == 0u);
+    write32(state, device, USBDCD_CONTROL, (1u << 16u) | (1u << 25u));
     TEST_EXPECT(state,
                 kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_CHARGING_PORT));
-    write32(state, device, USBDCD_CONTROL, 1u << 24u);
-    write32(state, device, USBDCD_CONTROL, 1u << 24u);
-    kinetis_k22_advance(device, 1024u);
+    write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 24u));
+    kinetis_k22_advance(device, 5u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x000f0000u) == 0x000e0000u);
+    write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 25u));
     TEST_EXPECT(state,
                 kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_DEDICATED));
-    write32(state, device, USBDCD_CONTROL, 1u << 24u);
-    kinetis_k22_advance(device, 1024u);
+    write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 24u));
+    kinetis_k22_advance(device, 5u);
     TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x000f0000u) == 0x000f0000u);
+    write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 25u));
     TEST_EXPECT(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_NONE));
-    write32(state, device, USBDCD_CONTROL, 1u << 24u);
-    kinetis_k22_advance(device, 1024u);
-    TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x003f0000u) == 0x00300000u);
+    write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 24u));
+    kinetis_k22_advance(device, 1000u);
+    TEST_EXPECT(state, (read32(state, device, USBDCD_STATUS) & 0x00700000u) == 0x00700000u);
     write32(state, device, USBDCD_CONTROL, 1u << 25u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_CONTROL) == 0x00010000u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_CLOCK) == 0x000000c1u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_CONTROL) == 0x01030000u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_CLOCK) == 0x00000004u);
     TEST_EXPECT(state, read32(state, device, USBDCD_STATUS) == 0u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER0) == 0x00100000u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER1) == 0x000a0028u);
-    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER2) == 0x00280001u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER0) == 0u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER1) == 0u);
+    TEST_EXPECT(state, read32(state, device, USBDCD_TIMER2) == 0u);
     TEST_EXPECT(state,
                 !kinetis_k22_set_usb_charger(
-                    device, (KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_DEDICATED + 1)));
+                    device, (KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_ERROR + 1)));
 }
 
 static void test_access_controls(TestState* state, KinetisK22* device) {

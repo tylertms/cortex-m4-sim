@@ -11,6 +11,7 @@
 #include "k22_sdhc.h"
 #include "k22_serial.h"
 #include "k22_timing.h"
+#include "k22_usbdcd.h"
 
 enum {
     K22_FLASH_BASE = 0x00000000u,
@@ -45,14 +46,13 @@ struct KinetisK22 {
     uint64_t cmt_carrier_period_ticks;
     uint64_t cmt_carrier_offset_ticks;
     uint64_t cmt_output_delay_ticks;
-    uint64_t usbdcd_cycles;
     bool cmt_eoc_read;
     bool cmt_running;
     bool cmt_stop_pending;
     bool cmt_fsk_secondary;
     bool cmt_extended_space;
     bool cmt_dma_pending;
-    KinetisK22UsbCharger usb_charger;
+    K22UsbDcd usbdcd;
     K22Data* data;
     K22Io io;
     K22Sdhc sdhc;

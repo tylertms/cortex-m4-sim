@@ -249,99 +249,6 @@ static void cmt_advance(KinetisK22* device, uint32_t cycles) {
     }
 }
 
-static bool usbdcd_read(KinetisK22* device, uint32_t address, uint8_t size,
-                        uint32_t* value) {
-    if (address < K22_USBDCD || address >= K22_USBDCD + 0x1cu || size != 4u ||
-        (address & 3u) != 0u) {
-        return false;
-    }
-    *value = raw_load(device, address, 4u);
-    return true;
-}
-
-static void usbdcd_reset(KinetisK22* device) {
-    static const uint8_t offsets[] = {0u, 4u, 8u, 0x10u, 0x14u, 0x18u};
-    for (size_t index = 0u; index < sizeof(offsets); index++) {
-        const uint32_t address = K22_USBDCD + offsets[index];
-        const K22RegisterDescriptor* descriptor =
-            k22_register_manifest_lookup(device->profile->id, address, 32u);
-        if (descriptor != NULL) {
-            raw_store(device, address, 4u,
-                      descriptor->reset_value & descriptor->implemented_mask);
-        }
-    }
-    device->usbdcd_cycles = 0u;
-    if (device->cpu != NULL) {
-        cortex_m4_set_irq_level(device->cpu, 54u, false);
-    }
-}
-
-static bool usbdcd_write(KinetisK22* device, uint32_t address, uint8_t size,
-                         uint32_t value) {
-    if (address != K22_USBDCD || size != 4u) {
-        return false;
-    }
-    if ((value & (1u << 25u)) != 0u) {
-        usbdcd_reset(device);
-        return true;
-    }
-    uint32_t control = raw_load(device, K22_USBDCD, 4u);
-    if ((value & 1u) != 0u) {
-        control &= ~(1u << 8u);
-        if (device->cpu != NULL) {
-            cortex_m4_set_irq_level(device->cpu, 54u, false);
-        }
-    }
-    control = (control & (1u << 8u)) | (value & 0x00030000u);
-    if ((value & (1u << 24u)) != 0u &&
-        (raw_load(device, K22_USBDCD + 8u, 4u) & (1u << 22u)) == 0u) {
-        raw_store(device, K22_USBDCD + 8u, 4u, 1u << 22u);
-        device->usbdcd_cycles = 0u;
-    }
-    raw_store(device, K22_USBDCD, 4u, control);
-    return true;
-}
-
-static uint64_t usbdcd_period(const KinetisK22* device) {
-    const uint32_t timer0 = raw_load(device, K22_USBDCD + 0x10u, 4u);
-    const uint32_t timer1 = raw_load(device, K22_USBDCD + 0x14u, 4u);
-    const uint32_t timer2 = raw_load(device, K22_USBDCD + 0x18u, 4u);
-    uint64_t ticks = (timer0 & 0xfffu) + ((timer0 >> 16u) & 0x3ffu) + 1u;
-    if (device->usb_charger != KINETIS_K22_USB_CHARGER_STANDARD_HOST) {
-        ticks += (timer1 & 0x3ffu) + ((timer1 >> 16u) & 0x3ffu) + (timer2 & 0x3ffu) +
-                 ((timer2 >> 16u) & 0x3ffu) + 1u;
-    }
-    const uint32_t clock = raw_load(device, K22_USBDCD + 4u, 4u);
-    const uint32_t speed = (clock >> 2u) & 0x3ffu;
-    const uint64_t hz =
-        (uint64_t)(speed == 0u ? 1u : speed) * ((clock & 1u) != 0u ? 1000000u : 1000u);
-    const uint64_t core_hz = k22_timing_core_clock_hz(&device->timing);
-    const uint64_t cycles_per_tick = core_hz > hz ? core_hz / hz : 1u;
-    return ticks * cycles_per_tick;
-}
-
-static void usbdcd_advance(KinetisK22* device, uint32_t cycles) {
-    if ((raw_load(device, K22_USBDCD + 8u, 4u) & (1u << 22u)) == 0u) {
-        return;
-    }
-    device->usbdcd_cycles += cycles;
-    if (device->usbdcd_cycles < usbdcd_period(device)) {
-        return;
-    }
-    uint32_t status = 0u;
-    if (device->usb_charger == KINETIS_K22_USB_CHARGER_NONE) {
-        status = (1u << 20u) | (1u << 21u);
-    } else {
-        status = ((uint32_t)device->usb_charger << 16u) | (3u << 18u);
-    }
-    raw_store(device, K22_USBDCD + 8u, 4u, status);
-    uint32_t control = raw_load(device, K22_USBDCD, 4u) | (1u << 8u);
-    raw_store(device, K22_USBDCD, 4u, control);
-    if ((control & (1u << 16u)) != 0u && device->cpu != NULL) {
-        cortex_m4_set_irq_level(device->cpu, 54u, true);
-    }
-}
-
 static bool serial_peripheral(K22PeripheralId id) {
     return id == K22_PERIPHERAL_LPUART0 || id == K22_PERIPHERAL_SPI0 ||
            id == K22_PERIPHERAL_SPI1 || id == K22_PERIPHERAL_SPI2 ||
@@ -704,6 +611,7 @@ void kinetis_k22_refresh_signals(KinetisK22* device) {
                 cortex_m4_set_irq_level(device->cpu, irqs[index],
                                         k22_io_irq_asserted(&device->io, irqs[index]));
             }
+            cortex_m4_set_irq_level(device->cpu, 54u, k22_usbdcd_irq(&device->usbdcd));
             cortex_m4_set_irq_level(device->cpu, 81u, k22_sdhc_irq(&device->sdhc));
         }
     }
@@ -730,7 +638,7 @@ static bool semantic_read(KinetisK22* device, K22PeripheralId id, uint32_t addre
         return cmt_read(device, address, size, value);
     }
     if (id == K22_PERIPHERAL_USBDCD) {
-        return usbdcd_read(device, address, size, value);
+        return k22_usbdcd_read(&device->usbdcd, address, size, value);
     }
     if (timing_peripheral(id) && k22_timing_read(&device->timing, address, size, value)) {
         return true;
@@ -752,7 +660,7 @@ static bool semantic_write(KinetisK22* device, K22PeripheralId id, uint32_t addr
         return cmt_write(device, address, size, value);
     }
     if (id == K22_PERIPHERAL_USBDCD) {
-        return usbdcd_write(device, address, size, value);
+        return k22_usbdcd_write(&device->usbdcd, address, size, value);
     }
     if (timing_peripheral(id) && k22_timing_write(&device->timing, address, size, value)) {
         kinetis_k22_sync_clock_gates(device);
@@ -963,7 +871,7 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
     device->cmt_carrier_period_ticks = 0u;
     device->cmt_carrier_offset_ticks = 0u;
     device->cmt_output_delay_ticks = 0u;
-    device->usbdcd_cycles = 0u;
+    k22_usbdcd_reset(&device->usbdcd);
     device->cmt_eoc_read = false;
     device->cmt_running = false;
     device->cmt_stop_pending = false;
@@ -1004,7 +912,9 @@ void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
     }
     if (k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_USBDCD) &&
         peripheral_clock_enabled(device, K22_PERIPHERAL_USBDCD)) {
-        usbdcd_advance(device, cycles);
+        k22_usbdcd_advance(&device->usbdcd, cycles);
+        if (device->cpu != NULL)
+            cortex_m4_set_irq_level(device->cpu, 54u, k22_usbdcd_irq(&device->usbdcd));
     }
     kinetis_k22_refresh_signals(device);
 }
@@ -1119,12 +1029,17 @@ bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
 }
 
 bool kinetis_k22_set_usb_charger(KinetisK22* device, KinetisK22UsbCharger charger) {
-    if (device == NULL || charger > KINETIS_K22_USB_CHARGER_DEDICATED ||
+    if (device == NULL || charger > KINETIS_K22_USB_CHARGER_ERROR ||
         !k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_USBDCD)) {
         return false;
     }
-    device->usb_charger = charger;
-    return true;
+    return k22_usbdcd_set_charger(&device->usbdcd, charger);
+}
+
+bool kinetis_k22_set_usb_pullup(KinetisK22* device, bool enabled) {
+    return device != NULL &&
+           k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_USBDCD) &&
+           k22_usbdcd_set_pullup(&device->usbdcd, enabled);
 }
 
 void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed) {

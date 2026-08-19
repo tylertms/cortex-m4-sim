@@ -114,6 +114,7 @@ typedef enum {
     KINETIS_K22_USB_CHARGER_STANDARD_HOST,
     KINETIS_K22_USB_CHARGER_CHARGING_PORT,
     KINETIS_K22_USB_CHARGER_DEDICATED,
+    KINETIS_K22_USB_CHARGER_ERROR,
 } KinetisK22UsbCharger;
 
 typedef struct {
@@ -192,6 +193,7 @@ void kinetis_k22_flexbus_detach(KinetisK22* device);
 bool kinetis_k22_flexbus_read(const KinetisK22* device, size_t offset, void* data,
                               size_t size);
 bool kinetis_k22_set_usb_charger(KinetisK22* device, KinetisK22UsbCharger charger);
+bool kinetis_k22_set_usb_pullup(KinetisK22* device, bool enabled);
 bool kinetis_k22_uart1_receive(KinetisK22* device, uint8_t value, uint8_t status);
 bool kinetis_k22_uart1_transmit(KinetisK22* device, uint8_t* value);
 bool kinetis_k22_spi0_receive(KinetisK22* device, uint16_t value);

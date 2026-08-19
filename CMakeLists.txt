@@ -55,6 +55,7 @@ set(cortex_m4_simulator_sources
     src/k22_sdhc.c
     src/k22_serial.c
     src/k22_timing.c
+    src/k22_usbdcd.c
     src/kinetis_k22_peripherals.c)
 
 add_library(cortex_m4_simulator STATIC ${cortex_m4_simulator_sources})
@@ -194,6 +195,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(
     device_k22_cmt_complete tests/device/k22_cmt_complete_test.c
     "device;integration")
+  cortex_m4_add_test(
+    device_k22_usbdcd_complete tests/device/k22_usbdcd_complete_test.c
+    "device;unit;integration")
   cortex_m4_add_test(
     device_k22_ftm_synchronization tests/device/k22_ftm_synchronization_test.c
     "device;integration")
