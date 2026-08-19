@@ -925,6 +925,18 @@ bool kinetis_k22_i2c_acknowledge(KinetisK22* device, KinetisK22SerialEndpoint en
     return result;
 }
 
+bool kinetis_k22_i2c_lose_arbitration(KinetisK22* device,
+                                      KinetisK22SerialEndpoint endpoint) {
+    if (!serial_endpoint_available(device, endpoint) ||
+        endpoint < KINETIS_K22_SERIAL_I2C0 || endpoint > KINETIS_K22_SERIAL_I2C2) {
+        return false;
+    }
+    const bool result =
+        k22_serial_i2c_lose_arbitration(&device->serial, (K22SerialEndpoint)endpoint);
+    refresh_serial_signals(device);
+    return result;
+}
+
 bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                              uint8_t value) {
     return endpoint >= KINETIS_K22_SERIAL_I2C0 && endpoint <= KINETIS_K22_SERIAL_I2C2 &&
@@ -1034,6 +1046,10 @@ bool kinetis_k22_i2c0_transfer(KinetisK22* device, KinetisK22I2cTransfer* transf
 
 void kinetis_k22_i2c0_acknowledge(KinetisK22* device, bool acknowledge) {
     (void)kinetis_k22_i2c_acknowledge(device, KINETIS_K22_SERIAL_I2C0, acknowledge);
+}
+
+bool kinetis_k22_i2c0_lose_arbitration(KinetisK22* device) {
+    return kinetis_k22_i2c_lose_arbitration(device, KINETIS_K22_SERIAL_I2C0);
 }
 
 bool kinetis_k22_i2c0_receive(KinetisK22* device, uint8_t value) {

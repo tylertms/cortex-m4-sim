@@ -91,6 +91,9 @@ int main(void) {
     TEST_EXPECT(&state,
                 cortex_m4_step(kinetis_k22_cpu(device)).stop == CORTEX_M4_STOP_RUNNING);
     TEST_EXPECT(&state, (read8(&state, device, I2C0_C1) & 8u) != 0);
+    TEST_EXPECT(&state, kinetis_k22_i2c0_lose_arbitration(device));
+    TEST_EXPECT(&state, (read8(&state, device, I2C0_S) & 0x12u) == 0x12u);
+    TEST_EXPECT(&state, (read8(&state, device, I2C0_C1) & 0x20u) == 0);
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

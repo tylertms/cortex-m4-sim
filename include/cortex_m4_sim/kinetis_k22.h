@@ -152,6 +152,8 @@ bool kinetis_k22_i2c_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpo
                               KinetisK22I2cTransfer* transfer);
 bool kinetis_k22_i2c_acknowledge(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                                  bool acknowledge);
+bool kinetis_k22_i2c_lose_arbitration(KinetisK22* device,
+                                      KinetisK22SerialEndpoint endpoint);
 bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                              uint8_t value);
 bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
@@ -166,6 +168,7 @@ bool kinetis_k22_spi0_receive(KinetisK22* device, uint16_t value);
 bool kinetis_k22_spi0_transmit(KinetisK22* device, uint16_t* value);
 bool kinetis_k22_i2c0_transfer(KinetisK22* device, KinetisK22I2cTransfer* transfer);
 void kinetis_k22_i2c0_acknowledge(KinetisK22* device, bool acknowledge);
+bool kinetis_k22_i2c0_lose_arbitration(KinetisK22* device);
 bool kinetis_k22_i2c0_receive(KinetisK22* device, uint8_t value);
 
 #endif
