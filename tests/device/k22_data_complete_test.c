@@ -261,6 +261,7 @@ static void test_adc(TestState* state) {
     TEST_EXPECT(state, read_value(state, data, ADC1 + 0x10, 2) == 0x0555u);
     write_value(state, data, ADC0 + 0x24, 1, 0x80u);
     TEST_EXPECT(state, (read_value(state, data, ADC0 + 0x24, 1) & 0xc0u) == 0);
+    TEST_EXPECT(state, (read_value(state, data, ADC0, 1) & 0x80u) != 0);
     k22_data_destroy(data);
 }
 

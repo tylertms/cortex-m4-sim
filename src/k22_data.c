@@ -518,6 +518,7 @@ static bool adc_write(K22Data* data, uint8_t instance, uint32_t address, uint8_t
         adc->registers[0x24] = command & 0xcfu;
         if ((command & 0x80u) != 0) {
             adc->registers[0x24] &= 0x3fu;
+            adc->registers[0] |= 0x80u;
             store_bytes(adc->registers, 0x30, 2, 0x8200u);
             store_bytes(adc->registers, 0x34, 2, 0x8200u);
             store_bytes(adc->registers, 0x38, 2, 0x4000u);

@@ -10,6 +10,8 @@ enum {
     SIM_CLKDIV1 = 0x40048044u,
     SIM_SDID = 0x40048024u,
     MCG_C1 = 0x40064000u,
+    MCG_C2 = 0x40064001u,
+    MCG_C4 = 0x40064003u,
     MCG_C5 = 0x40064004u,
     MCG_C6 = 0x40064005u,
     MCG_S = 0x40064006u,
@@ -140,6 +142,12 @@ static void test_profiles_and_reset(TestState* state) {
 }
 
 static void test_clock_tree_and_power(TestState* state, K22Timing* timing) {
+    expect_write(state, timing, MCG_C1, 1, 0x32u);
+    expect_write(state, timing, MCG_C2, 1, 0xa0u);
+    expect_write(state, timing, MCG_C4, 1, 0x60u);
+    expect_write(state, timing, SIM_CLKDIV1, 4, 0x03030000u);
+    TEST_EXPECT(state, k22_timing_core_clock_hz(timing) == 16000000u);
+    TEST_EXPECT(state, k22_timing_bus_clock_hz(timing) == 4000000u);
     expect_write(state, timing, MCG_C1, 1, 0x80u);
     TEST_EXPECT(state, k22_timing_core_clock_hz(timing) == 8000000u);
     expect_read(state, timing, MCG_S, 1, 0x08u);

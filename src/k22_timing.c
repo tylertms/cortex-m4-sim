@@ -87,8 +87,18 @@ static uint64_t clock_ticks(uint64_t* remainder, uint32_t cycles, uint32_t sourc
 static uint32_t fll_clock(const K22Timing* timing) {
     const uint8_t c4 = timing->mcg[3];
     const uint16_t multipliers[4] = {640u, 1280u, 1920u, 2560u};
-    uint32_t reference =
-        (timing->mcg[0] & 4u) != 0 ? timing->slow_irc_hz : timing->external_oscillator_hz;
+    uint32_t reference = timing->slow_irc_hz;
+    if ((timing->mcg[0] & 4u) == 0) {
+        const uint8_t index = (timing->mcg[0] >> 3u) & 7u;
+        const uint16_t low_range_dividers[8] = {1u, 2u, 4u, 8u, 16u, 32u, 64u,
+                                                128u};
+        const uint16_t high_range_dividers[8] = {32u, 64u, 128u, 256u, 512u, 1024u,
+                                                 1280u, 1536u};
+        const uint16_t divider = (timing->mcg[1] & 0x30u) == 0
+                                     ? low_range_dividers[index]
+                                     : high_range_dividers[index];
+        reference = timing->external_oscillator_hz / divider;
+    }
     uint32_t multiplier = multipliers[(c4 >> 5u) & 3u];
     if ((c4 & 0x80u) != 0) {
         const uint16_t dmx_multipliers[4] = {732u, 1464u, 2197u, 2929u};
