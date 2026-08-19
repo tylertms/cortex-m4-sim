@@ -1,4 +1,4 @@
-#include "cortex_m4_sim/cortex_m4.h"
+#include "cortex_m4_sim/kinetis_k22.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -237,6 +237,28 @@ static void test_invalid_it_constraints(TestState* state) {
     }
 }
 
+static void test_wide_comparison_in_it(TestState* state) {
+    KinetisK22Configuration configuration = kinetis_k22_default_configuration();
+    configuration.flash_size = 4096;
+    configuration.sram_size = 65536;
+    KinetisK22* device = kinetis_k22_create(configuration);
+    TEST_EXPECT(state, device != NULL);
+    const uint32_t vectors[2] = {0x20001000u, 0x00000101u};
+    const uint16_t program[] = {0xf093u, 0x4f7fu, 0xbe00u};
+    TEST_EXPECT(state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
+    TEST_EXPECT(state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
+    TEST_EXPECT(state, kinetis_k22_reset(device));
+    CortexM4* cpu = kinetis_k22_cpu(device);
+    cpu->it_state = 0x0cu;
+    cpu->xpsr |= CORTEX_M4_XPSR_Z;
+    cortex_m4_set_register(cpu, 3, 0);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 15) == 0x104u);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & 0x00010000u) == 0);
+    TEST_EXPECT(state, cpu->it_state == 0x18u);
+    kinetis_k22_destroy(device);
+}
+
 int main(void) {
     TestState state = {0};
     test_narrow_classification(&state);
@@ -246,5 +268,6 @@ int main(void) {
     test_flag_preservation(&state);
     test_exception_round_trip(&state);
     test_invalid_it_constraints(&state);
+    test_wide_comparison_in_it(&state);
     return test_finish(&state);
 }

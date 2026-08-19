@@ -350,9 +350,14 @@ static bool writes_pc_thumb32(uint16_t first, uint16_t second) {
         (second >> 12) == 15u) {
         return true;
     }
+    if ((first & 0xfa00u) == 0xf000u || (first & 0xfe00u) == 0xea00u) {
+        const uint8_t data_operation = (uint8_t)((first >> 5) & 15u);
+        const bool comparison = data_operation == 0u || data_operation == 4u ||
+                                data_operation == 8u || data_operation == 13u;
+        return ((second >> 8) & 15u) == 15u && ((first & 0x0010u) == 0u || !comparison);
+    }
     if ((first & 0xfbf0u) == 0xf200u || (first & 0xfbf0u) == 0xf2a0u ||
-        (first & 0xfbf0u) == 0xf240u || (first & 0xfbf0u) == 0xf2c0u ||
-        (first & 0xfa00u) == 0xf000u || (first & 0xfe00u) == 0xea00u) {
+        (first & 0xfbf0u) == 0xf240u || (first & 0xfbf0u) == 0xf2c0u) {
         return ((second >> 8) & 15u) == 15u;
     }
     return false;
