@@ -215,6 +215,24 @@ run_mutation(
   "(load_bytes(data->dma, 0u, 4u) & 0x10u) != 0u"
   "false" cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
+  dmamux_periodic_gate src/k22_data.c
+  "if (channel < 4u && (mux & 0x40u) != 0u)"
+  "if (false && (mux & 0x40u) != 0u)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dmamux_trigger_order src/k22_data.c
+  "(!dma_source_always_enabled(data, source) &&\n         (data->dma_trigger_waiting & (1u << channel)) == 0u)"
+  "(false && !dma_source_always_enabled(data, source) &&\n         (data->dma_trigger_waiting & (1u << channel)) == 0u)"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  dmamux_profile_always_source src/k22_data.c "large ? 54u : 60u"
+  "large ? 60u : 60u" cortex_m4_device_k22_data_complete_test
+  device_k22_data_complete)
+run_mutation(
+  pit_dmamux_trigger src/k22_timing.c "trigger_dma(timing, channel);"
+  "trigger_dma(timing, 3u);" cortex_m4_device_k22_timing_complete_test
+  device_k22_timing_complete)
+run_mutation(
   pmc_flag_acknowledge src/k22_timing.c
   "if (((uint8_t)value & 0x40u) != 0u)"
   "if (((uint8_t)value & 0x80u) != 0u)"

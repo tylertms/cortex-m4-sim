@@ -390,6 +390,11 @@ static void timing_dma(void* context, uint8_t source) {
     k22_data_dma_request(device->data, source);
 }
 
+static void timing_dma_trigger(void* context, uint8_t channel) {
+    KinetisK22* device = context;
+    k22_data_dma_trigger(device->data, channel);
+}
+
 static void timing_reset(void* context, uint8_t cause_0, uint8_t cause_1) {
     kinetis_k22_warm_reset(context, cause_0, cause_1);
 }
@@ -587,8 +592,8 @@ static void refresh_serial_signals(KinetisK22* device) {
         30, 26, 27, 65, 24, 25, 74, 31, 32, 33, 34, 35, 36, 37, 38, 66, 67, 68, 69,
     };
     static const uint8_t dma_sources[K22_SERIAL_DMA_COUNT] = {
-        58,       59, 14, 15, 16, 16, 17, 17, 18, 19, 19, 2,
-        3,        4,  5,  6,  7,  8,  9,  10, 10, UINT8_MAX, UINT8_MAX,
+        58, 59, 14, 15, 16, 16, 17, 17, 18, 19,        19,        2,
+        3,  4,  5,  6,  7,  8,  9,  10, 10, UINT8_MAX, UINT8_MAX,
     };
     if (device->cpu != NULL) {
         for (uint8_t index = 0; index < K22_SERIAL_IRQ_COUNT; index++) {
@@ -1337,8 +1342,14 @@ K22SdhcBus kinetis_k22_sdhc_bus(KinetisK22* device) {
 }
 
 K22TimingSignals kinetis_k22_timing_signals(KinetisK22* device) {
-    const K22TimingSignals signals = {device, timing_irq, timing_dma, timing_reset,
-                                      timing_trigger};
+    const K22TimingSignals signals = {
+        .context = device,
+        .irq = timing_irq,
+        .dma = timing_dma,
+        .reset = timing_reset,
+        .trigger = timing_trigger,
+        .dma_trigger = timing_dma_trigger,
+    };
     return signals;
 }
 

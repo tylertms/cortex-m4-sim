@@ -16,6 +16,7 @@ enum {
     FMC_DATAW1S0UM = 0x4001f240u,
     DMA_ERQ = 0x4000800cu,
     DMA_HRS = 0x40008034u,
+    DMA_TCD0 = 0x40009000u,
     DMAMUX_CHCFG0 = 0x40021000u,
     FTFA_FSTAT = 0x40020000u,
     FTFA_FCCOB3 = 0x40020004u,
@@ -466,16 +467,14 @@ static void expect_package_serial_extensions(TestState* state) {
 }
 
 static void expect_serial_dma_sources(TestState* state) {
-    KinetisK22* device =
-        create_f12_device(state, KINETIS_K22_PACKAGE_MD_144_MAPBGA);
+    KinetisK22* device = create_f12_device(state, KINETIS_K22_PACKAGE_MD_144_MAPBGA);
     CortexM4* cpu = kinetis_k22_cpu(device);
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC7, 4u, 1u << 1u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, 1u << 1u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC1, 4u, 3u << 10u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_ERQ, 2u, 3u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMAMUX_CHCFG0, 1u, 0x80u | 10u));
-    TEST_EXPECT(state,
-                cortex_m4_write_memory(cpu, DMAMUX_CHCFG0 + 1u, 1u, 0x80u | 11u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMAMUX_CHCFG0 + 1u, 1u, 0x80u | 11u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400ea003u, 1u, 0x04u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400ea00bu, 1u, 0x20u));
     TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400eb003u, 1u, 0x04u));
@@ -489,6 +488,47 @@ static void expect_serial_dma_sources(TestState* state) {
                 kinetis_k22_serial_receive(device, KINETIS_K22_SERIAL_UART5, 0x55u, 0u));
     TEST_EXPECT(state, read16(device, DMA_HRS, &requests));
     TEST_EXPECT(state, requests == 1u);
+    kinetis_k22_destroy(device);
+}
+
+static void expect_periodic_dma_trigger(TestState* state) {
+    KinetisK22* device = create_device(state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
+    CortexM4* cpu = kinetis_k22_cpu(device);
+    const uint32_t source = 0x20000080u;
+    const uint32_t destination = 0x20000081u;
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, source, 1u, 0x5au));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, destination, 1u, 0u));
+    uint32_t gates = 0u;
+    TEST_EXPECT(state, read32(device, SIM_SCGC7, &gates));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC7, 4u, gates | 2u));
+    TEST_EXPECT(state, read32(device, SIM_SCGC6, &gates));
+    TEST_EXPECT(state,
+                cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | 2u | (1u << 23u)));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0, 4u, source));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 4u, 2u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 6u, 2u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 8u, 4u, 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x0cu, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x10u, 4u, destination));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x14u, 2u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x16u, 2u, 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x18u, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x1cu, 2u, 8u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_TCD0 + 0x1eu, 2u, 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMAMUX_CHCFG0, 1u, 0xc0u | 60u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_ERQ, 2u, 1u));
+    uint16_t requests = UINT16_MAX;
+    TEST_EXPECT(state, read16(device, DMA_HRS, &requests));
+    TEST_EXPECT(state, (requests & 1u) == 0u);
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_MCR, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_LDVAL0, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_TCTRL0, 4u, 1u));
+    kinetis_k22_advance(device, k22_test_core_cycles_for_bus_cycles(device, 1u));
+    uint32_t value = 0u;
+    TEST_EXPECT(state, cortex_m4_read_memory(cpu, destination, 1u, &value));
+    TEST_EXPECT(state, value == 0x5au);
+    TEST_EXPECT(state, read16(device, DMA_ERQ, &requests));
+    TEST_EXPECT(state, (requests & 1u) == 0u);
     kinetis_k22_destroy(device);
 }
 
@@ -806,6 +846,7 @@ int main(void) {
     expect_package_selection(&state);
     expect_package_serial_extensions(&state);
     expect_serial_dma_sources(&state);
+    expect_periodic_dma_trigger(&state);
     expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
     expect_fmc_cache(&state);

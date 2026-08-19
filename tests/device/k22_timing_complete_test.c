@@ -110,6 +110,7 @@ typedef struct {
     uint32_t irq_assertions[128];
     uint32_t irq_changes;
     uint32_t dma_requests;
+    uint32_t dma_triggers[4];
     uint8_t last_dma;
     uint32_t resets;
     uint8_t last_srs0;
@@ -135,6 +136,11 @@ static void dma_signal(void* context, uint8_t source) {
     observations->last_dma = source;
 }
 
+static void dma_trigger_signal(void* context, uint8_t channel) {
+    Observations* observations = context;
+    observations->dma_triggers[channel]++;
+}
+
 static void reset_signal(void* context, uint8_t srs0, uint8_t srs1) {
     Observations* observations = context;
     observations->resets++;
@@ -156,8 +162,14 @@ static void trigger_signal(void* context, K22TimingTrigger trigger, uint8_t inst
 }
 
 static K22TimingSignals signals(Observations* observations) {
-    K22TimingSignals value = {observations, irq_signal, dma_signal, reset_signal,
-                              trigger_signal};
+    K22TimingSignals value = {
+        .context = observations,
+        .irq = irq_signal,
+        .dma = dma_signal,
+        .reset = reset_signal,
+        .trigger = trigger_signal,
+        .dma_trigger = dma_trigger_signal,
+    };
     return value;
 }
 
@@ -375,6 +387,8 @@ static void test_pit(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, PIT_CVAL1, 4, 1u);
     TEST_EXPECT(state, observations->irq[48]);
     TEST_EXPECT(state, observations->alternate_triggers == alternate_before + 2u);
+    TEST_EXPECT(state, observations->dma_triggers[0] == 1u);
+    TEST_EXPECT(state, observations->dma_triggers[1] == 1u);
     TEST_EXPECT(state, observations->last_trigger_instance == 5u);
     expect_write(state, timing, PIT_TFLG0, 4, 1u);
     TEST_EXPECT(state, !observations->irq[48]);
@@ -1439,8 +1453,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, WDOG_WINH, 2, 0u);
     expect_write(state, &timing, WDOG_WINL, 2, 2u);
     expect_write(state, &timing, WDOG_STCTRLH, 2, 9u);
-    k22_timing_advance(&timing,
-                       cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
+    k22_timing_advance(&timing, cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
     expect_write(state, &timing, WDOG_REFRESH, 2, 0xa602u);
     expect_write(state, &timing, WDOG_REFRESH, 2, 0xb480u);
     TEST_EXPECT(state, observations.resets == 1u);
@@ -1450,8 +1463,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, WDOG_TOVALL, 2, 1u);
     expect_write(state, &timing, WDOG_PRESC, 2, 0);
     expect_write(state, &timing, WDOG_STCTRLH, 2, 5u);
-    k22_timing_advance(&timing,
-                       cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
+    k22_timing_advance(&timing, cycles_for_ticks(&timing, 260u, timing.bus_clock_hz));
     k22_timing_advance(&timing, cycles_for_ticks(&timing, 1u, 1000u));
     TEST_EXPECT(state, observations.irq[22]);
     k22_timing_reset(&timing, 0x82u, 0);
@@ -1466,8 +1478,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
     TEST_EXPECT(state, !k22_timing_read(&timing, FTM0_SC, 2, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(&timing, FTM0_SC, 2, 0));
     TEST_EXPECT(state, !k22_timing_read(&timing, FTM0_SC + 0x9cu, 4, &(uint32_t){0}));
-    TEST_EXPECT(state, !k22_timing_read(&timing, WDOG_STCTRLH + 1u, 2,
-                                        &(uint32_t){0}));
+    TEST_EXPECT(state, !k22_timing_read(&timing, WDOG_STCTRLH + 1u, 2, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(&timing, WDOG_STCTRLH + 1u, 2, 0));
     TEST_EXPECT(state, !k22_timing_read(&timing, EWM_CTRL + 4u, 1, &(uint32_t){0}));
     TEST_EXPECT(state, !k22_timing_write(&timing, EWM_CTRL + 4u, 1, 0));

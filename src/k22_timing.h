@@ -8,6 +8,7 @@
 
 typedef void (*K22TimingIrqSignal)(void* context, uint8_t irq, bool asserted);
 typedef void (*K22TimingDmaSignal)(void* context, uint8_t source);
+typedef void (*K22TimingDmaTriggerSignal)(void* context, uint8_t channel);
 typedef void (*K22TimingResetSignal)(void* context, uint8_t srs0, uint8_t srs1);
 
 typedef enum {
@@ -25,6 +26,7 @@ typedef struct {
     K22TimingDmaSignal dma;
     K22TimingResetSignal reset;
     K22TimingTriggerSignal trigger;
+    K22TimingDmaTriggerSignal dma_trigger;
 } K22TimingSignals;
 
 typedef struct {

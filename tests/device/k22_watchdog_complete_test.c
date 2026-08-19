@@ -45,10 +45,13 @@ static void reset_signal(void* context, uint8_t srs0, uint8_t srs1) {
 
 static K22Timing make_timing(TestState* state, Observations* observations) {
     K22Timing timing;
-    const K22TimingSignals signals = {observations, irq_signal, NULL, reset_signal, NULL};
-    TEST_EXPECT(state,
-                k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212),
-                                8000000u, 32768u, signals));
+    const K22TimingSignals signals = {
+        .context = observations,
+        .irq = irq_signal,
+        .reset = reset_signal,
+    };
+    TEST_EXPECT(state, k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212),
+                                       8000000u, 32768u, signals));
     return timing;
 }
 
@@ -76,17 +79,14 @@ static uint8_t read_byte(TestState* state, K22Timing* timing, uint32_t address) 
     return (uint8_t)value;
 }
 
-static uint32_t core_cycles_for_bus_cycles(const K22Timing* timing,
-                                            uint32_t bus_cycles) {
-    return (uint32_t)(((uint64_t)bus_cycles * timing->core_clock_hz +
-                       timing->bus_clock_hz - 1u) /
+static uint32_t core_cycles_for_bus_cycles(const K22Timing* timing, uint32_t bus_cycles) {
+    return (uint32_t)(((uint64_t)bus_cycles * timing->core_clock_hz + timing->bus_clock_hz -
+                       1u) /
                       timing->bus_clock_hz);
 }
 
-static uint32_t core_cycles_for_lpo_cycles(const K22Timing* timing,
-                                           uint32_t lpo_cycles) {
-    return (uint32_t)(((uint64_t)lpo_cycles * timing->core_clock_hz +
-                       timing->lpo_hz - 1u) /
+static uint32_t core_cycles_for_lpo_cycles(const K22Timing* timing, uint32_t lpo_cycles) {
+    return (uint32_t)(((uint64_t)lpo_cycles * timing->core_clock_hz + timing->lpo_hz - 1u) /
                       timing->lpo_hz);
 }
 
@@ -300,8 +300,8 @@ static void test_byte_access_and_control(TestState* state) {
     TEST_EXPECT(state, observations.resets == 1u);
 }
 
-static void configure_ewm(TestState* state, K22Timing* timing, uint8_t low,
-                          uint8_t high, uint8_t control) {
+static void configure_ewm(TestState* state, K22Timing* timing, uint8_t low, uint8_t high,
+                          uint8_t control) {
     disable_watchdog(timing);
     write_register(state, timing, EWM_CMPL, low);
     write_register(state, timing, EWM_CMPH, high);

@@ -50,6 +50,7 @@ struct K22Data {
     uint8_t dma[DMA_REGISTER_SIZE];
     uint16_t dma_requests;
     uint16_t dma_hardware_requests;
+    uint16_t dma_trigger_waiting;
     uint16_t dma_active;
     uint16_t dma_half;
     uint8_t dma_request_source[DMA_CHANNEL_COUNT];
@@ -260,6 +261,29 @@ static bool dma_bus_write(K22Data* data, uint32_t address, uint8_t size, uint32_
 static void dma_queue_channel(K22Data* data, uint8_t channel) {
     if (channel < data->dma_channel_count)
         data->dma_requests |= (uint16_t)(1u << channel);
+}
+
+static bool dma_source_always_enabled(const K22Data* data, uint8_t source) {
+    const bool large = data->profile->id == K22_PROFILE_MK22FN1M012 ||
+                       data->profile->id == K22_PROFILE_MK22FX51212;
+    return source >= (large ? 54u : 60u);
+}
+
+static void dma_queue_hardware_channel(K22Data* data, uint8_t channel, uint8_t source) {
+    dma_queue_channel(data, channel);
+    data->dma_hardware_requests |= (uint16_t)(1u << channel);
+    data->dma_request_source[channel] = source;
+}
+
+static void dma_queue_always_enabled(K22Data* data, uint8_t channel) {
+    if (channel >= data->dma_channel_count)
+        return;
+    const uint8_t mux = data->dmamux[channel];
+    const uint8_t source = mux & 0x3fu;
+    const uint16_t enabled = (uint16_t)load_bytes(data->dma, 0x0c, 2);
+    if ((mux & 0xc0u) == 0x80u && (enabled & (1u << channel)) != 0u &&
+        dma_source_always_enabled(data, source))
+        dma_queue_hardware_channel(data, channel, source);
 }
 
 static bool dma_copy_descriptor(K22Data* data, uint8_t* descriptor, uint32_t address) {
@@ -476,6 +500,8 @@ static bool dma_write(K22Data* data, uint32_t address, uint8_t size, uint32_t va
         return false;
     if (offset >= 0x18 && offset <= 0x1f && size == 1) {
         dma_command(data, offset, (uint8_t)value);
+        for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++)
+            dma_queue_always_enabled(data, channel);
         dma_update_interrupts(data);
         return true;
     }
@@ -503,6 +529,9 @@ static bool dma_write(K22Data* data, uint32_t address, uint8_t size, uint32_t va
         }
     }
     store_bytes(data->dma, offset, size, value);
+    if (offset <= 0x0du && offset + size > 0x0cu)
+        for (uint8_t channel = 0u; channel < data->dma_channel_count; channel++)
+            dma_queue_always_enabled(data, channel);
     return true;
 }
 
@@ -519,6 +548,10 @@ static bool dmamux_write(K22Data* data, uint32_t address, uint8_t size, uint32_t
     if (!valid_access(offset, size, data->dmamux_count))
         return false;
     store_bytes(data->dmamux, offset, size, value);
+    for (uint8_t channel = (uint8_t)offset; channel < offset + size; channel++) {
+        data->dma_trigger_waiting &= (uint16_t)~(1u << channel);
+        dma_queue_always_enabled(data, channel);
+    }
     return true;
 }
 
@@ -1679,6 +1712,7 @@ void k22_data_reset(K22Data* data) {
     memset(data->vref, 0, sizeof(data->vref));
     data->dma_requests = 0;
     data->dma_hardware_requests = 0;
+    data->dma_trigger_waiting = 0;
     data->dma_active = 0;
     data->dma_half = 0;
     memset(data->dma_request_source, UINT8_MAX, sizeof(data->dma_request_source));
@@ -1861,13 +1895,29 @@ bool k22_data_dma_request(K22Data* data, uint8_t source) {
         const uint8_t mux = data->dmamux[channel];
         if ((mux & 0x80u) != 0 && (mux & 0x3fu) == source &&
             (enabled & (1u << channel)) != 0) {
-            dma_queue_channel(data, channel);
-            data->dma_hardware_requests |= (uint16_t)(1u << channel);
-            data->dma_request_source[channel] = source;
+            if (channel < 4u && (mux & 0x40u) != 0u)
+                data->dma_trigger_waiting |= (uint16_t)(1u << channel);
+            else
+                dma_queue_hardware_channel(data, channel, source);
             accepted = true;
         }
     }
     return accepted;
+}
+
+bool k22_data_dma_trigger(K22Data* data, uint8_t channel) {
+    if (data == NULL || channel >= 4u || channel >= data->dma_channel_count)
+        return false;
+    const uint8_t mux = data->dmamux[channel];
+    const uint8_t source = mux & 0x3fu;
+    const uint16_t enabled = (uint16_t)load_bytes(data->dma, 0x0c, 2);
+    if ((mux & 0xc0u) != 0xc0u || (enabled & (1u << channel)) == 0u ||
+        (!dma_source_always_enabled(data, source) &&
+         (data->dma_trigger_waiting & (1u << channel)) == 0u))
+        return false;
+    data->dma_trigger_waiting &= (uint16_t)~(1u << channel);
+    dma_queue_hardware_channel(data, channel, source);
+    return true;
 }
 
 void k22_data_adc_trigger(K22Data* data, uint8_t instance) {
@@ -1977,6 +2027,7 @@ bool k22_data_flash_read(K22Data* data, bool data_flash, uint32_t offset, uint8_
 void k22_data_advance(K22Data* data, uint32_t cycles) {
     if (data == NULL || cycles == 0)
         return;
+    uint32_t always_enabled_budget = cycles;
     while (data->dma_requests != 0u && (load_bytes(data->dma, 0u, 4u) & 0x20u) == 0u &&
            !((load_bytes(data->dma, 0u, 4u) & 2u) != 0u && data->debug_halted)) {
         const uint8_t channel = dma_select_channel(data);
@@ -1993,9 +2044,15 @@ void k22_data_advance(K22Data* data, uint32_t cycles) {
         data->dma_last_channel = channel;
         const uint8_t source = data->dma_request_source[channel];
         data->dma_request_source[channel] = UINT8_MAX;
-        if (dma_service_channel(data, channel) && source != UINT8_MAX &&
-            data->bus.dma_complete != NULL)
+        const bool completed = dma_service_channel(data, channel);
+        if (completed && source != UINT8_MAX && data->bus.dma_complete != NULL)
             data->bus.dma_complete(data->bus.context, source);
+        if (completed && source != UINT8_MAX && dma_source_always_enabled(data, source)) {
+            dma_queue_always_enabled(data, channel);
+            if ((data->dma_requests & (1u << channel)) != 0u &&
+                --always_enabled_budget == 0u)
+                break;
+        }
     }
     for (uint8_t index = 0; index < data->adc_count; index++) {
         K22Adc* adc = &data->adc[index];
