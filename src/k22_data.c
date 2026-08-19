@@ -1053,6 +1053,18 @@ static uint32_t flash_block_size(const K22Data* data) {
     return data->profile->program_flash_size;
 }
 
+static bool flash_block_range(const K22Data* data, uint32_t address, uint32_t* start,
+                              uint32_t* length, bool* data_flash) {
+    uint32_t offset = 0u;
+    if (!flash_memory_range(data, address, 1u, data_flash, &offset))
+        return false;
+    *length = *data_flash ? flash_data_size(data) : flash_block_size(data);
+    if (*length == 0u)
+        return false;
+    *start = *data_flash ? 0x800000u : address & ~(*length - 1u);
+    return true;
+}
+
 static bool flash_read_resource(K22Data* data) {
     const bool ftfe = k22_profile_has_peripheral(data->profile, K22_PERIPHERAL_FTFE);
     const uint32_t address = flash_address(data);
@@ -1074,7 +1086,7 @@ static bool flash_read_resource(K22Data* data) {
         source = ftfe ? ftfe_version : ftfa_version;
         offset = 0;
     }
-    if (source == NULL || offset > 1024u - length)
+    if (source == NULL || offset > 1024u - length || (address & (length - 1u)) != 0u)
         return false;
     for (uint8_t index = 0; index < length; index++)
         flash_set_fccob(data, (uint8_t)(4u + index), source[offset + index]);
@@ -1254,20 +1266,20 @@ static void flash_execute(K22Data* data) {
         bool data_flash = false;
         uint32_t offset = 0;
         const uint32_t start = address & ~(sector_size - 1u);
-        valid = flash_memory_range(data, start, sector_size, &data_flash, &offset);
+        valid = (address & 0x0fu) == 0u &&
+                flash_memory_range(data, start, sector_size, &data_flash, &offset);
         protection_failure =
             valid && flash_memory_range_protected(data, start, sector_size);
         if (valid && !protection_failure)
             valid = flash_erase(data, start, sector_size);
     } else if (command == 0x08u) {
         bool data_flash = false;
-        uint32_t offset = 0;
-        uint32_t block_size = flash_block_size(data);
-        valid = flash_memory_range(data, address, 1u, &data_flash, &offset) &&
-                (ftfe || data->profile->program_flash_size == 0x80000u);
-        if (data_flash)
-            block_size = flash_data_size(data);
-        const uint32_t start = address & ~(block_size - 1u);
+        uint32_t block_size = 0u;
+        uint32_t start = 0u;
+        valid = (address & 0x0fu) == 0u &&
+                flash_block_range(data, address, &start, &block_size, &data_flash) &&
+                (ftfe || data->profile->program_flash_size == 0x80000u) &&
+                !(data_flash && data->flexram_eeprom);
         protection_failure = valid && flash_memory_range_protected(data, start, block_size);
         if (valid && !protection_failure)
             valid = flash_erase(data, start, block_size);
@@ -1294,14 +1306,13 @@ static void flash_execute(K22Data* data) {
         }
     } else if (command == 0x00u) {
         bool data_flash = false;
-        uint32_t offset = 0;
         const uint8_t margin = flash_fccob(data, 4u);
-        const uint32_t block_size =
-            (address & 0x800000u) != 0u ? flash_data_size(data) : flash_block_size(data);
-        const uint32_t start = address & ~(block_size - 1u);
-        valid = margin <= 2u && (address & 0x0fu) == 0u && block_size != 0u &&
+        uint32_t block_size = 0u;
+        uint32_t start = 0u;
+        valid = margin <= 2u && (address & 0x0fu) == 0u &&
+                flash_block_range(data, address, &start, &block_size, &data_flash) &&
                 (ftfe || data->profile->program_flash_size == 0x80000u) &&
-                flash_memory_range(data, start, block_size, &data_flash, &offset);
+                !(data_flash && data->flexram_eeprom);
         verify_failure = valid && !flash_range_erased(data, start, block_size);
     } else if (command == 0x01u) {
         const uint32_t count =

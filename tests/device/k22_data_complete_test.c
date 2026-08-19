@@ -1022,14 +1022,17 @@ static void test_flash_command_semantics(TestState* state) {
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) == 0u);
     write_fccob(state, data, 4u, 0u);
     flash_command(state, data, 0x00u, 0x800000u, 40u);
-    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) == 0u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
     write_value(state, data, 0x10000000u, 1u, 0u);
     write_fccob(state, data, 1u, 0u);
     flash_command_without_address(state, data, 0x40u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
     clear_flash_status(state, data);
     flash_command(state, data, 0x08u, 0x800000u, 2000u);
-    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 1u) == 0xffu);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 1u) == 0u);
+    clear_flash_status(state, data);
     bus.flash[0u] = 0u;
     flash_command(state, data, 0x08u, 0u, 2000u);
     TEST_EXPECT(state, bus.flash[0u] == 0xffu);
@@ -1106,6 +1109,57 @@ static void test_flash_command_semantics(TestState* state) {
     k22_data_destroy(data);
 }
 
+static void test_flash_command_guards(TestState* state) {
+    TestBus bus;
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    K22Data* data = create(state, &bus, K22_PROFILE_MK22FN1M012);
+    bus.flash[0u] = 0u;
+    flash_command(state, data, 0x08u, 1u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    TEST_EXPECT(state, bus.flash[0u] == 0u);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x09u, 1u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    TEST_EXPECT(state, bus.flash[0u] == 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x03u, 1u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    write_fccob(state, data, 8u, 0u);
+    flash_command(state, data, 0x03u, 1u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FX51212);
+    uint8_t configuration[16];
+    memset(configuration, 0xff, sizeof(configuration));
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, configuration,
+                                                        sizeof(configuration)));
+    k22_data_reset(data);
+    write_fccob(state, data, 3u, 0u);
+    write_fccob(state, data, 4u, 2u);
+    write_fccob(state, data, 5u, 3u);
+    flash_command_without_address(state, data, 0x80u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) == 0u);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x00u, 0x800000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    write_value(state, data, 0x10000000u, 1u, 0u);
+    flash_command(state, data, 0x08u, 0x817ff0u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 1u) == 0u);
+    k22_data_destroy(data);
+}
+
 static void test_flash_partition_codes(TestState* state) {
     static const struct {
         uint8_t code;
@@ -1159,6 +1213,7 @@ int main(void) {
     test_flash_controller_geometry(&state);
     test_flash_commands_and_failures(&state);
     test_flash_command_semantics(&state);
+    test_flash_command_guards(&state);
     test_flash_partition_codes(&state);
     return test_finish(&state);
 }

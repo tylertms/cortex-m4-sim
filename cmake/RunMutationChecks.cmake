@@ -56,6 +56,24 @@ run_mutation(
   flash_partition src/k22_data.c "case 0x0fu:" "case 0x0eu:"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
+  flash_resource_alignment src/k22_data.c
+  "(address & (length - 1u)) != 0u" "false"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_sector_alignment src/k22_data.c
+  "valid = (address & 0x0fu) == 0u &&\n                flash_memory_range"
+  "valid = flash_memory_range"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_block_alignment src/k22_data.c
+  "valid = (address & 0x0fu) == 0u &&\n                flash_block_range"
+  "valid = flash_block_range"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_eeprom_block_guard src/k22_data.c
+  "!(data_flash && data->flexram_eeprom)" "true"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
   flash_protection_range src/k22_data.c "region <= last" "region < last"
   cortex_m4_device_k22_data_complete_test device_k22_data_complete)
 run_mutation(
