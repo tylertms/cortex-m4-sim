@@ -28,6 +28,15 @@ enum {
     PIT_LDVAL1 = 0x40037110u,
     PIT_CVAL1 = 0x40037114u,
     PIT_TCTRL1 = 0x40037118u,
+    PIT_TFLG1 = 0x4003711cu,
+    PIT_LDVAL2 = 0x40037120u,
+    PIT_CVAL2 = 0x40037124u,
+    PIT_TCTRL2 = 0x40037128u,
+    PIT_TFLG2 = 0x4003712cu,
+    PIT_LDVAL3 = 0x40037130u,
+    PIT_CVAL3 = 0x40037134u,
+    PIT_TCTRL3 = 0x40037138u,
+    PIT_TFLG3 = 0x4003713cu,
     LPTMR_CSR = 0x40040000u,
     LPTMR_PSR = 0x40040004u,
     LPTMR_CMR = 0x40040008u,
@@ -204,6 +213,78 @@ static void test_pit(TestState* state, K22Timing* timing, Observations* observat
     expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 & ~(1u << 23u));
     k22_timing_advance(timing, 100u);
     expect_read(state, timing, PIT_CVAL0, 4, 2u);
+
+    expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 | (1u << 23u));
+    expect_write(state, timing, PIT_MCR, 4, 0u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 0u);
+    expect_write(state, timing, PIT_LDVAL0, 4, 5u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 1u);
+    k22_timing_advance(timing, 2u);
+    expect_read(state, timing, PIT_CVAL0, 4, 3u);
+    expect_write(state, timing, PIT_LDVAL0, 4, 9u);
+    expect_read(state, timing, PIT_CVAL0, 4, 3u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 3u);
+    expect_read(state, timing, PIT_CVAL0, 4, 3u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 1u);
+    expect_read(state, timing, PIT_CVAL0, 4, 3u);
+    k22_timing_advance(timing, 4u);
+    expect_read(state, timing, PIT_CVAL0, 4, 9u);
+    expect_read(state, timing, PIT_TFLG0, 4, 1u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 3u);
+    TEST_EXPECT(state, observations->irq[48]);
+    expect_write(state, timing, PIT_TCTRL0, 4, 1u);
+    TEST_EXPECT(state, !observations->irq[48]);
+    expect_write(state, timing, PIT_TCTRL0, 4, 7u);
+    expect_read(state, timing, PIT_TCTRL0, 4, 3u);
+    expect_write(state, timing, PIT_TFLG0, 4, 1u);
+
+    expect_write(state, timing, PIT_TCTRL0, 4, 0u);
+    expect_write(state, timing, PIT_TCTRL1, 4, 0u);
+    expect_write(state, timing, PIT_TCTRL2, 4, 0u);
+    expect_write(state, timing, PIT_TCTRL3, 4, 0u);
+    expect_write(state, timing, PIT_LDVAL0, 4, 1u);
+    expect_write(state, timing, PIT_LDVAL1, 4, 1u);
+    expect_write(state, timing, PIT_LDVAL2, 4, 1u);
+    expect_write(state, timing, PIT_LDVAL3, 4, 1u);
+    expect_write(state, timing, PIT_TCTRL0, 4, 1u);
+    expect_write(state, timing, PIT_TCTRL1, 4, 5u);
+    expect_write(state, timing, PIT_TCTRL2, 4, 5u);
+    expect_write(state, timing, PIT_TCTRL3, 4, 7u);
+    k22_timing_advance(timing, 15u);
+    expect_read(state, timing, PIT_CVAL0, 4, 0u);
+    expect_read(state, timing, PIT_CVAL1, 4, 0u);
+    expect_read(state, timing, PIT_CVAL2, 4, 0u);
+    expect_read(state, timing, PIT_CVAL3, 4, 0u);
+    expect_read(state, timing, PIT_TFLG0, 4, 1u);
+    expect_read(state, timing, PIT_TFLG1, 4, 1u);
+    expect_read(state, timing, PIT_TFLG2, 4, 1u);
+    expect_read(state, timing, PIT_TFLG3, 4, 0u);
+    TEST_EXPECT(state, !observations->irq[48]);
+    TEST_EXPECT(state, !observations->irq[49]);
+    TEST_EXPECT(state, !observations->irq[50]);
+    TEST_EXPECT(state, !observations->irq[51]);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, PIT_TFLG3, 4, 1u);
+    TEST_EXPECT(state, observations->irq[51]);
+    expect_write(state, timing, PIT_TFLG0, 4, 1u);
+    expect_write(state, timing, PIT_TFLG1, 4, 1u);
+    expect_write(state, timing, PIT_TFLG2, 4, 1u);
+    expect_write(state, timing, PIT_TFLG3, 4, 1u);
+
+    expect_write(state, timing, PIT_TCTRL0, 4, 0u);
+    expect_write(state, timing, PIT_LDVAL0, 4, UINT32_MAX);
+    expect_write(state, timing, PIT_TCTRL0, 4, 1u);
+    timing->wdog[0] = 0u;
+    k22_timing_advance(timing, UINT32_MAX);
+    expect_read(state, timing, PIT_CVAL0, 4, 0u);
+    expect_read(state, timing, PIT_TFLG0, 4, 0u);
+    expect_write(state, timing, PIT_MCR, 4, 2u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, PIT_CVAL0, 4, 0u);
+    expect_write(state, timing, PIT_MCR, 4, 0u);
+    k22_timing_advance(timing, 1u);
+    expect_read(state, timing, PIT_CVAL0, 4, UINT32_MAX);
+    expect_read(state, timing, PIT_TFLG0, 4, 1u);
 }
 
 static void test_lptmr(TestState* state, K22Timing* timing, Observations* observations) {

@@ -381,11 +381,16 @@ static bool pit_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_
     switch ((address - PIT_CHANNEL_BASE) & 0x0fu) {
     case 0:
         timing->pit[channel].load = value;
-        timing->pit[channel].current = value;
         return true;
-    case 8:
-        timing->pit[channel].control = value & 7u;
+    case 8: {
+        K22PitChannel* pit = &timing->pit[channel];
+        const bool was_enabled = (pit->control & 1u) != 0u;
+        pit->control = value & (channel == 0u ? 3u : 7u);
+        if (!was_enabled && (pit->control & 1u) != 0u)
+            pit->current = pit->load;
+        set_irq(timing, IRQ_PIT0 + channel, pit->flag && (pit->control & 2u) != 0u);
         return true;
+    }
     case 12:
         if ((value & 1u) != 0) {
             timing->pit[channel].flag = false;

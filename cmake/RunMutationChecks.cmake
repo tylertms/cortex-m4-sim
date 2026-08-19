@@ -62,3 +62,8 @@ run_mutation(
   lptmr_filter src/k22_timing.c "const uint32_t threshold = 1u << prescale;"
   "const uint32_t threshold = 2u << prescale;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  pit_reenable src/k22_timing.c
+  "const bool was_enabled = (pit->control & 1u) != 0u;"
+  "const bool was_enabled = false;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
