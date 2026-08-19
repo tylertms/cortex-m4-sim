@@ -211,16 +211,103 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
     expect_write(state, timing, LPTMR_PSR, 4, 5u);
     expect_write(state, timing, LPTMR_CMR, 4, 2u);
     expect_write(state, timing, LPTMR_CSR, 4, 0x41u);
-    k22_timing_advance(timing, cycles_for_ticks(timing, 3u, 1000u));
+    k22_timing_advance(timing, cycles_for_ticks(timing, 2u, 1000u));
+    expect_read(state, timing, LPTMR_CSR, 4, 0x41u);
+    expect_write(state, timing, LPTMR_CNR, 4, UINT32_MAX);
+    expect_read(state, timing, LPTMR_CNR, 4, 2u);
+    k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
     expect_read(state, timing, LPTMR_CSR, 4, 0xc1u);
     TEST_EXPECT(state, observations->irq[58]);
-    expect_write(state, timing, LPTMR_CSR, 4, 0x41u);
+    expect_write(state, timing, LPTMR_CSR, 4, 0xc1u);
     TEST_EXPECT(state, !observations->irq[58]);
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
     expect_read(state, timing, LPTMR_CNR, 4, 0u);
+    expect_write(state, timing, LPTMR_CMR, 4, 0u);
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
     expect_write(state, timing, LPTMR_CMR, 4, 0u);
     expect_write(state, timing, LPTMR_CSR, 4, 1u);
     k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
     expect_read(state, timing, LPTMR_CSR, 4, 0x81u);
+
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
+    expect_write(state, timing, LPTMR_PSR, 4, 5u);
+    expect_write(state, timing, LPTMR_CMR, 4, 5u);
+    expect_write(state, timing, LPTMR_CSR, 4, 0x47u);
+    expect_write(state, timing, LPTMR_PSR, 4, 0x7fu);
+    expect_read(state, timing, LPTMR_PSR, 4, 5u);
+    expect_write(state, timing, LPTMR_CMR, 4, 9u);
+    expect_read(state, timing, LPTMR_CMR, 4, 5u);
+    expect_write(state, timing, LPTMR_CSR, 4, 0x7fu);
+    expect_read(state, timing, LPTMR_CSR, 4, 0x47u);
+
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
+    expect_write(state, timing, LPTMR_PSR, 4, 4u);
+    expect_write(state, timing, LPTMR_CMR, 4, 1u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    expect_write(state, timing, LPTMR_CSR, 4, 0x43u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 1u, true));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 1u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
+    expect_read(state, timing, LPTMR_CSR, 4, 0xc3u);
+    TEST_EXPECT(state, observations->irq[58]);
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 0u);
+
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
+    expect_write(state, timing, LPTMR_PSR, 4, 4u);
+    expect_write(state, timing, LPTMR_CMR, 4, 3u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, true));
+    expect_write(state, timing, LPTMR_CSR, 4, 0x2fu);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, false));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, true));
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 0u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, false));
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 1u);
+
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
+    expect_write(state, timing, LPTMR_PSR, 4, 4u);
+    expect_write(state, timing, LPTMR_CMR, 4, 1u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    expect_write(state, timing, LPTMR_CSR, 4, 0x47u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
+    expect_read(state, timing, LPTMR_CSR, 4, 0xc7u);
+    TEST_EXPECT(state, observations->irq[58]);
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 2u);
+    expect_write(state, timing, LPTMR_CSR, 4, 0xc7u);
+    TEST_EXPECT(state, !observations->irq[58]);
+
+    expect_write(state, timing, LPTMR_CSR, 4, 0u);
+    expect_write(state, timing, LPTMR_PSR, 4, 9u);
+    expect_write(state, timing, LPTMR_CMR, 4, 4u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, false));
+    expect_write(state, timing, LPTMR_CSR, 4, 3u);
+    k22_timing_advance(timing, cycles_for_ticks(timing, 2u, 1000u));
+    k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
+    k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 0u);
+    k22_timing_advance(timing, cycles_for_ticks(timing, 1u, 1000u));
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 1u);
+
+    k22_timing_warm_reset(timing, 0x20u, 0u);
+    expect_write(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 1u);
+    k22_timing_warm_reset(timing, 0x04u, 0u);
+    expect_read(state, timing, LPTMR_CSR, 4, 0u);
+    TEST_EXPECT(state, !k22_timing_set_lptmr_input(NULL, 0u, false));
+    TEST_EXPECT(state, !k22_timing_set_lptmr_input(timing, 3u, false));
 }
 
 static void test_rtc(TestState* state, K22Timing* timing, Observations* observations) {
@@ -336,6 +423,24 @@ static void test_copy_and_split_advance(TestState* state, const K22Profile* prof
     TEST_EXPECT(state, first.pit[0].flag == second.pit[0].flag);
     TEST_EXPECT(state, first.pit_remainder == second.pit_remainder);
     TEST_EXPECT(state, first.elapsed_core_cycles == second.elapsed_core_cycles);
+
+    k22_timing_reset(&first, 0x82u, 0u);
+    expect_write(state, &first, SIM_SCGC5, 4, first.sim_scgc5 | 1u);
+    expect_write(state, &first, LPTMR_PSR, 4, 9u);
+    expect_write(state, &first, LPTMR_CMR, 4, 4u);
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(&first, 0u, false));
+    expect_write(state, &first, LPTMR_CSR, 4, 3u);
+    k22_timing_advance(&first, cycles_for_ticks(&first, 1u, 1000u));
+    TEST_EXPECT(state, k22_timing_copy(&second, &first, signals(&second_observations)));
+    k22_timing_advance(&first, cycles_for_ticks(&first, 1u, 1000u));
+    k22_timing_advance(&second, cycles_for_ticks(&second, 1u, 1000u));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(&first, 0u, true));
+    TEST_EXPECT(state, k22_timing_set_lptmr_input(&second, 0u, true));
+    k22_timing_advance(&first, cycles_for_ticks(&first, 2u, 1000u));
+    k22_timing_advance(&second, cycles_for_ticks(&second, 2u, 1000u));
+    TEST_EXPECT(state, first.lptmr_counter == 1u);
+    TEST_EXPECT(state, first.lptmr_counter == second.lptmr_counter);
+    TEST_EXPECT(state, first.lptmr_filter_ticks == second.lptmr_filter_ticks);
 }
 
 static void test_sim_surface(TestState* state, K22Timing* timing) {

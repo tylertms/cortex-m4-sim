@@ -410,9 +410,73 @@ static uint32_t lptmr_clock(const K22Timing* timing) {
     }
 }
 
+static bool lptmr_running(const K22Timing* timing) {
+    return has(timing, K22_PERIPHERAL_LPTMR0) && (timing->sim_scgc5 & 1u) != 0 &&
+           (timing->lptmr_csr & 1u) != 0;
+}
+
+static bool lptmr_selected_active(const K22Timing* timing) {
+    const uint8_t input = (uint8_t)((timing->lptmr_csr >> 4u) & 3u);
+    if (input >= 3u)
+        return false;
+    const bool high = timing->lptmr_input[input];
+    return (timing->lptmr_csr & 8u) == 0 ? high : !high;
+}
+
+static void increment_lptmr(K22Timing* timing, uint64_t ticks) {
+    if (ticks == 0)
+        return;
+    const uint32_t compare = timing->lptmr_cmr & 0xffffu;
+    if ((timing->lptmr_csr & 4u) == 0) {
+        const uint64_t period = (uint64_t)compare + 1u;
+        const uint64_t total = (uint64_t)timing->lptmr_counter + ticks;
+        if (total >= period) {
+            timing->lptmr_csr |= 0x80u;
+            if ((timing->lptmr_csr & 0x40u) != 0)
+                set_irq(timing, IRQ_LPTMR, true);
+        }
+        timing->lptmr_counter = (uint16_t)(total % period);
+        return;
+    }
+    const uint32_t distance = ((compare - timing->lptmr_counter) & 0xffffu) + 1u;
+    if (ticks >= distance) {
+        timing->lptmr_csr |= 0x80u;
+        if ((timing->lptmr_csr & 0x40u) != 0)
+            set_irq(timing, IRQ_LPTMR, true);
+    }
+    timing->lptmr_counter = (uint16_t)((uint64_t)timing->lptmr_counter + ticks);
+}
+
+static void sample_lptmr_filter(K22Timing* timing, uint32_t cycles) {
+    const uint8_t prescale = (uint8_t)((timing->lptmr_psr >> 3u) & 15u);
+    if (prescale == 0u)
+        return;
+    const uint64_t samples = clock_ticks(&timing->lptmr_filter_remainder, cycles,
+                                         lptmr_clock(timing), timing->core_clock_hz);
+    const bool active = lptmr_selected_active(timing);
+    if (active == timing->lptmr_observed_active) {
+        timing->lptmr_filter_ticks = 0u;
+        return;
+    }
+    const uint32_t threshold = 1u << prescale;
+    const uint64_t total = (uint64_t)timing->lptmr_filter_ticks + samples;
+    if (total < threshold) {
+        timing->lptmr_filter_ticks = (uint32_t)total;
+        return;
+    }
+    timing->lptmr_filter_ticks = 0u;
+    timing->lptmr_observed_active = active;
+    if (active)
+        increment_lptmr(timing, 1u);
+}
+
 static void advance_lptmr(K22Timing* timing, uint32_t cycles) {
-    if (!has(timing, K22_PERIPHERAL_LPTMR0) || (timing->sim_scgc5 & 1u) == 0 ||
-        (timing->lptmr_csr & 1u) == 0 || (timing->lptmr_csr & 2u) != 0) {
+    if (!lptmr_running(timing)) {
+        return;
+    }
+    if ((timing->lptmr_csr & 2u) != 0) {
+        if ((timing->lptmr_psr & 4u) == 0)
+            sample_lptmr_filter(timing, cycles);
         return;
     }
     uint32_t source_hz = lptmr_clock(timing);
@@ -421,20 +485,24 @@ static void advance_lptmr(K22Timing* timing, uint32_t cycles) {
     }
     const uint64_t ticks =
         clock_ticks(&timing->lptmr_remainder, cycles, source_hz, timing->core_clock_hz);
-    const uint32_t compare = timing->lptmr_cmr & 0xffffu;
-    if (ticks == 0) {
-        return;
+    increment_lptmr(timing, ticks);
+}
+
+bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high) {
+    if (timing == NULL || timing->profile == NULL || input >= 3u ||
+        !has(timing, K22_PERIPHERAL_LPTMR0))
+        return false;
+    timing->lptmr_input[input] = high;
+    if (!lptmr_running(timing) || (timing->lptmr_csr & 2u) == 0 ||
+        (timing->lptmr_psr & 4u) == 0 || ((timing->lptmr_csr >> 4u) & 3u) != input)
+        return true;
+    const bool active = lptmr_selected_active(timing);
+    if (active != timing->lptmr_observed_active) {
+        timing->lptmr_observed_active = active;
+        if (active)
+            increment_lptmr(timing, 1u);
     }
-    const uint64_t total = (uint64_t)timing->lptmr_counter + ticks;
-    if (total >= compare) {
-        timing->lptmr_csr |= 0x80u;
-        if ((timing->lptmr_csr & 0x40u) != 0) {
-            set_irq(timing, IRQ_LPTMR, true);
-        }
-        timing->lptmr_counter = (uint16_t)(total % ((uint64_t)compare + 1u));
-    } else {
-        timing->lptmr_counter = (uint16_t)total;
-    }
+    return true;
 }
 
 static void update_rtc_irq(const K22Timing* timing) {
@@ -893,7 +961,7 @@ static bool read_timed_register(const K22Timing* timing, uint32_t address, uint8
             *value = timing->lptmr_cmr;
             return true;
         case 12:
-            *value = timing->lptmr_counter;
+            *value = timing->lptmr_latched_counter;
             return true;
         default:
             return false;
@@ -967,20 +1035,39 @@ static bool write_timed_register(K22Timing* timing, uint32_t address, uint8_t si
     if (address >= LPTMR_BASE && address < LPTMR_BASE + 0x10u && size == 4 &&
         has(timing, K22_PERIPHERAL_LPTMR0)) {
         switch (address - LPTMR_BASE) {
-        case 0:
-            timing->lptmr_csr = (timing->lptmr_csr & 0x80u & value) | (value & 0x7fu);
-            if ((timing->lptmr_csr & 0x80u) == 0)
-                set_irq(timing, IRQ_LPTMR, false);
-            if ((value & 1u) == 0)
+        case 0: {
+            const bool was_enabled = (timing->lptmr_csr & 1u) != 0;
+            if ((timing->lptmr_csr & 1u) != 0) {
+                const uint32_t configuration = timing->lptmr_csr & 0x3eu;
+                timing->lptmr_csr =
+                    (timing->lptmr_csr & 0x80u & ~value) | configuration | (value & 0x41u);
+            } else {
+                timing->lptmr_csr = value & 0x7fu;
+            }
+            if ((timing->lptmr_csr & 1u) == 0) {
+                timing->lptmr_csr &= ~0x80u;
                 timing->lptmr_counter = 0;
+                timing->lptmr_latched_counter = 0;
+                timing->lptmr_remainder = 0u;
+                timing->lptmr_filter_remainder = 0u;
+                timing->lptmr_filter_ticks = 0u;
+            } else if (!was_enabled) {
+                timing->lptmr_observed_active = true;
+                timing->lptmr_filter_ticks = 0u;
+            }
+            set_irq(timing, IRQ_LPTMR, (timing->lptmr_csr & 0xc0u) == 0xc0u);
             return true;
+        }
         case 4:
-            timing->lptmr_psr = value & 0x7fu;
+            if ((timing->lptmr_csr & 1u) == 0)
+                timing->lptmr_psr = value & 0x7fu;
             return true;
         case 8:
-            timing->lptmr_cmr = value & 0xffffu;
+            if ((timing->lptmr_csr & 1u) == 0 || (timing->lptmr_csr & 0x80u) != 0)
+                timing->lptmr_cmr = value & 0xffffu;
             return true;
         case 12:
+            timing->lptmr_latched_counter = timing->lptmr_counter;
             return true;
         default:
             return false;
@@ -1176,6 +1263,17 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     const uint32_t war = timing->rtc_war;
     const uint32_t rar = timing->rtc_rar;
     const uint64_t remainder = timing->rtc_remainder;
+    const uint32_t lptmr_csr = timing->lptmr_csr;
+    const uint32_t lptmr_psr = timing->lptmr_psr;
+    const uint32_t lptmr_cmr = timing->lptmr_cmr;
+    const uint16_t lptmr_counter = timing->lptmr_counter;
+    const uint16_t lptmr_latched_counter = timing->lptmr_latched_counter;
+    const uint64_t lptmr_remainder = timing->lptmr_remainder;
+    const uint64_t lptmr_filter_remainder = timing->lptmr_filter_remainder;
+    const uint32_t lptmr_filter_ticks = timing->lptmr_filter_ticks;
+    const bool lptmr_input[3] = {timing->lptmr_input[0], timing->lptmr_input[1],
+                                 timing->lptmr_input[2]};
+    const bool lptmr_observed_active = timing->lptmr_observed_active;
     k22_timing_reset(timing, srs0, srs1);
     timing->rtc_tsr = tsr;
     timing->rtc_tpr = tpr;
@@ -1188,6 +1286,21 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->rtc_war = war;
     timing->rtc_rar = rar;
     timing->rtc_remainder = remainder;
+    if ((srs0 & 0x84u) == 0) {
+        timing->lptmr_csr = lptmr_csr;
+        timing->lptmr_psr = lptmr_psr;
+        timing->lptmr_cmr = lptmr_cmr;
+        timing->lptmr_counter = lptmr_counter;
+        timing->lptmr_latched_counter = lptmr_latched_counter;
+        timing->lptmr_remainder = lptmr_remainder;
+        timing->lptmr_filter_remainder = lptmr_filter_remainder;
+        timing->lptmr_filter_ticks = lptmr_filter_ticks;
+        timing->lptmr_input[0] = lptmr_input[0];
+        timing->lptmr_input[1] = lptmr_input[1];
+        timing->lptmr_input[2] = lptmr_input[2];
+        timing->lptmr_observed_active = lptmr_observed_active;
+        set_irq(timing, IRQ_LPTMR, (timing->lptmr_csr & 0xc0u) == 0xc0u);
+    }
 }
 
 bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,

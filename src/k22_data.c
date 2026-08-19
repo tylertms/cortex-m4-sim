@@ -1632,6 +1632,13 @@ bool k22_data_set_cmp_input(K22Data* data, uint8_t instance, uint8_t input, uint
     return true;
 }
 
+bool k22_data_get_cmp_output(const K22Data* data, uint8_t instance, bool* high) {
+    if (data == NULL || high == NULL || instance >= data->cmp_count)
+        return false;
+    *high = (data->cmp[instance].registers[3] & 1u) != 0u;
+    return true;
+}
+
 bool k22_data_get_dac_output(const K22Data* data, uint8_t instance, uint16_t* value) {
     if (data == NULL || value == NULL || instance >= data->dac_count)
         return false;

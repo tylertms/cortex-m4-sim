@@ -84,7 +84,12 @@ typedef struct {
     uint32_t lptmr_psr;
     uint32_t lptmr_cmr;
     uint16_t lptmr_counter;
+    uint16_t lptmr_latched_counter;
     uint64_t lptmr_remainder;
+    uint64_t lptmr_filter_remainder;
+    uint32_t lptmr_filter_ticks;
+    bool lptmr_input[3];
+    bool lptmr_observed_active;
     uint32_t rtc_tsr;
     uint16_t rtc_tpr;
     uint32_t rtc_tar;
@@ -124,6 +129,7 @@ bool k22_timing_read(const K22Timing* timing, uint32_t address, uint8_t size,
                      uint32_t* value);
 bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value);
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
+bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 bool k22_timing_copy(K22Timing* destination, const K22Timing* source,

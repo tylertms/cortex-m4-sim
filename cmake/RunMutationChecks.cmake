@@ -58,3 +58,7 @@ run_mutation(
   sysmpu_access src/kinetis_k22.c "if (!sysmpu_access_allowed("
   "if (false && !sysmpu_access_allowed(" cortex_m4_device_k22_sysmpu_integration_test
   device_k22_sysmpu_integration)
+run_mutation(
+  lptmr_filter src/k22_timing.c "const uint32_t threshold = 1u << prescale;"
+  "const uint32_t threshold = 2u << prescale;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

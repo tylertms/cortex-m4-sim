@@ -353,6 +353,11 @@ static uint8_t data_irq(K22DataInterrupt interrupt) {
 
 static void data_interrupt(void* context, K22DataInterrupt interrupt, bool asserted) {
     KinetisK22* device = context;
+    if (interrupt == K22_DATA_INTERRUPT_CMP0 && device->data != NULL) {
+        bool high = false;
+        if (k22_data_get_cmp_output(device->data, 0u, &high))
+            k22_timing_set_lptmr_input(&device->timing, 0u, high);
+    }
     if (device->cpu != NULL && interrupt < K22_DATA_INTERRUPT_COUNT) {
         cortex_m4_set_irq_level(device->cpu, data_irq(interrupt), asserted);
     }
@@ -906,6 +911,10 @@ void kinetis_k22_set_adc0_channel(KinetisK22* device, uint8_t channel, uint16_t 
 bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t input,
                                uint8_t value) {
     return device != NULL && k22_data_set_cmp_input(device->data, instance, input, value);
+}
+
+bool kinetis_k22_set_lptmr_input(KinetisK22* device, uint8_t input, bool high) {
+    return device != NULL && k22_timing_set_lptmr_input(&device->timing, input, high);
 }
 
 bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,

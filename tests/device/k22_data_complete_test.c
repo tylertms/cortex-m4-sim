@@ -420,9 +420,14 @@ static void test_dac_cmp_vref(TestState* state) {
 
     TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 1, 20));
     TEST_EXPECT(state, k22_data_set_cmp_input(data, 0, 2, 10));
+    bool comparator_high = false;
+    TEST_EXPECT(state, k22_data_get_cmp_output(data, 0, &comparator_high));
+    TEST_EXPECT(state, !comparator_high);
     write_value(state, data, CMP0 + 5, 1, (1u << 3) | 2u);
     write_value(state, data, CMP0 + 3, 1, 0x08u);
     write_value(state, data, CMP0 + 1, 1, 1u);
+    TEST_EXPECT(state, k22_data_get_cmp_output(data, 0, &comparator_high));
+    TEST_EXPECT(state, comparator_high);
     TEST_EXPECT(state, (read_value(state, data, CMP0 + 3, 1) & 5u) == 5u);
     TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_CMP0]);
     write_value(state, data, CMP0 + 3, 1, 0x0cu);
@@ -434,6 +439,9 @@ static void test_dac_cmp_vref(TestState* state) {
     write_value(state, data, CMP0 + 3u, 1, 0x48u);
     write_value(state, data, CMP0 + 5u, 1, (7u << 3u) | 2u);
     TEST_EXPECT(state, (read_value(state, data, CMP0 + 3u, 1) & 1u) != 0u);
+    TEST_EXPECT(state, !k22_data_get_cmp_output(NULL, 0, &comparator_high));
+    TEST_EXPECT(state, !k22_data_get_cmp_output(data, 3, &comparator_high));
+    TEST_EXPECT(state, !k22_data_get_cmp_output(data, 0, NULL));
 
     write_value(state, data, VREF + 1, 1, 0x80u);
     TEST_EXPECT(state, (read_value(state, data, VREF + 1, 1) & 4u) == 0);

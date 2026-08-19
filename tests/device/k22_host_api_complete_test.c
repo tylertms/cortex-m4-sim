@@ -47,6 +47,9 @@ static void test_data_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_set_cmp_input(device, 1u, 7u, 1u));
     TEST_EXPECT(state, !kinetis_k22_set_cmp_input(device, 3u, 0u, 0u));
     TEST_EXPECT(state, !kinetis_k22_set_cmp_input(NULL, 0u, 0u, 0u));
+    TEST_EXPECT(state, kinetis_k22_set_lptmr_input(device, 2u, true));
+    TEST_EXPECT(state, !kinetis_k22_set_lptmr_input(device, 3u, false));
+    TEST_EXPECT(state, !kinetis_k22_set_lptmr_input(NULL, 0u, false));
     uint16_t output = 0u;
     TEST_EXPECT(state, kinetis_k22_get_dac_output(device, 0u, &output));
     TEST_EXPECT(state, !kinetis_k22_get_dac_output(device, 2u, &output));
