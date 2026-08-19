@@ -12,22 +12,28 @@ enum {
     SDHC_CMDARG = SDHC_BASE + 0x08u,
     SDHC_XFERTYP = SDHC_BASE + 0x0cu,
     SDHC_CMDRSP0 = SDHC_BASE + 0x10u,
+    SDHC_CMDRSP1 = SDHC_BASE + 0x14u,
+    SDHC_CMDRSP2 = SDHC_BASE + 0x18u,
+    SDHC_CMDRSP3 = SDHC_BASE + 0x1cu,
     SDHC_DATPORT = SDHC_BASE + 0x20u,
     SDHC_PRSSTAT = SDHC_BASE + 0x24u,
     SDHC_SYSCTL = SDHC_BASE + 0x2cu,
     SDHC_IRQSTAT = SDHC_BASE + 0x30u,
     SDHC_IRQSTATEN = SDHC_BASE + 0x34u,
     SDHC_IRQSIGEN = SDHC_BASE + 0x38u,
+    SDHC_FEVT = SDHC_BASE + 0x50u,
     SDHC_HOSTVER = SDHC_BASE + 0xfcu,
 };
 
 typedef struct {
     uint8_t data[2048];
+    bool fail_read;
+    bool fail_write;
 } BusMemory;
 
 static bool bus_read(void* context, uint32_t address, uint8_t size, uint32_t* value) {
     BusMemory* memory = context;
-    if (value == NULL || address > sizeof(memory->data) ||
+    if (value == NULL || memory->fail_read || address > sizeof(memory->data) ||
         size > sizeof(memory->data) - address)
         return false;
     *value = 0u;
@@ -37,7 +43,8 @@ static bool bus_read(void* context, uint32_t address, uint8_t size, uint32_t* va
 
 static bool bus_write(void* context, uint32_t address, uint8_t size, uint32_t value) {
     BusMemory* memory = context;
-    if (address > sizeof(memory->data) || size > sizeof(memory->data) - address)
+    if (memory->fail_write || address > sizeof(memory->data) ||
+        size > sizeof(memory->data) - address)
         return false;
     memcpy(memory->data + address, &value, size);
     return true;
@@ -163,6 +170,102 @@ static void expect_errors_reset_and_copy(TestState* state) {
     k22_sdhc_destroy(&sdhc);
 }
 
+static void expect_command_and_transfer_lifecycle(TestState* state) {
+    BusMemory memory = {0};
+    K22Sdhc sdhc = create_sdhc(state, &memory);
+    uint8_t card[1024];
+    for (size_t index = 0u; index < sizeof(card); index++)
+        card[index] = (uint8_t)(index ^ 0x5au);
+    TEST_EXPECT(state, k22_sdhc_insert(&sdhc, card, sizeof(card), false));
+
+    command(state, &sdhc, 2u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP0) == 0x03534453u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP1) == 0x44303447u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP2) == 0x80123456u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP3) == 0x78010001u);
+    command(state, &sdhc, 9u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP0) == 0x400e0032u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP1) == 2u);
+
+    select_card(state, &sdhc);
+    command(state, &sdhc, 13u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP0) == (4u << 9u));
+    command(state, &sdhc, 0u, 0u, 0u);
+    command(state, &sdhc, 13u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_CMDRSP0) == (3u << 9u));
+    select_card(state, &sdhc);
+
+    command(state, &sdhc, 16u, 0u, 0u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 16u)) != 0u);
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    command(state, &sdhc, 16u, 4097u, 0u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 16u)) != 0u);
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    command(state, &sdhc, 16u, 8u, 0u);
+
+    write_register(state, &sdhc, SDHC_BLKATTR, 2u << 16u);
+    command(state, &sdhc, 18u, 0u, 0u);
+    for (size_t offset = 0u; offset < 16u; offset += 4u) {
+        uint32_t expected = 0u;
+        memcpy(&expected, card + offset, sizeof(expected));
+        TEST_EXPECT(state, read_register(state, &sdhc, SDHC_DATPORT) == expected);
+    }
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & 2u) != 0u);
+
+    write_register(state, &sdhc, SDHC_BLKATTR, 8u | (2u << 16u));
+    command(state, &sdhc, 25u, 1u, 0u);
+    const uint32_t words[] = {0x10203040u, 0x50607080u, 0x90a0b0c0u, 0xd0e0f000u};
+    for (size_t index = 0u; index < sizeof(words) / sizeof(words[0]); index++)
+        write_register(state, &sdhc, SDHC_DATPORT, words[index]);
+    uint32_t stored[4] = {0};
+    TEST_EXPECT(state, k22_sdhc_read_card(&sdhc, 512u, stored, sizeof(stored)));
+    TEST_EXPECT(state, memcmp(stored, words, sizeof(words)) == 0);
+
+    write_register(state, &sdhc, SDHC_BLKATTR, 4u);
+    command(state, &sdhc, 18u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_DATPORT) == 0x59585b5au);
+    write_register(state, &sdhc, SDHC_BLKATTR, 8u | (2u << 16u));
+    command(state, &sdhc, 18u, 0u, 0u);
+    TEST_EXPECT(state, read_register(state, &sdhc, SDHC_DATPORT) == 0x59585b5au);
+    command(state, &sdhc, 12u, 0u, 0u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_PRSSTAT) & (1u << 2u)) == 0u);
+
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    command(state, &sdhc, 63u, 0u, 0u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 16u)) != 0u);
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    write_register(state, &sdhc, SDHC_FEVT, (1u << 16u) | (1u << 21u));
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) &
+                        ((1u << 16u) | (1u << 21u))) ==
+                           ((1u << 16u) | (1u << 21u)));
+    k22_sdhc_destroy(&sdhc);
+}
+
+static void expect_dma_failures(TestState* state) {
+    BusMemory memory = {0};
+    K22Sdhc sdhc = create_sdhc(state, &memory);
+    uint8_t card[512];
+    memset(card, 0x3c, sizeof(card));
+    TEST_EXPECT(state, k22_sdhc_insert(&sdhc, card, sizeof(card), false));
+    select_card(state, &sdhc);
+    write_register(state, &sdhc, SDHC_BLKATTR, 4u | (1u << 16u));
+
+    memory.fail_write = true;
+    command(state, &sdhc, 17u, 0u, 1u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 20u)) != 0u);
+    memory.fail_write = false;
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    memory.fail_read = true;
+    command(state, &sdhc, 24u, 0u, 1u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 20u)) != 0u);
+    memory.fail_read = false;
+    write_register(state, &sdhc, SDHC_IRQSTAT, UINT32_MAX);
+    write_register(state, &sdhc, SDHC_DSADDR, sizeof(memory.data));
+    command(state, &sdhc, 17u, 0u, 1u);
+    TEST_EXPECT(state, (read_register(state, &sdhc, SDHC_IRQSTAT) & (1u << 20u)) != 0u);
+    k22_sdhc_destroy(&sdhc);
+}
+
 static void expect_invalid_inputs(TestState* state) {
     BusMemory memory = {0};
     K22Sdhc sdhc;
@@ -175,6 +278,17 @@ static void expect_invalid_inputs(TestState* state) {
     TEST_EXPECT(state, !k22_sdhc_insert(&sdhc, memory.data, 513u, false));
     TEST_EXPECT(state, !k22_sdhc_read_card(&sdhc, 0u, memory.data, 1u));
     TEST_EXPECT(state, !k22_sdhc_irq(NULL));
+    uint32_t value = 0u;
+    TEST_EXPECT(state, !k22_sdhc_read(NULL, SDHC_BASE, 4u, &value));
+    TEST_EXPECT(state, !k22_sdhc_read(&sdhc, SDHC_BASE, 4u, NULL));
+    TEST_EXPECT(state, !k22_sdhc_write(NULL, SDHC_BASE, 4u, 0u));
+    TEST_EXPECT(state, !k22_sdhc_read(&sdhc, SDHC_BASE, 4u, &value));
+    TEST_EXPECT(state, !k22_sdhc_write(&sdhc, SDHC_BASE, 4u, 0u));
+    k22_sdhc_set_clock(&sdhc, true);
+    TEST_EXPECT(state, !k22_sdhc_read(&sdhc, SDHC_BASE - 4u, 4u, &value));
+    TEST_EXPECT(state, !k22_sdhc_read(&sdhc, SDHC_BASE + 2u, 4u, &value));
+    TEST_EXPECT(state, !k22_sdhc_read(&sdhc, SDHC_HOSTVER + 4u, 4u, &value));
+    TEST_EXPECT(state, !k22_sdhc_write(&sdhc, SDHC_HOSTVER, 4u, 0u));
     k22_sdhc_destroy(&sdhc);
     k22_sdhc_destroy(NULL);
 }
@@ -183,6 +297,8 @@ int main(void) {
     TestState state = {0};
     expect_initialization_and_access(&state);
     expect_errors_reset_and_copy(&state);
+    expect_command_and_transfer_lifecycle(&state);
+    expect_dma_failures(&state);
     expect_invalid_inputs(&state);
     return test_finish(&state);
 }
