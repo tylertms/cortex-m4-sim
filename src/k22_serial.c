@@ -821,6 +821,26 @@ static K22SerialI2c* endpoint_i2c(K22Serial* serial, K22SerialEndpoint endpoint)
     return NULL;
 }
 
+void k22_serial_advance_endpoint(K22Serial* serial, K22SerialEndpoint endpoint) {
+    if (serial == NULL)
+        return;
+    bool lpuart = false;
+    K22SerialUart* uart = endpoint_uart(serial, endpoint, &lpuart);
+    if (uart != NULL) {
+        advance_uart(uart, lpuart, uart_frame_cycles(uart, lpuart));
+        return;
+    }
+    K22SerialSpi* spi = endpoint_spi(serial, endpoint);
+    if (spi != NULL) {
+        advance_spi(spi, spi_frame_cycles(spi));
+        return;
+    }
+    K22SerialI2c* i2c = endpoint_i2c(serial, endpoint);
+    if (i2c != NULL)
+        advance_i2c(i2c, i2c->transfer_cycles == 0u ? i2c_transfer_cycles(i2c)
+                                                    : i2c->transfer_cycles);
+}
+
 bool k22_serial_push_receive(K22Serial* serial, K22SerialEndpoint endpoint, uint16_t value,
                              uint8_t errors) {
     if (serial == NULL)

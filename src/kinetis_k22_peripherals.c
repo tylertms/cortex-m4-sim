@@ -1083,7 +1083,7 @@ bool kinetis_k22_serial_receive(KinetisK22* device, KinetisK22SerialEndpoint end
     (void)k22_serial_set_clock_gate(&device->serial, id, true);
     const bool result = k22_serial_push_receive(&device->serial,
                                                 (K22SerialEndpoint)endpoint, value, status);
-    k22_serial_advance(&device->serial, UINT32_MAX);
+    k22_serial_advance_endpoint(&device->serial, (K22SerialEndpoint)endpoint);
     refresh_serial_signals(device);
     kinetis_k22_sync_clock_gates(device);
     return result;
@@ -1144,7 +1144,7 @@ bool kinetis_k22_i2c_acknowledge(KinetisK22* device, KinetisK22SerialEndpoint en
     }
     const bool result = k22_serial_i2c_set_acknowledge(
         &device->serial, (K22SerialEndpoint)endpoint, acknowledge);
-    k22_serial_advance(&device->serial, UINT32_MAX);
+    k22_serial_advance_endpoint(&device->serial, (K22SerialEndpoint)endpoint);
     refresh_serial_signals(device);
     return result;
 }

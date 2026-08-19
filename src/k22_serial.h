@@ -183,6 +183,7 @@ bool k22_serial_set_clock_gate(K22Serial* serial, K22PeripheralId peripheral, bo
 bool k22_serial_read(K22Serial* serial, uint32_t address, uint8_t size, uint32_t* value);
 bool k22_serial_write(K22Serial* serial, uint32_t address, uint8_t size, uint32_t value);
 void k22_serial_advance(K22Serial* serial, uint32_t bus_cycles);
+void k22_serial_advance_endpoint(K22Serial* serial, K22SerialEndpoint endpoint);
 bool k22_serial_push_receive(K22Serial* serial, K22SerialEndpoint endpoint, uint16_t value,
                              uint8_t errors);
 bool k22_serial_pop_transmit(K22Serial* serial, K22SerialEndpoint endpoint,

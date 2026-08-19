@@ -12,6 +12,7 @@ enum {
     SPI0 = 0x4002c000u,
     I2C0 = 0x40066000u,
     I2C1 = 0x40067000u,
+    UART0 = 0x4006a000u,
 };
 
 static KinetisK22* create_device(TestState* state) {
@@ -90,11 +91,23 @@ static void test_data_api(TestState* state, KinetisK22* device) {
 
 static void test_serial_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state,
+                k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART0, true));
+    serial_write(state, device, UART0 + 3u, 1u, 0x08u);
+    serial_write(state, device, UART0 + 7u, 1u, 0x44u);
+    TEST_EXPECT(state,
                 kinetis_k22_serial_receive(device, KINETIS_K22_SERIAL_UART1, 0x5au, 0u));
     TEST_EXPECT(state, !kinetis_k22_serial_receive(NULL, KINETIS_K22_SERIAL_UART1, 0u, 0u));
     uint16_t value = 0u;
     TEST_EXPECT(state,
                 !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &value));
+    TEST_EXPECT(state,
+                !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART0, &value));
+    TEST_EXPECT(state,
+                k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART0, true));
+    k22_serial_advance_endpoint(&device->serial, K22_SERIAL_UART0);
+    TEST_EXPECT(state,
+                kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART0, &value));
+    TEST_EXPECT(state, value == 0x44u);
     TEST_EXPECT(state, !kinetis_k22_serial_transmit(
                            device, KINETIS_K22_SERIAL_ENDPOINT_COUNT, &value));
 
