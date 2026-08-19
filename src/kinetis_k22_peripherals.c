@@ -587,7 +587,8 @@ static void refresh_serial_signals(KinetisK22* device) {
         30, 26, 27, 65, 24, 25, 74, 31, 32, 33, 34, 35, 36, 37, 38, 66, 67, 68, 69,
     };
     static const uint8_t dma_sources[K22_SERIAL_DMA_COUNT] = {
-        58, 59, 14, 15, 16, 16, 17, 17, 18, 19, 19, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11,
+        58,       59, 14, 15, 16, 16, 17, 17, 18, 19, 19, 2,
+        3,        4,  5,  6,  7,  8,  9,  10, 10, UINT8_MAX, UINT8_MAX,
     };
     if (device->cpu != NULL) {
         for (uint8_t index = 0; index < K22_SERIAL_IRQ_COUNT; index++) {
@@ -596,7 +597,8 @@ static void refresh_serial_signals(KinetisK22* device) {
         }
     }
     for (uint8_t index = 0; index < K22_SERIAL_DMA_COUNT; index++) {
-        if (k22_serial_dma_request(&device->serial, (K22SerialDmaRequest)index)) {
+        if (dma_sources[index] != UINT8_MAX &&
+            k22_serial_dma_request(&device->serial, (K22SerialDmaRequest)index)) {
             k22_data_dma_request(device->data, dma_sources[index]);
         }
     }

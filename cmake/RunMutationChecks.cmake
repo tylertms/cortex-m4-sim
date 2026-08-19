@@ -165,6 +165,10 @@ run_mutation(
   "k22_serial_advance(&device->serial, UINT32_MAX);"
   cortex_m4_device_k22_host_api_complete_test device_k22_host_api_complete)
 run_mutation(
+  serial_reserved_dma_source src/kinetis_k22_peripherals.c
+  "9,  10, 10, UINT8_MAX, UINT8_MAX," "9,  10, 10, 11, 11,"
+  cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
+run_mutation(
   package_dac1 src/k22_package.c
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package != K22_PACKAGE_FX_88_HVQFN;"
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package == K22_PACKAGE_FX_88_HVQFN;"

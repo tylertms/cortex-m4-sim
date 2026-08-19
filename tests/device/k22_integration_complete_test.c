@@ -14,6 +14,9 @@ enum {
     FMC_DATAW0S0UM = 0x4001f200u,
     FMC_DATAW0S0LM = 0x4001f20cu,
     FMC_DATAW1S0UM = 0x4001f240u,
+    DMA_ERQ = 0x4000800cu,
+    DMA_HRS = 0x40008034u,
+    DMAMUX_CHCFG0 = 0x40021000u,
     FTFA_FSTAT = 0x40020000u,
     FTFA_FCCOB3 = 0x40020004u,
     PDB_SC = 0x40036000u,
@@ -462,6 +465,33 @@ static void expect_package_serial_extensions(TestState* state) {
     kinetis_k22_destroy(large);
 }
 
+static void expect_serial_dma_sources(TestState* state) {
+    KinetisK22* device =
+        create_f12_device(state, KINETIS_K22_PACKAGE_MD_144_MAPBGA);
+    CortexM4* cpu = kinetis_k22_cpu(device);
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC7, 4u, 1u << 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, 1u << 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC1, 4u, 3u << 10u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMA_ERQ, 2u, 3u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, DMAMUX_CHCFG0, 1u, 0x80u | 10u));
+    TEST_EXPECT(state,
+                cortex_m4_write_memory(cpu, DMAMUX_CHCFG0 + 1u, 1u, 0x80u | 11u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400ea003u, 1u, 0x04u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400ea00bu, 1u, 0x20u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400eb003u, 1u, 0x04u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0x400eb00bu, 1u, 0x20u));
+    TEST_EXPECT(state,
+                kinetis_k22_serial_receive(device, KINETIS_K22_SERIAL_UART4, 0x44u, 0u));
+    uint16_t requests = 0u;
+    TEST_EXPECT(state, read16(device, DMA_HRS, &requests));
+    TEST_EXPECT(state, requests == 1u);
+    TEST_EXPECT(state,
+                kinetis_k22_serial_receive(device, KINETIS_K22_SERIAL_UART5, 0x55u, 0u));
+    TEST_EXPECT(state, read16(device, DMA_HRS, &requests));
+    TEST_EXPECT(state, requests == 1u);
+    kinetis_k22_destroy(device);
+}
+
 static void expect_sdhc_integration(TestState* state) {
     uint8_t card[512];
     for (size_t index = 0u; index < sizeof(card); index++)
@@ -775,6 +805,7 @@ int main(void) {
     TestState state = {0};
     expect_package_selection(&state);
     expect_package_serial_extensions(&state);
+    expect_serial_dma_sources(&state);
     expect_can_irq_level(&state);
     expect_sdhc_integration(&state);
     expect_fmc_cache(&state);
