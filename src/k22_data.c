@@ -269,6 +269,19 @@ static bool dma_source_always_enabled(const K22Data* data, uint8_t source) {
     return source >= (large ? 54u : 60u);
 }
 
+static uint64_t dma_source_mask(const K22Data* data) {
+    if (data->profile->id == K22_PROFILE_MK22FN1M012 ||
+        data->profile->id == K22_PROFILE_MK22FX51212)
+        return UINT64_C(0xfffffffffffffffc);
+    if (data->profile->id == K22_PROFILE_MK22FN51212)
+        return UINT64_C(0xfc3f6ffffffdf0fc);
+    return UINT64_C(0xfc3f2f00fffdf0fc);
+}
+
+static bool dma_source_valid(const K22Data* data, uint8_t source) {
+    return source < 64u && (dma_source_mask(data) & (UINT64_C(1) << source)) != 0u;
+}
+
 static void dma_queue_hardware_channel(K22Data* data, uint8_t channel, uint8_t source) {
     dma_queue_channel(data, channel);
     data->dma_hardware_requests |= (uint16_t)(1u << channel);
@@ -1887,7 +1900,7 @@ bool k22_data_write(K22Data* data, uint32_t address, uint8_t size, uint32_t valu
 }
 
 bool k22_data_dma_request(K22Data* data, uint8_t source) {
-    if (data == NULL)
+    if (data == NULL || !dma_source_valid(data, source))
         return false;
     bool accepted = false;
     const uint16_t enabled = (uint16_t)load_bytes(data->dma, 0x0c, 2);

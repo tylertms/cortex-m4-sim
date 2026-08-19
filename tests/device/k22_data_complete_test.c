@@ -192,15 +192,15 @@ static void test_dma(TestState* state) {
         bus.ram[index] = (uint8_t)(0x80u + index);
     write_tcd(state, data, TCD0, RAM_BASE, 2, 0x0101u, 4, -8, RAM_BASE + 0x100, 2, 2, -8,
               0x0eu);
-    write_value(state, data, DMAMUX, 1, 0x80u | 17u);
+    write_value(state, data, DMAMUX, 1, 0x80u | 16u);
     write_value(state, data, DMA + 0x1b, 1, 0);
-    k22_data_dma_request(data, 17);
+    k22_data_dma_request(data, 16u);
     k22_data_advance(data, 1);
     TEST_EXPECT(state, load(bus.ram, 0x100, 4) == 0x83828180u);
     TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_DMA0]);
     write_value(state, data, DMA + 0x1f, 1, 0);
     TEST_EXPECT(state, !bus.interrupt[K22_DATA_INTERRUPT_DMA0]);
-    k22_data_dma_request(data, 17);
+    k22_data_dma_request(data, 16u);
     k22_data_advance(data, 1);
     TEST_EXPECT(state, load(bus.ram, 0x104, 4) == 0x87868584u);
     TEST_EXPECT(state, (read_value(state, data, TCD0 + 0x1c, 2) & 0x80u) != 0);
@@ -381,6 +381,30 @@ static void test_dmamux_triggers(TestState* state) {
     k22_data_destroy(data);
 }
 
+static void test_dmamux_source_matrix(TestState* state) {
+    static const uint64_t expected[K22_PROFILE_COUNT] = {
+        UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f2f00fffdf0fc),
+        UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f6ffffffdf0fc),
+        UINT64_C(0xfffffffffffffffc), UINT64_C(0xfffffffffffffffc),
+    };
+    TestBus bus = {0};
+    for (uint8_t profile = 0u; profile < K22_PROFILE_COUNT; profile++) {
+        K22Data* data = create(state, &bus, (K22ProfileId)profile);
+        for (uint8_t source = 0u; source < 64u; source++) {
+            k22_data_reset(data);
+            write_value(state, data, DMAMUX, 1u, 0x80u | source);
+            write_value(state, data, DMA + 0x1bu, 1u, 0u);
+            const bool valid = (expected[profile] & (UINT64_C(1) << source)) != 0u;
+            TEST_EXPECT(state, k22_data_dma_request(data, source) == valid);
+            const bool requested = (read_value(state, data, DMA + 0x34u, 2u) & 1u) != 0u;
+            TEST_EXPECT(state, requested == valid);
+        }
+        TEST_EXPECT(state, !k22_data_dma_request(data, 64u));
+        TEST_EXPECT(state, !k22_data_dma_request(data, UINT8_MAX));
+        k22_data_destroy(data);
+    }
+}
+
 static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd,
                                     uint32_t source, uint32_t destination) {
     write_tcd(state, data, tcd, source, 0, 0, 1, 0, destination, 0, 1, 0, 0);
@@ -440,9 +464,9 @@ static void test_dma_arbitration_and_control(TestState* state) {
 
     k22_data_reset(data);
     prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
-    write_value(state, data, DMAMUX, 1u, 0x80u | 17u);
+    write_value(state, data, DMAMUX, 1u, 0x80u | 16u);
     write_value(state, data, DMA + 0x1bu, 1u, 0u);
-    k22_data_dma_request(data, 17u);
+    k22_data_dma_request(data, 16u);
     TEST_EXPECT(state, (read_value(state, data, DMA + 0x34u, 2u) & 1u) != 0u);
     k22_data_advance(data, 1u);
     TEST_EXPECT(state, (read_value(state, data, DMA + 0x34u, 2u) & 1u) == 0u);
@@ -1352,6 +1376,7 @@ int main(void) {
     test_dma(&state);
     test_dma_advanced(&state);
     test_dmamux_triggers(&state);
+    test_dmamux_source_matrix(&state);
     test_dma_arbitration_and_control(&state);
     test_adc(&state);
     test_adc_compare_dma_and_continuous(&state);

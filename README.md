@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change 182 critical behaviors in temporary source copies.
+The mutation checks change 209 critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -139,6 +139,8 @@ The checks cover these behaviors:
 - FlexNVM partition codes
 - Flash protection ranges
 - SYSMPU access control
+- eDMA arbitration, request status, debug behavior, and error handling
+- DMAMUX profile sources, periodic gates, and PIT triggers
 - LPTMR input filtering
 - CMT cycle, output, interrupt, DMA, and power behavior
 - PIT enable transitions

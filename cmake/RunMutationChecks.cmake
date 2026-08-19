@@ -229,6 +229,10 @@ run_mutation(
   "large ? 60u : 60u" cortex_m4_device_k22_data_complete_test
   device_k22_data_complete)
 run_mutation(
+  dmamux_profile_source_matrix src/k22_data.c "UINT64_C(0xfc3f6ffffffdf0fc)"
+  "UINT64_C(0xfc3feffffffdf0fc)" cortex_m4_device_k22_data_complete_test
+  device_k22_data_complete)
+run_mutation(
   pit_dmamux_trigger src/k22_timing.c "trigger_dma(timing, channel);"
   "trigger_dma(timing, 3u);" cortex_m4_device_k22_timing_complete_test
   device_k22_timing_complete)
