@@ -3,38 +3,35 @@
 This repository provides a native C simulator for the Arm Cortex-M4F processor.
 It also provides a Kinetis K22 device model.
 
-The CPU implements the Armv7E-M and FPv4-SP-D16 features used by the target
-firmware. The device implements the K22 interfaces used by that firmware.
+The CPU model implements Armv7E-M and FPv4-SP-D16 behavior. The K22 model
+provides six device profiles and package-specific features.
 
-The exact K22 package and silicon revision are not known. The simulator does
-not claim behavior that depends on that missing identification.
+The exact target package and silicon revision are not known. Thus, the
+simulator does not claim behavior that depends on this identification.
 
 ## Supported behavior
 
-The CPU supports the required Thumb and Thumb-2 instructions. It also supports
-the required floating-point, exception, interrupt, fault, and sleep behavior.
+The CPU supports Thumb, Thumb-2, DSP, and floating-point instructions. It also
+supports exceptions, interrupts, faults, sleep states, the MPU, and debug units.
 
 The system model includes the NVIC, SCB, SysTick, bit-band access, reset,
 breakpoints, instruction tracing, and bounded execution.
 
-The K22 model includes these interfaces:
+The K22 model includes these main interfaces:
 
-- Flash and SRAM
-- SIM, MCG, SMC, and low-power timer registers used during startup
-- GPIO and PORT interrupts
-- PIT channels
-- ADC0
-- UART1
-- SPI0
-- I2C0
-- DMA and DMAMUX
-- Watchdog reset and refresh behavior
+- Program flash, SRAM, FlexNVM, FlexRAM, and FlexBus memory
+- FTFA, FTFE, FMC, eDMA, DMAMUX, AIPS, AXBS, and SYSMPU
+- SIM, MCG, OSC, SMC, PMC, LLWU, RCM, RTC, and RFVBAT
+- PIT, LPTMR, PDB, FTM, CMT, watchdog, and EWM timers
+- ADC, DAC, CMP, VREF, RNG, and CRC data units
+- UART, LPUART, SPI, I2C, SDHC, USB, CAN, and I2S interfaces
+- PORT, GPIO, interrupt, DMA-request, reset, and clock routing
 
-The simulator does not implement every optional Cortex-M4 or K22 feature. The
-current target does not use the MPU, USB, or the omitted instruction groups.
+The register model rejects unknown addresses and unsupported access widths. The
+profile and package models reject invalid device combinations.
 
-Hardware tests must verify electrical timing, analog tolerances, clock accuracy,
-and silicon-specific behavior.
+Hardware tests must check electrical timing, analog tolerances, clock accuracy,
+and silicon-specific behavior. The model does not replace these hardware tests.
 
 ## Build
 
@@ -72,7 +69,8 @@ The parent build does not build the standalone tests.
 
 ## Tests
 
-CTest runs isolated native C executables. No external test framework is needed.
+CTest runs 55 isolated native C executables. No external test framework is
+necessary.
 
 Run all tests:
 
@@ -112,11 +110,25 @@ cmake --build build/coverage --parallel
 ctest --test-dir build/coverage --output-on-failure
 ```
 
-Create the gcov reports:
+Create the gcov reports and apply the coverage limits:
 
 ```
-cmake --build build/coverage --target cortex_m4_coverage_report
+cmake --build build/coverage --target cortex_m4_coverage_check
 ```
 
 The target writes the reports to `build/coverage/coverage`.
-Coverage measures the native model, not the target hardware.
+The gate requires 99.80% line coverage and 99.00% branch-site coverage.
+Coverage measures the native model. It does not measure the target hardware.
+
+## Mutation checks
+
+The mutation checks change three critical behaviors in temporary source copies.
+The related tests must reject each change.
+
+Run the mutation checks:
+
+```
+cmake --build build/simulator --target cortex_m4_mutation_check
+```
+
+The checks cover IT conditions, flash reset state, and SYSMPU access control.
