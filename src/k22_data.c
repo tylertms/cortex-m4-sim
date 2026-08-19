@@ -455,14 +455,17 @@ static uint32_t adc_conversion_cycles(const K22Adc* adc) {
     return cycles;
 }
 
-static void adc_start(K22Adc* adc, uint8_t slot) {
+static void adc_schedule(K22Adc* adc, uint8_t slot, bool clear_complete) {
     if ((adc->registers[slot * 4u] & 0x1fu) == 31u)
         return;
-    adc->registers[slot * 4u] &= 0x7fu;
+    if (clear_complete)
+        adc->registers[slot * 4u] &= 0x7fu;
     adc->active_slot = slot;
     adc->remaining_cycles = adc_conversion_cycles(adc);
     adc->converting = true;
 }
+
+static void adc_start(K22Adc* adc, uint8_t slot) { adc_schedule(adc, slot, true); }
 
 static bool adc_compare(const K22Adc* adc, uint16_t result) {
     const uint8_t sc2 = adc->registers[0x20];
@@ -501,7 +504,7 @@ static void adc_complete(K22Data* data, uint8_t instance) {
             k22_data_dma_request(data, (uint8_t)(40u + instance));
     }
     if ((adc->registers[0x24] & 0x08u) != 0)
-        adc_start(adc, slot);
+        adc_schedule(adc, slot, false);
 }
 
 static bool adc_read(K22Data* data, uint8_t instance, uint32_t address, uint8_t size,
@@ -944,6 +947,10 @@ static bool flash_write(K22Data* data, uint32_t address, uint8_t size, uint32_t 
         data->flash[0] &= (uint8_t)~(value & 0x30u);
         if ((value & 0x80u) != 0 && (data->flash[0] & 0xb0u) == 0x80u)
             flash_execute(data);
+        return true;
+    }
+    if (offset == 1u && size == 1u) {
+        data->flash[1] = (uint8_t)((data->flash[1] & 0x2fu) | (value & 0xd0u));
         return true;
     }
     if (offset >= 0x10 && offset < 0x18) {

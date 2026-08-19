@@ -159,6 +159,13 @@ static void test_gpio_interrupt_dma_filter_and_bit_band(TestState* state) {
     TEST_EXPECT(state, (k22_io_pin_input(&io, 3) & 1u) != 0);
     k22_io_advance(&io, 1);
     TEST_EXPECT(state, (k22_io_pin_input(&io, 3) & 1u) == 0);
+    write_value(state, &io, 0x4004c000u, 4, (10u << 16) | 3u);
+    TEST_EXPECT(state, k22_io_release_pin(&io, 3, 0));
+    k22_io_advance(&io, 4);
+    TEST_EXPECT(state, (k22_io_pin_input(&io, 3) & 1u) != 0);
+    write_value(state, &io, 0x4004c0c0u, 4, 3u);
+    TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 1, true));
+    TEST_EXPECT(state, k22_io_release_pin(&io, 3, 1));
     k22_io_set_clock(&io, K22_PERIPHERAL_USB0, true);
     write_value(state, &io, bit_alias(USB0 + 0x84u, 3), 4, 1u);
     TEST_EXPECT(state, read_value(state, &io, USB0 + 0x84u, 1) == 8u);
@@ -335,6 +342,8 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     TEST_EXPECT(state, !k22_io_read(&io, PORTA, 4, NULL));
     TEST_EXPECT(state, !k22_io_write(NULL, PORTA, 4, 0));
     TEST_EXPECT(state, !k22_io_write(&io, PORTA, 3, 0));
+    TEST_EXPECT(state, !k22_io_write(&io, PORTA, 4, 0));
+    TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_ACCESS_ERROR, PORTA));
     k22_io_set_clock(&io, K22_PERIPHERAL_PORTD, true);
     write_value(state, &io, 0x4004c0c0u, 4, 3u);
     write_value(state, &io, 0x4004c0c4u, 1, 1u);
@@ -347,6 +356,7 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     write_value(state, &io, 0x4004c000u, 4, 3u << 16);
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, true));
     TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_DMA, 96u));
+    TEST_EXPECT(state, !k22_io_irq_asserted(&io, 62u));
     write_value(state, &io, 0x4004c000u, 4, 8u << 16);
     TEST_EXPECT(state, k22_io_drive_pin(&io, 3, 0, false));
     write_value(state, &io, 0x4004c000u, 4, 12u << 16);
@@ -397,6 +407,11 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     write_value(state, &io, I2S0 + 0x100u, 4, 0x1234u);
     TEST_EXPECT(state, read_value(state, &io, I2S0 + 0x100u, 4) == 0x1234u);
     write_value(state, &io, I2S0, 4, 0);
+    write_value(state, &io, I2S0 + 0x80u, 4, UINT32_C(0x80000001));
+    TEST_EXPECT(state, k22_io_i2s_receive(&io, 0xa5a55a5au));
+    TEST_EXPECT(state, has_event(&log, K22_IO_EVENT_DMA, 1u));
+    write_value(state, &io, I2S0 + 0x80u, 4, 0);
+    TEST_EXPECT(state, read_value(state, &io, I2S0 + 0xa0u, 4) == 0u);
     k22_io_set_clock(&io, K22_PERIPHERAL_SYSMPU, true);
     write_value(state, &io, SYSMPU, 4, (1u << 27) | 1u);
     write_value(state, &io, SYSMPU + 0x408u, 4, 1u << 31);
@@ -404,6 +419,15 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0, 7, false, K22_SYSMPU_EXECUTE));
     TEST_EXPECT(state, !k22_io_sysmpu_access(&io, 0, 8, false, K22_SYSMPU_READ));
     TEST_EXPECT(state, !k22_io_sysmpu_access(NULL, 0, 0, false, K22_SYSMPU_READ));
+
+    K22IoConfiguration quiet_configuration =
+        k22_io_default_configuration(k22_profile_get(K22_PROFILE_MK22FN1M012));
+    K22Io quiet;
+    TEST_EXPECT(state, k22_io_init(&quiet, quiet_configuration));
+    TEST_EXPECT(state, !k22_io_read(&quiet, PORTA, 4, &value));
+    k22_io_set_clock(&quiet, K22_PERIPHERAL_CAN0, true);
+    write_value(state, &quiet, CAN0, 4, 0x0fu);
+    write_value(state, &quiet, CAN0 + 0x90u, 4, (0xcu << 24) | (1u << 16));
 }
 
 int main(void) {

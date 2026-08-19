@@ -439,8 +439,6 @@ static bool read_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size,
         register_value = pin_level(io, port);
     else if (register_offset == 0x14u)
         register_value = io->gpio_pddr[port];
-    else if (register_offset != 4u && register_offset != 8u && register_offset != 0x0cu)
-        return false;
     *value = (register_value >> (byte_offset * 8u)) & width_mask(size);
     return true;
 }
