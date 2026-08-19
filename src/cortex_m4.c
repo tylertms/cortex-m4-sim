@@ -62,6 +62,7 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
     cpu->breakpoint_enabled = breakpoint_enabled;
     cpu->vtor = vector_table_address & 0xffffff80u;
     cpu->xpsr = CORTEX_M4_XPSR_T;
+    cpu->ccr = 1u << 9;
     cpu->stop = CORTEX_M4_STOP_RUNNING;
     uint32_t stack_pointer = 0;
     uint32_t reset_vector = 0;

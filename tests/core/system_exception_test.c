@@ -15,7 +15,7 @@ static KinetisK22* create_device(TestState* state) {
     vectors[1] = 0x00000101u;
     vectors[11] = 0x00000201u;
     vectors[15] = 0x00000221u;
-    const uint8_t thread[] = {0x00, 0xdf, 0x00, 0xbf, 0x00, 0xbe};
+    const uint8_t thread[] = {0x00, 0xdf, 0x00, 0xbf, 0x00, 0xbf, 0x00, 0xbe};
     const uint16_t svc_handler[] = {0x2155u, 0x4770u};
     const uint16_t systick_handler[] = {0x2266u, 0x4770u};
     TEST_EXPECT(state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
@@ -43,10 +43,21 @@ int main(void) {
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e018u, 4, 0));
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e010u, 4, 3));
     cortex_m4_step(cpu);
+    uint32_t current = 0;
+    uint32_t control = 0;
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0xe000e018u, 4, &current));
+    TEST_EXPECT(&state, current == 1);
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0xe000e010u, 4, &control));
+    TEST_EXPECT(&state, (control & (1u << 16)) == 0);
+    cortex_m4_step(cpu);
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0xe000e018u, 4, &current));
+    TEST_EXPECT(&state, current == 0);
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0xe000e010u, 4, &control));
+    TEST_EXPECT(&state, (control & (1u << 16)) != 0);
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 2) == 0x66u);
     cortex_m4_step(cpu);
-    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x104u);
+    TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x106u);
 
     kinetis_k22_destroy(device);
     return test_finish(&state);

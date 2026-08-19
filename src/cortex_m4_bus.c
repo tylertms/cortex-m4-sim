@@ -321,13 +321,15 @@ void cortex_m4_advance(CortexM4* cpu, uint32_t cycles) {
         if ((cpu->systick_control & 1u) != 0) {
             if (cpu->systick_current == 0) {
                 cpu->systick_current = cpu->systick_reload;
-                cpu->systick_control |= 1u << 16;
-                if ((cpu->systick_control & 2u) != 0) {
-                    cpu->system_pending |= 1u << 15;
-                    cpu->sleeping = false;
-                }
             } else {
                 cpu->systick_current--;
+                if (cpu->systick_current == 0) {
+                    cpu->systick_control |= 1u << 16;
+                    if ((cpu->systick_control & 2u) != 0) {
+                        cpu->system_pending |= 1u << 15;
+                        cpu->sleeping = false;
+                    }
+                }
             }
         }
     }

@@ -19,6 +19,9 @@ int main(void) {
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 14) == 0xffffffffu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x00000100u);
     TEST_EXPECT(&state, cortex_m4_get_xpsr(cpu) == 0x01000000u);
+    uint32_t ccr = 0;
+    TEST_EXPECT(&state, cortex_m4_read_memory(cpu, 0xe000ed14u, 4, &ccr));
+    TEST_EXPECT(&state, ccr == 0x00000200u);
     TEST_EXPECT(&state, cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_RUNNING);
     kinetis_k22_destroy(device);
     return test_finish(&state);
