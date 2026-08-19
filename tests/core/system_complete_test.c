@@ -7,7 +7,10 @@
 #define SRAM_START 0x20000000u
 #define SRAM_SIZE 0x00004000u
 #define NVIC_ISER 0xe000e100u
+#define NVIC_ICER 0xe000e180u
 #define NVIC_ISPR 0xe000e200u
+#define NVIC_ICPR 0xe000e280u
+#define NVIC_IABR 0xe000e300u
 #define NVIC_IPR 0xe000e400u
 #define NVIC_STIR 0xe000ef00u
 #define ITM_STIMULUS 0xe0000000u
@@ -17,14 +20,17 @@
 #define ITM_LOCK_ACCESS 0xe0000fb0u
 #define DEMCR 0xe000edfcu
 #define SCB_ICSR 0xe000ed04u
+#define SCB_VTOR 0xe000ed08u
 #define SCB_AIRCR 0xe000ed0cu
 #define SCB_SCR 0xe000ed10u
 #define SCB_CCR 0xe000ed14u
 #define SCB_SHCSR 0xe000ed24u
 #define SCB_CFSR 0xe000ed28u
 #define SCB_HFSR 0xe000ed2cu
+#define SCB_DFSR 0xe000ed30u
 #define SCB_MMFAR 0xe000ed34u
 #define SCB_BFAR 0xe000ed38u
+#define SCB_AFSR 0xe000ed3cu
 #define SCB_CPACR 0xe000ed88u
 #define FPU_FPCCR 0xe000ef34u
 #define FPU_FPCAR 0xe000ef38u
@@ -32,13 +38,16 @@
 
 typedef struct {
     uint8_t memory[SRAM_SIZE];
+    uint32_t rejected_read;
+    bool reject_read;
 } TestBus;
 
 static bool bus_read(void* context, uint32_t address, uint8_t size, CortexM4Access access,
                      uint32_t* value) {
     TestBus* const bus = context;
     (void)access;
-    if (address < SRAM_START || address + size > SRAM_START + SRAM_SIZE) {
+    if ((bus->reject_read && address == bus->rejected_read) || address < SRAM_START ||
+        address + size > SRAM_START + SRAM_SIZE) {
         return false;
     }
     *value = 0;
@@ -74,8 +83,9 @@ static CortexM4 create_cpu(TestBus* bus) {
 static uint32_t system_read(TestState* state, CortexM4* cpu, uint32_t address,
                             uint8_t size) {
     uint32_t value = 0;
-    TEST_EXPECT(state, cortex_m4_system_read(cpu, address, size, CORTEX_M4_ACCESS_DATA,
-                                             &value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    const CortexM4SystemAccess result =
+        cortex_m4_system_read(cpu, address, size, CORTEX_M4_ACCESS_DATA, &value);
+    TEST_EXPECT(state, result == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     return value;
 }
 
@@ -104,6 +114,10 @@ static void test_registers(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state, system_write(cpu, SCB_CFSR + 1u, 1, 0x55u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu->cfsr == 0xffffaaffu);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_CFSR + 1u, 1u) == 0xaau);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_CFSR + 2u, 2u) == 0xffffu);
+    TEST_EXPECT(state, system_write(cpu, SCB_CFSR + 2u, 2u, 0u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, system_write(cpu, SCB_HFSR, 4, 0x40000002u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu->hfsr == 0x80000000u);
@@ -113,6 +127,8 @@ static void test_registers(TestState* state, CortexM4* cpu) {
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu->mmfar == 0x12345678u);
     TEST_EXPECT(state, cpu->bfar == 0x89abcdefu);
+    cpu->dfsr = 0x1fu;
+    cpu->afsr = 0x13579bdfu;
     TEST_EXPECT(state, system_write(cpu, SCB_CPACR, 4, 0xffffffffu) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu->cpacr == 0x00f00000u);
@@ -125,6 +141,25 @@ static void test_registers(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state, system_write(cpu, FPU_FPDSCR, 4, 0xffffffffu) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cpu->fpdscr == 0x07c00000u);
+    TEST_EXPECT(state, system_read(state, cpu, 0xe000e014u, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, 0xe000e01cu, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, NVIC_ICER, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, NVIC_ICPR, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, NVIC_IABR, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_VTOR, 4u) == 0u);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_CFSR, 4u) == cpu->cfsr);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_HFSR, 4u) == cpu->hfsr);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_DFSR, 4u) == cpu->dfsr);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_MMFAR, 4u) == cpu->mmfar);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_BFAR, 4u) == cpu->bfar);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_AFSR, 4u) == cpu->afsr);
+    TEST_EXPECT(state, system_read(state, cpu, SCB_CPACR, 4u) == cpu->cpacr);
+    TEST_EXPECT(state, system_read(state, cpu, FPU_FPCCR, 4u) == cpu->fpccr);
+    TEST_EXPECT(state, system_read(state, cpu, FPU_FPCAR, 4u) == cpu->fpcar);
+    TEST_EXPECT(state, system_read(state, cpu, FPU_FPDSCR, 4u) == cpu->fpdscr);
+    TEST_EXPECT(state, system_read(state, cpu, 0xe000ef40u, 4u) == 0x10110021u);
+    TEST_EXPECT(state, system_read(state, cpu, 0xe000ef44u, 4u) == 0x11000011u);
+    TEST_EXPECT(state, system_read(state, cpu, 0xe000ef48u, 4u) == 0u);
     uint32_t value = 0x55u;
     TEST_EXPECT(state, cortex_m4_system_read(cpu, 0xe000ed8cu, 4, CORTEX_M4_ACCESS_DATA,
                                              &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
@@ -141,9 +176,24 @@ static void test_registers(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state, (system_read(state, cpu, SCB_ICSR, 4) &
                         ((1u << 31) | (1u << 28) | (1u << 26))) ==
                            ((1u << 31) | (1u << 28) | (1u << 26)));
+    TEST_EXPECT(state, system_write(cpu, NVIC_ICER, 4u, UINT32_MAX) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, system_write(cpu, SCB_ICSR, 4u, 1u << 27u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, system_write(cpu, SCB_VTOR, 4u, 0x12345678u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, cpu->vtor == 0x12345600u);
+    TEST_EXPECT(state,
+                system_write(cpu, SCB_DFSR, 4u, 0x1fu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, system_write(cpu, SCB_AFSR, 4u, 0x2468ace0u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, cpu->afsr == 0x2468ace0u);
 }
 
 static void test_priorities(TestState* state, CortexM4* cpu) {
+    const CortexM4Priority null_priority = cortex_m4_system_priority(NULL, 0xffu);
+    TEST_EXPECT(state, null_priority.preemption == 0u);
+    TEST_EXPECT(state, null_priority.subpriority == 0u);
     TEST_EXPECT(state, system_write(cpu, SCB_AIRCR, 4, 0x05fa0500u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     CortexM4Priority priority = cortex_m4_system_priority(cpu, 0xb0u);
@@ -152,6 +202,10 @@ static void test_priorities(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state,
                 system_write(cpu, NVIC_IPR, 1, 0xb0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, system_write(cpu, NVIC_IPR + 1u, 1, 0x90u) ==
+                           CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    TEST_EXPECT(state, system_read(state, cpu, NVIC_IPR + 1u, 1u) == 0x90u);
+    TEST_EXPECT(state, system_read(state, cpu, NVIC_IPR, 2u) == 0x90b0u);
+    TEST_EXPECT(state, system_write(cpu, NVIC_IPR + 2u, 2u, 0x7050u) ==
                            CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, cortex_m4_system_exception_before(cpu, 17, 16));
     TEST_EXPECT(state, !cortex_m4_system_exception_can_preempt(cpu, 17, 16));
@@ -168,6 +222,10 @@ static void test_priorities(TestState* state, CortexM4* cpu) {
     cpu->basepri = 0x80u;
     TEST_EXPECT(state, cortex_m4_system_exception_masked(cpu, 16));
     TEST_EXPECT(state, !cortex_m4_system_exception_masked(cpu, 17));
+    cpu->basepri = 0u;
+    cpu->irq_priority[0] = 0u;
+    cpu->irq_priority[1] = 0u;
+    TEST_EXPECT(state, cortex_m4_system_exception_before(cpu, 16u, 17u));
 }
 
 static void test_waiting(TestState* state, CortexM4* cpu) {
@@ -188,6 +246,16 @@ static void test_waiting(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state,
                 system_write(cpu, NVIC_ISPR, 4, 4) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
     TEST_EXPECT(state, (cpu->irq_pending[0] & 6u) == 6u);
+
+    cpu->system_pending = (1u << 3u) | (1u << 15u);
+    cpu->system_priority[11] = 0x80u;
+    TEST_EXPECT(state, ((system_read(state, cpu, SCB_ICSR, 4u) >> 12u) & 0x1ffu) == 3u);
+    cpu->system_pending = 1u << 15u;
+    TEST_EXPECT(state, ((system_read(state, cpu, SCB_ICSR, 4u) >> 12u) & 0x1ffu) == 15u);
+    cpu->system_pending = 1u << 4u;
+    cortex_m4_exception_advanced_commit_entry(cpu, 4u);
+    TEST_EXPECT(state, (system_read(state, cpu, SCB_SHCSR, 4u) & 1u) != 0u);
+    cortex_m4_exception_advanced_commit_return(cpu, 4u, false);
 }
 
 static void test_basic_frame(TestState* state, CortexM4* cpu) {
@@ -271,6 +339,25 @@ static void test_extended_frame(TestState* state, CortexM4* cpu) {
     TEST_EXPECT(state, cpu->fpscr == 0x01000000u);
     TEST_EXPECT(state, (cpu->control & CORTEX_M4_CONTROL_FPCA) != 0);
     TEST_EXPECT(state, (cpu->control & CORTEX_M4_CONTROL_SPSEL) != 0);
+}
+
+static void test_extended_unstack_failure(TestState* state, CortexM4* cpu, TestBus* bus) {
+    cortex_m4_system_reset(cpu);
+    cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
+    cpu->exception_depth = 1u;
+    cpu->active_exceptions[0] = 16u;
+    cpu->exception_frame_depth = 1u;
+    cpu->exception_frames[0].address = SRAM_START + 0x100u;
+    cpu->exception_frames[0].return_value = 0xffffffe9u;
+    const uint32_t core_frame[8] = {0u, 0u, 0u, 0u, 0u, 0u, 0x101u, CORTEX_M4_XPSR_T};
+    memcpy(bus->memory + 0x148u, core_frame, sizeof(core_frame));
+    bus->reject_read = true;
+    bus->rejected_read = SRAM_START + 0x100u;
+    uint32_t stack_pointer = SRAM_START + 0x100u;
+    TEST_EXPECT(state, !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer,
+                                                                 0xffffffe9u, 16u));
+    TEST_EXPECT(state, cpu->exception_unstack_memory_fault);
+    bus->reject_read = false;
 }
 
 static void test_invalid_return(TestState* state, CortexM4* cpu) {
@@ -388,6 +475,14 @@ static void test_public_ppb_access(TestState* state) {
     TEST_EXPECT(state, !cortex_m4_bus_write(&cpu, NVIC_STIR + 1u, 4u,
                                             CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 3u));
     TEST_EXPECT(state, !cortex_m4_get_irq_pending(&cpu, 3u));
+    uint32_t value = 0u;
+    cpu.control = 0u;
+    TEST_EXPECT(state, cortex_m4_system_read(&cpu, 0xe000edf0u, 4u, CORTEX_M4_ACCESS_DATA,
+                                             &value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED);
+    cpu.control = CORTEX_M4_CONTROL_NPRIV;
+    cpu.debug.itm_trace_privilege = 0u;
+    TEST_EXPECT(state, cortex_m4_system_read(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA,
+                                             &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED);
 }
 
 int main(void) {
@@ -399,6 +494,7 @@ int main(void) {
     test_waiting(&state, &cpu);
     test_basic_frame(&state, &cpu);
     test_extended_frame(&state, &cpu);
+    test_extended_unstack_failure(&state, &cpu, &bus);
     test_invalid_return(&state, &cpu);
     test_copy_implementation(&state);
     test_configure_implementation(&state);
