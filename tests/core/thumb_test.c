@@ -17,6 +17,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
+    TEST_CONNECT_DEBUGGER(&state, kinetis_k22_cpu(device));
     CortexM4Result result =
         cortex_m4_run(kinetis_k22_cpu(device), (CortexM4RunLimits){20, 100});
     TEST_EXPECT(&state, result.stop == CORTEX_M4_STOP_BREAKPOINT);

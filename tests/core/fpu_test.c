@@ -25,6 +25,7 @@ static void load_instruction(TestState* state, KinetisK22* device, uint16_t firs
                                0xbe};
     TEST_EXPECT(state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
     TEST_EXPECT(state, kinetis_k22_reset(device));
+    TEST_CONNECT_DEBUGGER(state, kinetis_k22_cpu(device));
     TEST_EXPECT(state, cortex_m4_write_memory(kinetis_k22_cpu(device), 0xe000ed88u, 4,
                                               0x00f00000u));
 }

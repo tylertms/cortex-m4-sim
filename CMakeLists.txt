@@ -24,10 +24,27 @@ endif()
 set(cortex_m4_simulator_sources
     src/cortex_m4.c
     src/cortex_m4_bus.c
+    src/cortex_m4_constraints.c
+    src/cortex_m4_debug.c
+    src/cortex_m4_dsp.c
     src/cortex_m4_exception.c
+    src/cortex_m4_exception_advanced.c
     src/cortex_m4_fpu.c
+    src/cortex_m4_it.c
+    src/cortex_m4_mpu.c
+    src/cortex_m4_remaining.c
+    src/cortex_m4_system.c
     src/cortex_m4_thumb.c
+    src/cortex_m4_thumb32_extra.c
+    src/cortex_m4_timing.c
     src/kinetis_k22.c
+    src/k22_data.c
+    src/k22_io.c
+    src/k22_package.c
+    src/k22_profile.c
+    src/k22_register_manifest.c
+    src/k22_serial.c
+    src/k22_timing.c
     src/kinetis_k22_peripherals.c)
 
 add_library(cortex_m4_simulator STATIC ${cortex_m4_simulator_sources})
@@ -90,17 +107,58 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(core_thumb32 tests/core/thumb32_test.c "core;integration")
   cortex_m4_add_test(core_thumb32_extended tests/core/thumb32_extended_test.c
                      "core;integration")
+  cortex_m4_add_test(core_thumb32_memory_complete
+                     tests/core/thumb32_memory_complete_test.c "core;integration")
   cortex_m4_add_test(core_power tests/core/power_test.c "core;integration")
+  cortex_m4_add_test(core_processor_state tests/core/processor_state_test.c
+                     "core;integration")
+  cortex_m4_add_test(core_constraints_complete
+                     tests/core/constraints_complete_test.c "core;unit;integration")
+  cortex_m4_add_test(core_debug_complete tests/core/debug_complete_test.c
+                     "core;unit;integration")
+  cortex_m4_add_test(core_dsp tests/core/dsp_test.c "core;unit")
   cortex_m4_add_test(core_fpu tests/core/fpu_test.c "core;integration")
+  cortex_m4_add_test(core_fpu_complete tests/core/fpu_complete_test.c
+                     "core;unit;integration")
+  cortex_m4_add_test(core_mpu_complete tests/core/mpu_complete_test.c
+                     "core;unit;integration")
+  cortex_m4_add_test(core_instruction_census
+                     tests/core/instruction_census_test.c "core;unit;integration")
+  cortex_m4_add_test(core_it_complete tests/core/it_complete_test.c
+                     "core;unit;integration")
   cortex_m4_add_test(core_exception tests/core/exception_test.c
                      "core;integration")
+  cortex_m4_add_test(core_exception_advanced
+                     tests/core/exception_advanced_test.c
+                     "core;unit;integration")
   cortex_m4_add_test(core_fault tests/core/fault_test.c "core;integration")
   cortex_m4_add_test(core_system_exception tests/core/system_exception_test.c
                      "core;integration")
   cortex_m4_add_test(core_system_register tests/core/system_register_test.c
                      "core;integration")
+  cortex_m4_add_test(core_system_complete tests/core/system_complete_test.c
+                     "core;integration")
+  cortex_m4_add_test(core_timing_complete tests/core/timing_complete_test.c
+                     "core;unit;integration")
   cortex_m4_add_test(core_trace tests/core/trace_test.c "core;integration")
   cortex_m4_add_test(device_memory tests/device/memory_test.c "device;unit")
+  cortex_m4_add_test(device_k22_profile tests/device/k22_profile_test.c
+                     "device;unit")
+  cortex_m4_add_test(device_k22_register_manifest
+                     tests/device/k22_register_manifest_test.c "device;unit")
+  cortex_m4_add_test(device_k22_data_complete
+                     tests/device/k22_data_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_io_complete
+                     tests/device/k22_io_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_package tests/device/k22_package_test.c
+                     "device;unit")
+  cortex_m4_add_test(device_k22_serial_complete
+                     tests/device/k22_serial_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_timing_complete
+                     tests/device/k22_timing_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_integration_complete
+                     tests/device/k22_integration_complete_test.c
+                     "device;integration")
   cortex_m4_add_test(device_gpio tests/device/gpio_test.c "device;integration")
   cortex_m4_add_test(device_pit tests/device/pit_test.c "device;integration")
   cortex_m4_add_test(device_adc tests/device/adc_test.c "device;integration")

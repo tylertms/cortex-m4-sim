@@ -38,6 +38,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, it_program, sizeof(it_program)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e100u, 4, 1));
+    TEST_CONNECT_DEBUGGER(&state, cpu);
     cortex_m4_step(cpu);
     cortex_m4_step(cpu);
     cortex_m4_step(cpu);

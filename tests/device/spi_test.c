@@ -5,6 +5,7 @@
 #include "test.h"
 
 enum {
+    SIM_SCGC6 = 0x4004803cu,
     SPI0_SR = 0x4002c02cu,
     SPI0_RSER = 0x4002c030u,
     SPI0_PUSHR = 0x4002c034u,
@@ -27,6 +28,8 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
+    write32(&state, device, SIM_SCGC6,
+            read32(&state, device, SIM_SCGC6) | (1u << 12));
     write32(&state, device, SPI0_RSER, 1u << 17);
     TEST_EXPECT(&state, kinetis_k22_spi0_receive(device, 0x1234u));
     TEST_EXPECT(&state, (read32(&state, device, SPI0_SR) & (1u << 17)) != 0);

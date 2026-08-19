@@ -20,6 +20,7 @@ typedef enum {
 typedef enum {
     CORTEX_M4_ACCESS_INSTRUCTION,
     CORTEX_M4_ACCESS_DATA,
+    CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
     CORTEX_M4_ACCESS_DEBUG,
 } CortexM4Access;
 
@@ -31,6 +32,9 @@ typedef void (*CortexM4Advance)(void* context, uint32_t cycles);
 typedef void (*CortexM4Reset)(void* context);
 typedef void (*CortexM4Trace)(void* context, uint32_t address, uint32_t opcode,
                               bool executed);
+typedef uint32_t (*CortexM4WaitStates)(void* context, uint32_t address, uint8_t size,
+                                      CortexM4Access access, bool write,
+                                      bool sequential);
 
 typedef struct {
     void* context;
@@ -62,6 +66,10 @@ CortexM4Result cortex_m4_run(CortexM4* cpu, CortexM4RunLimits limits);
 void cortex_m4_request_stop(CortexM4* cpu);
 bool cortex_m4_set_breakpoint(CortexM4* cpu, uint8_t index, uint32_t address, bool enabled);
 void cortex_m4_set_trace(CortexM4* cpu, CortexM4Trace trace, void* context);
+void cortex_m4_set_wait_states(CortexM4* cpu, CortexM4WaitStates wait_states,
+                               void* context);
+bool cortex_m4_set_exclusive_granule(CortexM4* cpu, uint32_t bytes);
+void cortex_m4_notify_external_write(CortexM4* cpu, uint32_t address, uint32_t size);
 
 uint32_t cortex_m4_get_register(const CortexM4* cpu, uint8_t index);
 void cortex_m4_set_register(CortexM4* cpu, uint8_t index, uint32_t value);

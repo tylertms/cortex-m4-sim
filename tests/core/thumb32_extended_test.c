@@ -20,6 +20,7 @@ static void load_instruction(TestState* state, KinetisK22* device, uint16_t firs
     const uint16_t program[] = {first, second, 0xbe00u};
     TEST_EXPECT(state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
     TEST_EXPECT(state, kinetis_k22_reset(device));
+    TEST_CONNECT_DEBUGGER(state, kinetis_k22_cpu(device));
 }
 
 static void execute(TestState* state, KinetisK22* device) {
@@ -70,6 +71,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, exclusive_program,
                                          sizeof(exclusive_program)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
+    TEST_CONNECT_DEBUGGER(&state, cpu);
     uint32_t memory = 0x11223344u;
     TEST_EXPECT(&state, kinetis_k22_write(device, address, &memory, sizeof(memory)));
     cortex_m4_set_register(cpu, 1, address);

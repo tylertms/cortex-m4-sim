@@ -9,6 +9,7 @@ enum {
     I2C0_S = 0x40066003u,
     I2C0_D = 0x40066004u,
     I2C0_IRQ = 24,
+    SIM_SCGC4 = 0x40048034u,
 };
 
 static uint8_t read8(TestState* state, KinetisK22* device, uint32_t address) {
@@ -19,6 +20,17 @@ static uint8_t read8(TestState* state, KinetisK22* device, uint32_t address) {
 
 static void write8(TestState* state, KinetisK22* device, uint32_t address, uint8_t value) {
     TEST_EXPECT(state, kinetis_k22_write(device, address, &value, sizeof(value)));
+}
+
+static void write32(TestState* state, KinetisK22* device, uint32_t address,
+                    uint32_t value) {
+    TEST_EXPECT(state, kinetis_k22_write(device, address, &value, sizeof(value)));
+}
+
+static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
+    uint32_t value = 0;
+    TEST_EXPECT(state, kinetis_k22_read(device, address, &value, sizeof(value)));
+    return value;
 }
 
 static void expect_transfer(TestState* state, KinetisK22* device,
@@ -33,6 +45,8 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
+    write32(&state, device, SIM_SCGC4,
+            read32(&state, device, SIM_SCGC4) | (1u << 6));
     write8(&state, device, I2C0_C1, 0xf0u);
     expect_transfer(&state, device, KINETIS_K22_I2C_START, 0);
     write8(&state, device, I2C0_D, 0xa4u);
@@ -41,6 +55,9 @@ int main(void) {
     TEST_EXPECT(&state, (read8(&state, device, I2C0_S) & 3u) == 2u);
     TEST_EXPECT(&state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), I2C0_IRQ));
     write8(&state, device, I2C0_S, 2u);
+    TEST_EXPECT(&state, (read8(&state, device, I2C0_S) & 2u) == 0);
+    TEST_EXPECT(&state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), I2C0_IRQ));
+    cortex_m4_set_irq(kinetis_k22_cpu(device), I2C0_IRQ, false);
     TEST_EXPECT(&state, !cortex_m4_get_irq_pending(kinetis_k22_cpu(device), I2C0_IRQ));
 
     write8(&state, device, I2C0_C1, 0xf4u);

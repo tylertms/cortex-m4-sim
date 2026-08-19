@@ -60,9 +60,9 @@ int main(void) {
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, NVIC_SOFTWARE_TRIGGER, 4, 33));
     TEST_EXPECT(&state, cortex_m4_get_irq_pending(cpu, 33));
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, SCB_SHPR, 4, 0x12345678u));
-    TEST_EXPECT(&state, read_value(&state, cpu, SCB_SHPR, 4) == 0x10305070u);
+    TEST_EXPECT(&state, read_value(&state, cpu, SCB_SHPR, 4) == 0x00305070u);
     TEST_EXPECT(&state, cortex_m4_write_memory(cpu, SCB_SHCSR, 4, 0xffffffffu));
-    TEST_EXPECT(&state, read_value(&state, cpu, SCB_SHCSR, 4) == 0x00070000u);
+    TEST_EXPECT(&state, read_value(&state, cpu, SCB_SHCSR, 4) == 0x0007f000u);
 
     TEST_EXPECT(&state,
                 (read_value(&state, cpu, SCB_AIRCR, 4) & 0xffff0000u) == 0xfa050000u);

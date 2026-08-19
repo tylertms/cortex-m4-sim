@@ -30,6 +30,7 @@ int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
     TEST_EXPECT(&state, device != NULL);
+    write32(&state, device, PORTA_PCR3, 1u << 8);
     write32(&state, device, GPIOA_PDDR, 1u << 3);
     write32(&state, device, GPIOA_PSOR, 1u << 3);
     TEST_EXPECT(&state, read32(&state, device, GPIOA_PDOR) == (1u << 3));

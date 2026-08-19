@@ -65,14 +65,14 @@ static void dirty_peripherals(TestState* state, KinetisK22* device) {
 }
 
 static void expect_reset_peripherals(TestState* state, KinetisK22* device) {
-    TEST_EXPECT(state, read32(state, device, SIM_REGISTER) == 0);
+    TEST_EXPECT(state, read32(state, device, SIM_REGISTER) == 0x80000000u);
     TEST_EXPECT(state, read32(state, device, PORTA_PCR0) == 0);
     TEST_EXPECT(state, read32(state, device, PIT0_LDVAL) == 0);
     TEST_EXPECT(state, read32(state, device, ADC0_CFG1) == 0);
     TEST_EXPECT(state, read32(state, device, DMA_TCD0_SADDR) == 0);
     TEST_EXPECT(state, read8(state, device, UART1_C2) == 0);
     TEST_EXPECT(state, read8(state, device, I2C0_C1) == 0);
-    TEST_EXPECT(state, read32(state, device, SPI0_MCR) == 1);
+    TEST_EXPECT(state, read32(state, device, SPI0_MCR) == 0x00004001u);
     TEST_EXPECT(state, (read32(state, device, GPIOA_PDIR) & 1u) != 0);
 }
 

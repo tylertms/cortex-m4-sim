@@ -2,6 +2,13 @@
 #define CORTEX_M4_KINETIS_K22_INTERNAL_H
 
 #include "cortex_m4_sim/kinetis_k22.h"
+#include "k22_data.h"
+#include "k22_io.h"
+#include "k22_package.h"
+#include "k22_profile.h"
+#include "k22_register_manifest.h"
+#include "k22_serial.h"
+#include "k22_timing.h"
 
 enum {
     K22_FLASH_BASE = 0x00000000u,
@@ -10,54 +17,45 @@ enum {
     K22_PERIPHERAL_SIZE = 0x00100000u,
     K22_BIT_BAND_BASE = 0x42000000u,
     K22_BIT_BAND_SIZE = 0x02000000u,
-    K22_FIFO_CAPACITY = 256,
+    K22_EVENT_CAPACITY = 64,
 };
-
-typedef struct {
-    uint16_t values[K22_FIFO_CAPACITY];
-    uint16_t read_index;
-    uint16_t write_index;
-    uint16_t count;
-} KinetisK22Fifo;
 
 struct KinetisK22 {
     KinetisK22Configuration configuration;
+    const K22Profile* profile;
+    const K22PackageSelection* package;
+    const K22RegisterManifest* manifest;
     CortexM4* cpu;
     uint8_t* flash;
     uint8_t* sram;
     uint8_t* peripheral;
     uint32_t sram_base;
     uint64_t cycles;
-    uint32_t gpio_external[5];
-    uint32_t gpio_driven[5];
-    uint16_t adc_channels[32];
-    uint32_t pit_current[4];
-    uint8_t pit_cycle_remainder;
-    uint16_t dma_enabled;
-    uint16_t dma_interrupts;
-    uint16_t dma_active;
-    uint16_t watchdog_unlock_stage;
-    uint16_t watchdog_refresh_stage;
-    uint32_t watchdog_ticks;
-    uint32_t watchdog_cycle_remainder;
-    KinetisK22Fifo uart1_receive;
-    KinetisK22Fifo uart1_transmit;
-    KinetisK22Fifo spi0_receive;
-    KinetisK22Fifo spi0_transmit;
-    KinetisK22Fifo i2c0_receive;
-    KinetisK22Fifo i2c0_transfer;
+    K22Data* data;
+    K22Io io;
+    K22Serial serial;
+    K22Timing timing;
+    KinetisK22Event events[K22_EVENT_CAPACITY];
+    uint8_t event_read_index;
+    uint8_t event_write_index;
+    uint8_t event_count;
 };
 
 bool kinetis_k22_memory_read(KinetisK22* device, uint32_t address, uint8_t size,
-                             uint32_t* value);
+                             CortexM4Access access, uint32_t* value);
 bool kinetis_k22_memory_write(KinetisK22* device, uint32_t address, uint8_t size,
                               CortexM4Access access, uint32_t value);
 bool kinetis_k22_peripheral_read(KinetisK22* device, uint32_t address, uint8_t size,
-                                 uint32_t* value);
+                                 CortexM4Access access, uint32_t* value);
 bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t size,
-                                  uint32_t value);
+                                  CortexM4Access access, uint32_t value);
 void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles);
 void kinetis_k22_peripheral_reset(KinetisK22* device);
 void kinetis_k22_warm_reset(KinetisK22* device, uint8_t cause_0, uint8_t cause_1);
+void kinetis_k22_refresh_signals(KinetisK22* device);
+void kinetis_k22_sync_clock_gates(KinetisK22* device);
+K22DataBus kinetis_k22_data_bus(KinetisK22* device);
+K22TimingSignals kinetis_k22_timing_signals(KinetisK22* device);
+K22IoConfiguration kinetis_k22_io_configuration(KinetisK22* device);
 
 #endif

@@ -56,6 +56,9 @@ int main(void) {
     TEST_EXPECT(&state, (control & (1u << 16)) != 0);
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 2) == 0x66u);
+    TEST_EXPECT(&state, cortex_m4_write_memory(cpu, 0xe000e010u, 4, 0));
+    TEST_EXPECT(&state,
+                cortex_m4_write_memory(cpu, 0xe000ed04u, 4, 1u << 25));
     cortex_m4_step(cpu);
     TEST_EXPECT(&state, cortex_m4_get_register(cpu, 15) == 0x106u);
 

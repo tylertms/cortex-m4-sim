@@ -35,6 +35,7 @@ int main(void) {
     TEST_EXPECT(&state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
     TEST_EXPECT(&state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
+    TEST_CONNECT_DEBUGGER(&state, kinetis_k22_cpu(device));
 
     TraceState trace = {0};
     cortex_m4_set_trace(kinetis_k22_cpu(device), capture_trace, &trace);

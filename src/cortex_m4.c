@@ -51,6 +51,9 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
     CortexM4Bus bus = cpu->bus;
     const CortexM4Trace trace = cpu->trace;
     void* const trace_context = cpu->trace_context;
+    const CortexM4WaitStates wait_states = cpu->wait_states;
+    void* const wait_state_context = cpu->wait_state_context;
+    const uint32_t exclusive_granule = cpu->exclusive_granule;
     uint32_t breakpoints[8];
     memcpy(breakpoints, cpu->breakpoints, sizeof(breakpoints));
     const uint8_t breakpoint_enabled = cpu->breakpoint_enabled;
@@ -60,15 +63,18 @@ bool cortex_m4_reset(CortexM4* cpu, uint32_t vector_table_address) {
     cpu->trace_context = trace_context;
     memcpy(cpu->breakpoints, breakpoints, sizeof(breakpoints));
     cpu->breakpoint_enabled = breakpoint_enabled;
+    cortex_m4_system_reset(cpu);
+    cpu->wait_states = wait_states;
+    cpu->wait_state_context = wait_state_context;
+    cpu->exclusive_granule = exclusive_granule;
     cpu->vtor = vector_table_address & 0xffffff80u;
     cpu->xpsr = CORTEX_M4_XPSR_T;
-    cpu->ccr = 1u << 9;
     cpu->stop = CORTEX_M4_STOP_RUNNING;
     uint32_t stack_pointer = 0;
     uint32_t reset_vector = 0;
-    if (!cortex_m4_bus_read(cpu, vector_table_address, 4, CORTEX_M4_ACCESS_INSTRUCTION,
+    if (!cortex_m4_bus_read(cpu, vector_table_address, 4, CORTEX_M4_ACCESS_DATA,
                             &stack_pointer) ||
-        !cortex_m4_bus_read(cpu, vector_table_address + 4, 4, CORTEX_M4_ACCESS_INSTRUCTION,
+        !cortex_m4_bus_read(cpu, vector_table_address + 4, 4, CORTEX_M4_ACCESS_DATA,
                             &reset_vector)) {
         cpu->stop = CORTEX_M4_STOP_BUS_FAULT;
         return false;
@@ -96,13 +102,24 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
         cpu->stop = CORTEX_M4_STOP_LIMIT;
         return cortex_m4_result(cpu);
     }
-    if (cortex_m4_take_pending_exception(cpu)) {
-        cortex_m4_advance(cpu, 12);
-    }
-    if (cpu->sleeping) {
-        cortex_m4_advance(cpu, 1);
+    if (!cortex_m4_debug_execution_allowed(cpu)) {
+        cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
         return cortex_m4_result(cpu);
     }
+    if (cpu->reset_requested) {
+        cpu->reset_requested = false;
+        if (cpu->bus.reset != NULL) {
+            cpu->bus.reset(cpu->bus.context);
+        }
+        return cortex_m4_result(cpu);
+    }
+    if (cortex_m4_take_pending_exception(cpu)) {
+    }
+    if (cpu->sleeping) {
+        cortex_m4_timing_sleep(cpu, 1);
+        return cortex_m4_result(cpu);
+    }
+    const uint32_t previous_xpsr = cpu->xpsr;
     const uint32_t address = cpu->registers[15];
     for (uint8_t index = 0; index < 8; index++) {
         if ((cpu->breakpoint_enabled & (1u << index)) != 0 &&
@@ -111,54 +128,80 @@ CortexM4Result cortex_m4_step(CortexM4* cpu) {
             return cortex_m4_result(cpu);
         }
     }
+    cortex_m4_timing_begin_instruction(cpu);
+    cortex_m4_debug_instruction_access(cpu, address);
+    uint32_t first_address = address;
+    cortex_m4_debug_remap_instruction(cpu, address, &first_address);
     uint32_t first_value = 0;
-    if (!cortex_m4_bus_read(cpu, address, 2, CORTEX_M4_ACCESS_INSTRUCTION, &first_value)) {
+    if (!cortex_m4_bus_read(cpu, first_address, 2, CORTEX_M4_ACCESS_INSTRUCTION,
+                            &first_value)) {
         cpu->cfsr |= 1u << 8;
         cortex_m4_raise_fault(cpu, 5);
+        cortex_m4_timing_abort(cpu);
         return cortex_m4_result(cpu);
     }
     const uint16_t first = (uint16_t)first_value;
     cpu->registers[15] = address + 2;
     const bool in_it_block = cpu->it_state != 0;
-    const bool execute =
-        !in_it_block || cortex_m4_condition_passed(cpu, cpu->it_state >> 4);
+    const bool execute = cortex_m4_it_condition_passed(cpu);
     bool supported = !execute;
-    if ((first & 0xf800u) >= 0xe800u) {
+    uint16_t second = 0;
+    const bool wide = (first & 0xf800u) >= 0xe800u;
+    if (wide) {
+        uint32_t second_address = address + 2u;
+        cortex_m4_debug_remap_instruction(cpu, second_address, &second_address);
         uint32_t second_value = 0;
-        if (!cortex_m4_bus_read(cpu, address + 2, 2, CORTEX_M4_ACCESS_INSTRUCTION,
+        if (!cortex_m4_bus_read(cpu, second_address, 2, CORTEX_M4_ACCESS_INSTRUCTION,
                                 &second_value)) {
             cpu->cfsr |= 1u << 8;
             cortex_m4_raise_fault(cpu, 5);
+            cortex_m4_timing_abort(cpu);
             return cortex_m4_result(cpu);
         }
-        const uint16_t second = (uint16_t)second_value;
+        second = (uint16_t)second_value;
         cpu->registers[15] = address + 4;
         cpu->current_opcode = ((uint32_t)first << 16) | second;
         if (cpu->trace != NULL) {
             cpu->trace(cpu->trace_context, address, cpu->current_opcode, execute);
         }
-        if (execute) {
+        cortex_m4_timing_prepare_instruction(cpu, first, second, true);
+        const CortexM4InstructionDisposition disposition =
+            cortex_m4_check_instruction_constraints(cpu, first, second, true);
+        if (disposition == CORTEX_M4_INSTRUCTION_BREAKPOINT) {
+            cortex_m4_debug_breakpoint(cpu);
+            supported = true;
+        } else if (execute && disposition == CORTEX_M4_INSTRUCTION_EXECUTE) {
             supported = cortex_m4_execute_thumb32(cpu, first, second);
+            cortex_m4_it_preserve_flags(cpu, first, second, true, in_it_block,
+                                        previous_xpsr);
         }
     } else {
         cpu->current_opcode = first;
         if (cpu->trace != NULL) {
             cpu->trace(cpu->trace_context, address, cpu->current_opcode, execute);
         }
-        if (execute) {
+        cortex_m4_timing_prepare_instruction(cpu, first, 0, false);
+        const CortexM4InstructionDisposition disposition =
+            cortex_m4_check_instruction_constraints(cpu, first, 0, false);
+        if (disposition == CORTEX_M4_INSTRUCTION_BREAKPOINT) {
+            cortex_m4_debug_breakpoint(cpu);
+            supported = true;
+        } else if (execute && disposition == CORTEX_M4_INSTRUCTION_EXECUTE) {
             supported = cortex_m4_execute_thumb16(cpu, first);
+            cortex_m4_it_preserve_flags(cpu, first, 0, false, in_it_block,
+                                        previous_xpsr);
         }
     }
     if (in_it_block) {
-        if ((cpu->it_state & 7u) == 0) {
-            cpu->it_state = 0;
-        } else {
-            cpu->it_state =
-                (uint8_t)((cpu->it_state & 0xe0u) | ((cpu->it_state << 1) & 0x1fu));
-        }
+        cortex_m4_it_advance(cpu);
     }
     cpu->instructions++;
-    cortex_m4_advance(cpu, 1);
+    cortex_m4_debug_instruction_retired(cpu);
+    cortex_m4_timing_complete_instruction(cpu, first, second, wide, execute,
+                                          address + (wide ? 4u : 2u));
+    if (!cortex_m4_debug_execution_allowed(cpu)) {
+        cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
+    }
     if (cpu->reset_requested) {
         cpu->reset_requested = false;
         if (cpu->bus.reset != NULL) {
@@ -269,12 +312,13 @@ void cortex_m4_set_register(CortexM4* cpu, uint8_t index, uint32_t value) {
 uint32_t cortex_m4_xpsr_value(const CortexM4* cpu) {
     const uint32_t it_state =
         ((uint32_t)(cpu->it_state & 3u) << 25) | ((uint32_t)(cpu->it_state & 0xfcu) << 8);
-    return cpu->xpsr | it_state;
+    return cortex_m4_exception_advanced_xpsr(cpu, cpu->xpsr | it_state);
 }
 
 void cortex_m4_load_xpsr(CortexM4* cpu, uint32_t value) {
     cpu->it_state = (uint8_t)(((value >> 25) & 3u) | ((value >> 8) & 0xfcu));
     cpu->xpsr = (value & ~0x0600fc00u) | CORTEX_M4_XPSR_T;
+    cortex_m4_exception_advanced_load_xpsr(cpu, value);
 }
 
 uint32_t cortex_m4_get_xpsr(const CortexM4* cpu) {
@@ -450,7 +494,10 @@ uint32_t cortex_m4_shift(uint32_t value, uint8_t type, uint32_t amount, bool car
         if (amount >= 32) {
             result = (value & 0x80000000u) != 0 ? 0xffffffffu : 0;
         } else {
-            result = (uint32_t)((int32_t)value >> amount);
+            result = value >> amount;
+            if ((value & 0x80000000u) != 0) {
+                result |= UINT32_MAX << (32u - amount);
+            }
         }
         break;
     default:

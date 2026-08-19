@@ -3,673 +3,812 @@
 #include <string.h>
 
 enum {
-    K22_SMC_PMCTRL = 0x4007e001u,
-    K22_SMC_PMSTAT = 0x4007e003u,
-    K22_MCG_C1 = 0x40064000u,
-    K22_MCG_C6 = 0x40064005u,
-    K22_MCG_S = 0x40064006u,
-    K22_LPTMR0_CSR = 0x40040000u,
-    K22_WDOG_BASE = 0x40052000u,
-    K22_WDOG_STCTRLH = K22_WDOG_BASE,
-    K22_WDOG_TOVALH = K22_WDOG_BASE + 4,
-    K22_WDOG_TOVALL = K22_WDOG_BASE + 6,
-    K22_WDOG_REFRESH = K22_WDOG_BASE + 0x0c,
-    K22_WDOG_UNLOCK = K22_WDOG_BASE + 0x0e,
-    K22_ADC0_SC1A = 0x4003b000u,
-    K22_ADC0_RA = 0x4003b010u,
-    K22_ADC0_SC3 = 0x4003b024u,
-    K22_I2C0_BASE = 0x40066000u,
-    K22_I2C0_C1 = K22_I2C0_BASE + 2,
-    K22_I2C0_S = K22_I2C0_BASE + 3,
-    K22_I2C0_D = K22_I2C0_BASE + 4,
-    K22_I2C0_FLT = K22_I2C0_BASE + 6,
-    K22_DMA_CERQ = 0x4000801au,
-    K22_DMA_SERQ = 0x4000801bu,
-    K22_DMA_CDNE = 0x4000801cu,
-    K22_DMA_CINT = 0x4000801fu,
-    K22_DMA_TCD_BASE = 0x40009000u,
-    K22_DMAMUX_BASE = 0x40021000u,
-    K22_PIT_BASE = 0x40037000u,
-    K22_PIT_CHANNEL_BASE = 0x40037100u,
-    K22_UART1_BASE = 0x4006b000u,
-    K22_UART1_C2 = K22_UART1_BASE + 3,
-    K22_UART1_S1 = K22_UART1_BASE + 4,
-    K22_UART1_S2 = K22_UART1_BASE + 5,
-    K22_UART1_C3 = K22_UART1_BASE + 6,
-    K22_UART1_D = K22_UART1_BASE + 7,
-    K22_UART1_C5 = K22_UART1_BASE + 11,
-    K22_SPI0_BASE = 0x4002c000u,
-    K22_SPI0_MCR = K22_SPI0_BASE,
-    K22_SPI0_SR = K22_SPI0_BASE + 0x2c,
-    K22_SPI0_RSER = K22_SPI0_BASE + 0x30,
-    K22_SPI0_PUSHR = K22_SPI0_BASE + 0x34,
-    K22_SPI0_POPR = K22_SPI0_BASE + 0x38,
-    K22_GPIO_BASE = 0x400ff000u,
-    K22_GPIO_STRIDE = 0x40u,
-    K22_PORT_BASE = 0x40049000u,
-    K22_PORT_STRIDE = 0x1000u,
-    K22_UART1_IRQ = 33,
-    K22_UART1_ERROR_IRQ = 34,
-    K22_ADC0_IRQ = 39,
-    K22_PIT0_IRQ = 48,
-    K22_PORTA_IRQ = 59,
-    K22_I2C0_IRQ = 24,
-    K22_WDOG_CLOCK_DIVIDER = 120000,
+    K22_SIM_SCGC1 = 0x40048028u,
+    K22_SIM_SCGC2 = 0x4004802cu,
 };
 
+static uint32_t width_mask(uint8_t size) {
+    return size == 1 ? 0xffu : size == 2 ? 0xffffu : UINT32_MAX;
+}
+
+static bool pop_serial_event(K22Serial* serial, K22SerialEndpoint endpoint,
+                             K22SerialEvent* event) {
+    for (uint8_t offset = 0; offset < serial->event_count; offset++) {
+        const uint8_t index =
+            (uint8_t)((serial->event_read_index + offset) % K22_SERIAL_EVENT_CAPACITY);
+        if (serial->events[index].endpoint != endpoint) {
+            continue;
+        }
+        *event = serial->events[index];
+        for (uint8_t current = offset; current + 1u < serial->event_count; current++) {
+            const uint8_t destination = (uint8_t)(
+                (serial->event_read_index + current) % K22_SERIAL_EVENT_CAPACITY);
+            const uint8_t source = (uint8_t)(
+                (serial->event_read_index + current + 1u) % K22_SERIAL_EVENT_CAPACITY);
+            serial->events[destination] = serial->events[source];
+        }
+        serial->event_write_index = (uint8_t)(
+            (serial->event_write_index + K22_SERIAL_EVENT_CAPACITY - 1u) %
+            K22_SERIAL_EVENT_CAPACITY);
+        serial->event_count--;
+        return true;
+    }
+    return false;
+}
+
 static uint32_t raw_load(const KinetisK22* device, uint32_t address, uint8_t size) {
-    const uint8_t* data = device->peripheral + address - K22_PERIPHERAL_BASE;
+    if (address < K22_PERIPHERAL_BASE ||
+        address - K22_PERIPHERAL_BASE > (uint32_t)K22_PERIPHERAL_SIZE - size) {
+        return 0;
+    }
+    const uint8_t* bytes = device->peripheral + address - K22_PERIPHERAL_BASE;
     uint32_t value = 0;
     for (uint8_t index = 0; index < size; index++) {
-        value |= (uint32_t)data[index] << (index * 8u);
+        value |= (uint32_t)bytes[index] << (index * 8u);
     }
     return value;
 }
 
-static void raw_store(KinetisK22* device, uint32_t address, uint8_t size, uint32_t value) {
-    uint8_t* data = device->peripheral + address - K22_PERIPHERAL_BASE;
+static void raw_store(KinetisK22* device, uint32_t address, uint8_t size,
+                      uint32_t value) {
+    if (address < K22_PERIPHERAL_BASE ||
+        address - K22_PERIPHERAL_BASE > (uint32_t)K22_PERIPHERAL_SIZE - size) {
+        return;
+    }
+    uint8_t* bytes = device->peripheral + address - K22_PERIPHERAL_BASE;
     for (uint8_t index = 0; index < size; index++) {
-        data[index] = (uint8_t)(value >> (index * 8u));
+        bytes[index] = (uint8_t)(value >> (index * 8u));
     }
 }
 
-static bool fifo_push(KinetisK22Fifo* fifo, uint16_t value) {
-    if (fifo->count == K22_FIFO_CAPACITY) {
+static bool serial_peripheral(K22PeripheralId id) {
+    return id == K22_PERIPHERAL_LPUART0 || id == K22_PERIPHERAL_SPI0 ||
+           id == K22_PERIPHERAL_SPI1 || id == K22_PERIPHERAL_I2C0 ||
+           id == K22_PERIPHERAL_I2C1 || id == K22_PERIPHERAL_I2C2 ||
+           id == K22_PERIPHERAL_UART0 || id == K22_PERIPHERAL_UART1 ||
+           id == K22_PERIPHERAL_UART2;
+}
+
+static K22PeripheralId serial_endpoint_peripheral(KinetisK22SerialEndpoint endpoint) {
+    if (endpoint == KINETIS_K22_SERIAL_LPUART0) {
+        return K22_PERIPHERAL_LPUART0;
+    }
+    if (endpoint <= KINETIS_K22_SERIAL_SPI1) {
+        return (K22PeripheralId)(K22_PERIPHERAL_SPI0 + endpoint - 1);
+    }
+    if (endpoint <= KINETIS_K22_SERIAL_I2C2) {
+        return (K22PeripheralId)(K22_PERIPHERAL_I2C0 + endpoint - 3);
+    }
+    if (endpoint < KINETIS_K22_SERIAL_ENDPOINT_COUNT) {
+        return (K22PeripheralId)(K22_PERIPHERAL_UART0 + endpoint - 6);
+    }
+    return K22_PERIPHERAL_COUNT;
+}
+
+static bool serial_endpoint_available(const KinetisK22* device,
+                                      KinetisK22SerialEndpoint endpoint) {
+    const K22PeripheralId peripheral = serial_endpoint_peripheral(endpoint);
+    return device != NULL && peripheral < K22_PERIPHERAL_COUNT &&
+           k22_package_has_peripheral(device->package, peripheral);
+}
+
+static bool data_peripheral(K22PeripheralId id) {
+    return id == K22_PERIPHERAL_FLASH_CONFIG || id == K22_PERIPHERAL_DMA ||
+           id == K22_PERIPHERAL_FTFA || id == K22_PERIPHERAL_FTFE ||
+           id == K22_PERIPHERAL_DMAMUX || id == K22_PERIPHERAL_ADC0 ||
+           id == K22_PERIPHERAL_ADC1 || id == K22_PERIPHERAL_DAC0 ||
+           id == K22_PERIPHERAL_DAC1 || id == K22_PERIPHERAL_RNG ||
+           id == K22_PERIPHERAL_CRC || id == K22_PERIPHERAL_CMP0 ||
+           id == K22_PERIPHERAL_CMP1 || id == K22_PERIPHERAL_CMP2 ||
+           id == K22_PERIPHERAL_VREF;
+}
+
+static bool timing_peripheral(K22PeripheralId id) {
+    return id == K22_PERIPHERAL_FTM0 || id == K22_PERIPHERAL_FTM1 ||
+           id == K22_PERIPHERAL_FTM2 || id == K22_PERIPHERAL_FTM3 ||
+           id == K22_PERIPHERAL_PDB0 || id == K22_PERIPHERAL_PIT ||
+           id == K22_PERIPHERAL_RTC || id == K22_PERIPHERAL_LPTMR0 ||
+           id == K22_PERIPHERAL_SIM || id == K22_PERIPHERAL_WDOG ||
+           id == K22_PERIPHERAL_EWM || id == K22_PERIPHERAL_MCG ||
+           id == K22_PERIPHERAL_OSC || id == K22_PERIPHERAL_LLWU ||
+           id == K22_PERIPHERAL_PMC || id == K22_PERIPHERAL_SMC ||
+           id == K22_PERIPHERAL_RCM;
+}
+
+static bool io_peripheral(K22PeripheralId id) {
+    return id == K22_PERIPHERAL_FB || id == K22_PERIPHERAL_SYSMPU ||
+           id == K22_PERIPHERAL_CAN0 || id == K22_PERIPHERAL_I2S0 ||
+           id == K22_PERIPHERAL_USB0 || id == K22_PERIPHERAL_PORTA ||
+           id == K22_PERIPHERAL_PORTB || id == K22_PERIPHERAL_PORTC ||
+           id == K22_PERIPHERAL_PORTD || id == K22_PERIPHERAL_PORTE ||
+           id == K22_PERIPHERAL_GPIOA || id == K22_PERIPHERAL_GPIOB ||
+           id == K22_PERIPHERAL_GPIOC || id == K22_PERIPHERAL_GPIOD ||
+           id == K22_PERIPHERAL_GPIOE || id == K22_PERIPHERAL_MCM;
+}
+
+static uint8_t data_irq(K22DataInterrupt interrupt) {
+    static const uint8_t irqs[K22_DATA_INTERRUPT_COUNT] = {
+        0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
+        13, 14, 15, 16, 18, 39, 73, 56, 72, 40, 41, 70, 23,
+    };
+    return irqs[interrupt];
+}
+
+static void data_interrupt(void* context, K22DataInterrupt interrupt, bool asserted) {
+    KinetisK22* device = context;
+    if (device->cpu != NULL && interrupt < K22_DATA_INTERRUPT_COUNT) {
+        cortex_m4_set_irq_level(device->cpu, data_irq(interrupt), asserted);
+    }
+}
+
+static bool data_bus_read(void* context, uint32_t address, uint8_t size,
+                          uint32_t* value) {
+    return kinetis_k22_memory_read(context, address, size, CORTEX_M4_ACCESS_DATA, value);
+}
+
+static bool data_bus_write(void* context, uint32_t address, uint8_t size,
+                           uint32_t value) {
+    return kinetis_k22_memory_write(context, address, size, CORTEX_M4_ACCESS_DATA,
+                                    value);
+}
+
+static void timing_irq(void* context, uint8_t irq, bool asserted) {
+    KinetisK22* device = context;
+    if (device->cpu != NULL) {
+        cortex_m4_set_irq_level(device->cpu, irq, asserted);
+    }
+}
+
+static void timing_dma(void* context, uint8_t source) {
+    KinetisK22* device = context;
+    k22_data_dma_request(device->data, source);
+}
+
+static void timing_reset(void* context, uint8_t cause_0, uint8_t cause_1) {
+    kinetis_k22_warm_reset(context, cause_0, cause_1);
+}
+
+static void queue_event(KinetisK22* device, const K22IoEvent* source) {
+    if (device->event_count == K22_EVENT_CAPACITY) {
+        device->event_read_index =
+            (uint8_t)((device->event_read_index + 1u) % K22_EVENT_CAPACITY);
+        device->event_count--;
+    }
+    KinetisK22Event* event = &device->events[device->event_write_index];
+    event->type = (KinetisK22EventType)source->type;
+    event->source = source->source;
+    event->value = source->value;
+    event->auxiliary = source->auxiliary;
+    memcpy(event->data, source->data, sizeof(event->data));
+    event->length = source->length;
+    event->extended = source->extended;
+    event->remote = source->remote;
+    device->event_write_index =
+        (uint8_t)((device->event_write_index + 1u) % K22_EVENT_CAPACITY);
+    device->event_count++;
+}
+
+static void io_event(void* context, const K22IoEvent* event) {
+    KinetisK22* device = context;
+    queue_event(device, event);
+    if (event->type == K22_IO_EVENT_IRQ && device->cpu != NULL) {
+        cortex_m4_set_irq_level(device->cpu, (uint8_t)event->source, true);
+    } else if (event->type == K22_IO_EVENT_DMA) {
+        uint8_t source = event->auxiliary == 0
+                             ? (event->source == 0 ? 13u : 12u)
+                             : (uint8_t)(49u + event->source / 32u);
+        k22_data_dma_request(device->data, source);
+    }
+}
+
+static bool gate(uint32_t value, uint8_t bit) {
+    return (value & (1u << bit)) != 0;
+}
+
+static bool peripheral_clock_enabled(const KinetisK22* device, K22PeripheralId id) {
+    const uint32_t scgc1 = raw_load(device, K22_SIM_SCGC1, 4);
+    const uint32_t scgc3 = device->timing.sim_scgc3;
+    const uint32_t scgc4 = device->timing.sim_scgc4;
+    const uint32_t scgc5 = device->timing.sim_scgc5;
+    const uint32_t scgc6 = device->timing.sim_scgc6;
+    const uint32_t scgc7 = device->timing.sim_scgc7;
+    if (id >= K22_PERIPHERAL_PORTA && id <= K22_PERIPHERAL_PORTE) {
+        return gate(scgc5, (uint8_t)(9u + id - K22_PERIPHERAL_PORTA));
+    }
+    if (id >= K22_PERIPHERAL_GPIOA && id <= K22_PERIPHERAL_GPIOE) {
+        return gate(scgc5, (uint8_t)(9u + id - K22_PERIPHERAL_GPIOA));
+    }
+    switch (id) {
+    case K22_PERIPHERAL_DMA:
+        return gate(scgc7, 1);
+    case K22_PERIPHERAL_FB:
+        return gate(scgc7, 0);
+    case K22_PERIPHERAL_SYSMPU:
+        return gate(scgc7, 2);
+    case K22_PERIPHERAL_FTFA:
+    case K22_PERIPHERAL_FTFE:
+        return gate(scgc6, 0);
+    case K22_PERIPHERAL_DMAMUX:
+        return gate(scgc6, 1);
+    case K22_PERIPHERAL_CAN0:
+        return gate(scgc6, 4);
+    case K22_PERIPHERAL_FTM0:
+    case K22_PERIPHERAL_FTM1:
+        return gate(scgc6, (uint8_t)(24u + id - K22_PERIPHERAL_FTM0));
+    case K22_PERIPHERAL_FTM2:
+        return device->profile->id >= K22_PROFILE_MK22FN1M012 ? gate(scgc3, 24)
+                                                               : gate(scgc6, 26);
+    case K22_PERIPHERAL_FTM3:
+        return device->profile->id >= K22_PROFILE_MK22FN1M012 ? gate(scgc3, 25)
+                                                               : gate(scgc6, 6);
+    case K22_PERIPHERAL_ADC0:
+        return gate(scgc6, 27);
+    case K22_PERIPHERAL_ADC1:
+        return device->profile->id >= K22_PROFILE_MK22FN1M012 ? gate(scgc3, 27)
+                                                               : gate(scgc6, 7);
+    case K22_PERIPHERAL_DAC0:
+        return gate(scgc6, 31);
+    case K22_PERIPHERAL_DAC1:
+        return device->profile->id >= K22_PROFILE_MK22FN1M012
+                   ? gate(raw_load(device, K22_SIM_SCGC2, 4), 13)
+                   : gate(scgc6, 8);
+    case K22_PERIPHERAL_RNG:
+        return gate(scgc6, 9);
+    case K22_PERIPHERAL_LPUART0:
+        return gate(scgc6, 10);
+    case K22_PERIPHERAL_SPI0:
+        return gate(scgc6, 12);
+    case K22_PERIPHERAL_SPI1:
+        return gate(scgc6, 13);
+    case K22_PERIPHERAL_I2S0:
+        return gate(scgc6, 15);
+    case K22_PERIPHERAL_CRC:
+        return gate(scgc6, 18);
+    case K22_PERIPHERAL_PDB0:
+        return gate(scgc6, 22);
+    case K22_PERIPHERAL_PIT:
+        return gate(scgc6, 23);
+    case K22_PERIPHERAL_RTC:
+        return gate(scgc6, 29);
+    case K22_PERIPHERAL_LPTMR0:
+        return gate(scgc5, 0);
+    case K22_PERIPHERAL_I2C0:
+        return gate(scgc4, 6);
+    case K22_PERIPHERAL_I2C1:
+        return gate(scgc4, 7);
+    case K22_PERIPHERAL_I2C2:
+        return gate(scgc1, 6);
+    case K22_PERIPHERAL_UART0:
+        return gate(scgc4, 10);
+    case K22_PERIPHERAL_UART1:
+        return gate(scgc4, 11);
+    case K22_PERIPHERAL_UART2:
+        return gate(scgc4, 12);
+    case K22_PERIPHERAL_USB0:
+        return gate(scgc4, 18);
+    case K22_PERIPHERAL_CMP0:
+    case K22_PERIPHERAL_CMP1:
+    case K22_PERIPHERAL_CMP2:
+        return gate(scgc4, 19);
+    case K22_PERIPHERAL_VREF:
+        return gate(scgc4, 20);
+    default:
+        return true;
+    }
+}
+
+void kinetis_k22_sync_clock_gates(KinetisK22* device) {
+    const uint32_t scgc1 = raw_load(device, K22_SIM_SCGC1, 4);
+    const uint32_t scgc4 = device->timing.sim_scgc4;
+    const uint32_t scgc5 = device->timing.sim_scgc5;
+    const uint32_t scgc6 = device->timing.sim_scgc6;
+    const uint32_t scgc7 = device->timing.sim_scgc7;
+    k22_serial_set_clocks(&device->serial, k22_timing_core_clock_hz(&device->timing),
+                          k22_timing_bus_clock_hz(&device->timing));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_LPUART0,
+                              gate(scgc6, 10));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_SPI0, gate(scgc6, 12));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_SPI1, gate(scgc6, 13));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C0, gate(scgc4, 6));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C1, gate(scgc4, 7));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C2, gate(scgc1, 6));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART0, gate(scgc4, 10));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART1, gate(scgc4, 11));
+    k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART2, gate(scgc4, 12));
+    for (uint8_t port = 0; port < 5; port++) {
+        k22_io_set_clock(&device->io, (K22PeripheralId)(K22_PERIPHERAL_PORTA + port),
+                         gate(scgc5, (uint8_t)(9u + port)));
+    }
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_USB0, gate(scgc4, 18));
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_I2S0, gate(scgc6, 15));
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_FB, gate(scgc7, 0));
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_CAN0, gate(scgc6, 4));
+    k22_io_set_clock(&device->io, K22_PERIPHERAL_SYSMPU, gate(scgc7, 2));
+}
+
+static void refresh_serial_signals(KinetisK22* device) {
+    static const uint8_t irqs[K22_SERIAL_IRQ_COUNT] = {
+        30, 26, 27, 24, 25, 74, 31, 32, 33, 34, 35, 36,
+    };
+    static const uint8_t dma_sources[K22_SERIAL_DMA_COUNT] = {
+        58, 59, 14, 15, 16, 16, 18, 19, 19, 2, 3, 4, 5, 6, 7,
+    };
+    if (device->cpu != NULL) {
+        for (uint8_t index = 0; index < K22_SERIAL_IRQ_COUNT; index++) {
+            cortex_m4_set_irq_level(
+                device->cpu, irqs[index],
+                k22_serial_irq(&device->serial, (K22SerialIrq)index));
+        }
+    }
+    for (uint8_t index = 0; index < K22_SERIAL_DMA_COUNT; index++) {
+        if (k22_serial_dma_request(&device->serial, (K22SerialDmaRequest)index)) {
+            k22_data_dma_request(device->data, dma_sources[index]);
+        }
+    }
+}
+
+void kinetis_k22_refresh_signals(KinetisK22* device) {
+    if (device != NULL) {
+        refresh_serial_signals(device);
+    }
+}
+
+static bool enable_debug_clock(KinetisK22* device, K22PeripheralId id) {
+    if (serial_peripheral(id)) {
+        return k22_serial_set_clock_gate(&device->serial, id, true);
+    }
+    if (io_peripheral(id)) {
+        k22_io_set_clock(&device->io, id, true);
+        return true;
+    }
+    return false;
+}
+
+static bool semantic_read(KinetisK22* device, K22PeripheralId id, uint32_t address,
+                          uint8_t size, uint32_t* value) {
+    if (timing_peripheral(id) &&
+        k22_timing_read(&device->timing, address, size, value)) {
+        return true;
+    }
+    if (data_peripheral(id) && k22_data_read(device->data, address, size, value)) {
+        return true;
+    }
+    if (serial_peripheral(id) &&
+        k22_serial_read(&device->serial, address, size, value)) {
+        return true;
+    }
+    return io_peripheral(id) && k22_io_read(&device->io, address, size, value);
+}
+
+static bool semantic_write(KinetisK22* device, K22PeripheralId id, uint32_t address,
+                           uint8_t size, uint32_t value) {
+    if (timing_peripheral(id) && k22_timing_write(&device->timing, address, size, value)) {
+        kinetis_k22_sync_clock_gates(device);
+        return true;
+    }
+    if (data_peripheral(id) && k22_data_write(device->data, address, size, value)) {
+        return true;
+    }
+    if (serial_peripheral(id) &&
+        k22_serial_write(&device->serial, address, size, value)) {
+        return true;
+    }
+    return io_peripheral(id) && k22_io_write(&device->io, address, size, value);
+}
+
+static bool manifest_read(KinetisK22* device, uint32_t address, uint8_t size,
+                          uint32_t* value) {
+    const K22RegisterDescriptor* descriptor =
+        k22_register_manifest_lookup(device->profile->id, address, (uint8_t)(size * 8u));
+    if (descriptor == NULL || (descriptor->access & K22_REGISTER_ACCESS_READ) == 0 ||
+        address < K22_PERIPHERAL_BASE) {
         return false;
     }
-    fifo->values[fifo->write_index] = value;
-    fifo->write_index = (uint16_t)((fifo->write_index + 1u) % K22_FIFO_CAPACITY);
-    fifo->count++;
+    *value = raw_load(device, address, size) & descriptor->read_mask &
+             descriptor->implemented_mask & width_mask(size);
     return true;
 }
 
-static bool fifo_pop(KinetisK22Fifo* fifo, uint16_t* value) {
-    if (fifo->count == 0) {
+static bool manifest_write(KinetisK22* device, uint32_t address, uint8_t size,
+                           uint32_t value) {
+    const K22RegisterDescriptor* descriptor =
+        k22_register_manifest_lookup(device->profile->id, address, (uint8_t)(size * 8u));
+    if (descriptor == NULL || address < K22_PERIPHERAL_BASE) {
         return false;
     }
-    *value = fifo->values[fifo->read_index];
-    fifo->read_index = (uint16_t)((fifo->read_index + 1u) % K22_FIFO_CAPACITY);
-    fifo->count--;
+    if ((descriptor->access & K22_REGISTER_ACCESS_WRITE) == 0) {
+        return true;
+    }
+    const uint32_t mask = descriptor->implemented_mask & width_mask(size);
+    const uint32_t writable = descriptor->write_mask & ~descriptor->w1c_mask & mask;
+    const uint32_t clear = descriptor->w1c_mask & value & mask;
+    uint32_t current = raw_load(device, address, size);
+    current = (current & ~writable) | (value & writable);
+    current &= ~clear;
+    raw_store(device, address, size, current & mask);
     return true;
-}
-
-static bool i2c_transfer_push(KinetisK22* device, KinetisK22I2cTransferType type,
-                              uint8_t value) {
-    return fifo_push(&device->i2c0_transfer, (uint16_t)((uint16_t)type << 8) | value);
-}
-
-static uint32_t gpio_input(const KinetisK22* device, uint8_t port) {
-    const uint32_t base = K22_GPIO_BASE + (uint32_t)port * K22_GPIO_STRIDE;
-    const uint32_t output = raw_load(device, base, 4);
-    const uint32_t direction = raw_load(device, base + 0x14, 4);
-    uint32_t input = output & direction;
-    input |= device->gpio_external[port] & device->gpio_driven[port] & ~direction;
-    for (uint8_t pin = 0; pin < 32; pin++) {
-        const uint32_t mask = 1u << pin;
-        if ((direction & mask) != 0 || (device->gpio_driven[port] & mask) != 0) {
-            continue;
-        }
-        const uint32_t control = raw_load(
-            device, K22_PORT_BASE + (uint32_t)port * K22_PORT_STRIDE + (uint32_t)pin * 4u,
-            4);
-        if ((control & 3u) == 3u) {
-            input |= mask;
-        }
-    }
-    return input;
-}
-
-static void update_uart_status(KinetisK22* device) {
-    uint8_t status = (uint8_t)raw_load(device, K22_UART1_S1, 1);
-    status |= 0xc0u;
-    if (device->uart1_receive.count != 0) {
-        status |= 0x20u;
-    } else {
-        status &= (uint8_t)~0x20u;
-    }
-    raw_store(device, K22_UART1_S1, 1, status);
-}
-
-static void update_spi_status(KinetisK22* device) {
-    uint32_t status = raw_load(device, K22_SPI0_SR, 4);
-    status &= ~(0x0fu << 4);
-    const uint32_t receive_count =
-        device->spi0_receive.count > 15 ? 15 : device->spi0_receive.count;
-    status |= receive_count << 4;
-    if (receive_count != 0) {
-        status |= 1u << 17;
-    } else {
-        status &= ~(1u << 17);
-    }
-    status |= (1u << 25) | (1u << 31);
-    raw_store(device, K22_SPI0_SR, 4, status);
-}
-
-static int16_t raw_i16(const KinetisK22* device, uint32_t address) {
-    return (int16_t)raw_load(device, address, 2);
-}
-
-static int32_t raw_i32(const KinetisK22* device, uint32_t address) {
-    return (int32_t)raw_load(device, address, 4);
-}
-
-static uint32_t watchdog_timeout(const KinetisK22* device) {
-    return (raw_load(device, K22_WDOG_TOVALH, 2) << 16) |
-           raw_load(device, K22_WDOG_TOVALL, 2);
-}
-
-void kinetis_k22_watchdog_advance(KinetisK22* device, uint32_t ticks) {
-    if (device == NULL || ticks == 0 || (raw_load(device, K22_WDOG_STCTRLH, 2) & 1u) == 0) {
-        return;
-    }
-    const uint32_t timeout = watchdog_timeout(device);
-    if (timeout == 0 || ticks >= timeout - device->watchdog_ticks) {
-        kinetis_k22_warm_reset(device, 0x20u, 0);
-        return;
-    }
-    device->watchdog_ticks += ticks;
-}
-
-static void dma_request(KinetisK22* device, uint8_t source) {
-    for (uint8_t channel = 0; channel < 16; channel++) {
-        const uint8_t mux = (uint8_t)raw_load(device, K22_DMAMUX_BASE + channel, 1);
-        if ((device->dma_enabled & (1u << channel)) == 0 ||
-            (device->dma_active & (1u << channel)) != 0 || (mux & 0xc0u) != 0x80u ||
-            (mux & 0x3fu) != source) {
-            continue;
-        }
-        const uint32_t descriptor = K22_DMA_TCD_BASE + (uint32_t)channel * 32u;
-        uint32_t source_address = raw_load(device, descriptor, 4);
-        uint32_t destination_address = raw_load(device, descriptor + 0x10, 4);
-        const int16_t source_offset = raw_i16(device, descriptor + 4);
-        const int16_t destination_offset = raw_i16(device, descriptor + 0x14);
-        const uint32_t minor_count = raw_load(device, descriptor + 8, 4);
-        uint16_t iteration = (uint16_t)raw_load(device, descriptor + 0x16, 2);
-        if (iteration == 0 || minor_count == 0) {
-            continue;
-        }
-        bool transferred = true;
-        device->dma_active |= (uint16_t)(1u << channel);
-        for (uint32_t index = 0; index < minor_count; index++) {
-            uint32_t value = 0;
-            if (!kinetis_k22_memory_read(device, source_address + index, 1, &value) ||
-                !kinetis_k22_memory_write(device, destination_address + index, 1,
-                                          CORTEX_M4_ACCESS_DATA, value)) {
-                transferred = false;
-                break;
-            }
-        }
-        device->dma_active &= (uint16_t)~(1u << channel);
-        if (!transferred) {
-            continue;
-        }
-        source_address = (uint32_t)((int64_t)source_address + source_offset);
-        destination_address = (uint32_t)((int64_t)destination_address + destination_offset);
-        iteration--;
-        raw_store(device, descriptor, 4, source_address);
-        raw_store(device, descriptor + 0x10, 4, destination_address);
-        raw_store(device, descriptor + 0x16, 2, iteration);
-        if (iteration != 0) {
-            continue;
-        }
-        raw_store(device, descriptor, 4,
-                  source_address + (uint32_t)raw_i32(device, descriptor + 0x0c));
-        raw_store(device, descriptor + 0x10, 4,
-                  destination_address + (uint32_t)raw_i32(device, descriptor + 0x18));
-        uint16_t control = (uint16_t)raw_load(device, descriptor + 0x1c, 2);
-        control |= 1u << 7;
-        raw_store(device, descriptor + 0x1c, 2, control);
-        if ((control & (1u << 3)) != 0) {
-            device->dma_enabled &= (uint16_t)~(1u << channel);
-        }
-        if ((control & (1u << 1)) != 0) {
-            device->dma_interrupts |= (uint16_t)(1u << channel);
-            cortex_m4_set_irq(device->cpu, channel, true);
-        }
-    }
 }
 
 bool kinetis_k22_peripheral_read(KinetisK22* device, uint32_t address, uint8_t size,
-                                 uint32_t* value) {
-    if (address >= K22_GPIO_BASE && address < K22_GPIO_BASE + 5u * K22_GPIO_STRIDE &&
-        ((address - K22_GPIO_BASE) % K22_GPIO_STRIDE) == 0x10u && size == 4) {
-        const uint8_t port = (uint8_t)((address - K22_GPIO_BASE) / K22_GPIO_STRIDE);
-        *value = gpio_input(device, port);
-        return true;
+                                 CortexM4Access access, uint32_t* value) {
+    K22PeripheralLocation location;
+    if (device == NULL || value == NULL ||
+        !k22_profile_resolve_peripheral(device->profile, address, size, &location) ||
+        !k22_package_has_peripheral(device->package, location.id)) {
+        return false;
     }
-    if (address >= K22_PIT_CHANNEL_BASE && address < K22_PIT_CHANNEL_BASE + 4u * 0x10u &&
-        ((address - K22_PIT_CHANNEL_BASE) & 15u) == 4u && size == 4) {
-        const uint8_t channel = (uint8_t)((address - K22_PIT_CHANNEL_BASE) / 0x10u);
-        *value = device->pit_current[channel];
-        return true;
+    if (access != CORTEX_M4_ACCESS_DEBUG &&
+        !peripheral_clock_enabled(device, location.id)) {
+        return false;
     }
-    if (address == K22_UART1_D && size == 1) {
-        uint16_t data = 0;
-        if (!fifo_pop(&device->uart1_receive, &data)) {
-            data = raw_load(device, address, 1);
-        }
-        update_uart_status(device);
-        *value = data;
-        return true;
+    const bool debug_clock = access == CORTEX_M4_ACCESS_DEBUG &&
+                             enable_debug_clock(device, location.id);
+    bool handled = semantic_read(device, location.id, address, size, value);
+    if (!handled) {
+        handled = manifest_read(device, address, size, value);
     }
-    if (address == K22_SPI0_POPR && size == 4) {
-        uint16_t data = 0;
-        if (!fifo_pop(&device->spi0_receive, &data)) {
-            data = (uint16_t)raw_load(device, address, 4);
-        }
-        update_spi_status(device);
-        *value = data;
-        return true;
+    if (debug_clock) {
+        kinetis_k22_sync_clock_gates(device);
     }
-    if (address == K22_I2C0_D && size == 1) {
-        uint16_t data = 0;
-        if (!fifo_pop(&device->i2c0_receive, &data)) {
-            data = (uint16_t)raw_load(device, address, 1);
-        }
-        const uint8_t control = (uint8_t)raw_load(device, K22_I2C0_C1, 1);
-        if ((control & 0x10u) == 0) {
-            i2c_transfer_push(device, KINETIS_K22_I2C_READ, 0);
-        }
-        *value = data;
-        return true;
-    }
-    *value = raw_load(device, address, size);
-    return true;
+    kinetis_k22_refresh_signals(device);
+    return handled;
 }
 
 bool kinetis_k22_peripheral_write(KinetisK22* device, uint32_t address, uint8_t size,
-                                  uint32_t value) {
-    if (address >= K22_GPIO_BASE && address < K22_GPIO_BASE + 5u * K22_GPIO_STRIDE &&
-        size == 4) {
-        const uint32_t offset = (address - K22_GPIO_BASE) % K22_GPIO_STRIDE;
-        const uint32_t base = address - offset;
-        const uint32_t output = raw_load(device, base, 4);
-        if (offset == 4) {
-            raw_store(device, base, 4, output | value);
-            return true;
+                                  CortexM4Access access, uint32_t value) {
+    K22PeripheralLocation location;
+    if (device == NULL ||
+        !k22_profile_resolve_peripheral(device->profile, address, size, &location) ||
+        !k22_package_has_peripheral(device->package, location.id)) {
+        return false;
+    }
+    if (access != CORTEX_M4_ACCESS_DEBUG &&
+        !peripheral_clock_enabled(device, location.id)) {
+        return false;
+    }
+    const bool debug_clock = access == CORTEX_M4_ACCESS_DEBUG &&
+                             enable_debug_clock(device, location.id);
+    bool handled = semantic_write(device, location.id, address, size, value);
+    if (!handled) {
+        handled = manifest_write(device, address, size, value);
+    }
+    if (handled && (address == K22_SIM_SCGC1 || address == K22_SIM_SCGC2)) {
+        kinetis_k22_sync_clock_gates(device);
+    }
+    if (access == CORTEX_M4_ACCESS_DEBUG) {
+        k22_data_advance(device->data, 256u);
+        if (serial_peripheral(location.id)) {
+            k22_serial_advance(&device->serial, UINT32_MAX);
         }
-        if (offset == 8) {
-            raw_store(device, base, 4, output & ~value);
-            return true;
-        }
-        if (offset == 12) {
-            raw_store(device, base, 4, output ^ value);
-            return true;
-        }
+        kinetis_k22_refresh_signals(device);
+        k22_data_advance(device->data, 1u);
     }
-    if (address >= K22_PORT_BASE && address < K22_PORT_BASE + 5u * K22_PORT_STRIDE &&
-        ((address - K22_PORT_BASE) % K22_PORT_STRIDE) < 0x80u && size == 4) {
-        const uint32_t previous = raw_load(device, address, 4);
-        raw_store(device, address, 4,
-                  (value & ~(1u << 24)) |
-                      (((previous & (1u << 24)) != 0 && (value & (1u << 24)) == 0)
-                           ? 1u << 24
-                           : 0));
-        return true;
+    if (debug_clock) {
+        kinetis_k22_sync_clock_gates(device);
     }
-    if (address == K22_WDOG_UNLOCK && size == 2) {
-        if (value == 0xc520u) {
-            device->watchdog_unlock_stage = 1;
-        } else if (value == 0xd928u && device->watchdog_unlock_stage == 1) {
-            device->watchdog_unlock_stage = 2;
-        } else {
-            device->watchdog_unlock_stage = 0;
-        }
-        return true;
-    }
-    if (address == K22_WDOG_REFRESH && size == 2) {
-        if (value == 0xa602u) {
-            device->watchdog_refresh_stage = 1;
-        } else if (value == 0xb480u && device->watchdog_refresh_stage == 1) {
-            device->watchdog_ticks = 0;
-            device->watchdog_refresh_stage = 0;
-        } else {
-            device->watchdog_refresh_stage = 0;
-        }
-        return true;
-    }
-    if (address >= K22_WDOG_BASE && address < K22_WDOG_BASE + 0x18u && size == 2) {
-        if (device->watchdog_unlock_stage == 2) {
-            raw_store(device, address, size, value);
-        }
-        return true;
-    }
-    if (address == K22_SMC_PMCTRL && size == 1) {
-        raw_store(device, address, size, value);
-        raw_store(device, K22_SMC_PMSTAT, 1, (value & 0x60u) == 0x60u ? 0x80u : 1u);
-        return true;
-    }
-    if ((address == K22_MCG_C1 || address == K22_MCG_C6) && size == 1) {
-        raw_store(device, address, size, value);
-        raw_store(device, K22_MCG_S, 1, raw_load(device, K22_MCG_S, 1) & (uint8_t)~0x1cu);
-        return true;
-    }
-    if (address == K22_LPTMR0_CSR && size == 4) {
-        raw_store(device, address, size, (value & 1u) != 0 ? value | 0x80u : value);
-        return true;
-    }
-    if (address == K22_ADC0_SC3 && size == 4 && (value & 0x80u) != 0) {
-        raw_store(device, address, size, value & ~0x80u);
-        raw_store(device, K22_ADC0_SC1A, 4, raw_load(device, K22_ADC0_SC1A, 4) | 0x80u);
-        return true;
-    }
-    if (address == K22_I2C0_C1 && size == 1) {
-        const uint8_t previous = (uint8_t)raw_load(device, address, 1);
-        uint8_t control = (uint8_t)value;
-        if ((control & 0x04u) != 0) {
-            i2c_transfer_push(device, KINETIS_K22_I2C_REPEATED_START, 0);
-            control &= (uint8_t)~0x04u;
-        }
-        if ((previous & 0x20u) == 0 && (control & 0x20u) != 0) {
-            i2c_transfer_push(device, KINETIS_K22_I2C_START, 0);
-            raw_store(device, K22_I2C0_S, 1, raw_load(device, K22_I2C0_S, 1) | 0x20u);
-        } else if ((previous & 0x20u) != 0 && (control & 0x20u) == 0) {
-            i2c_transfer_push(device, KINETIS_K22_I2C_STOP, 0);
-            raw_store(device, K22_I2C0_S, 1,
-                      raw_load(device, K22_I2C0_S, 1) & (uint8_t)~0x20u);
-        }
-        raw_store(device, address, 1, control);
-        return true;
-    }
-    if (address == K22_I2C0_S && size == 1) {
-        raw_store(device, address, 1, raw_load(device, address, 1) & ~(value & 0x12u));
-        if ((value & 0x02u) != 0) {
-            cortex_m4_set_irq(device->cpu, K22_I2C0_IRQ, false);
-        }
-        return true;
-    }
-    if (address == K22_I2C0_FLT && size == 1) {
-        raw_store(device, address, 1,
-                  (value & 0x2fu) |
-                      (raw_load(device, address, 1) & ~(value & 0x50u) & 0x50u));
-        return true;
-    }
-    if (address == K22_I2C0_D && size == 1) {
-        raw_store(device, address, 1, value);
-        i2c_transfer_push(device, KINETIS_K22_I2C_WRITE, (uint8_t)value);
-        return true;
-    }
-    if ((address == K22_ADC0_SC1A || address == K22_ADC0_SC1A + 4) && size == 4) {
-        const uint8_t channel = (uint8_t)(value & 31u);
-        raw_store(device, address, size, value & ~0x80u);
-        if (channel != 31) {
-            raw_store(device, K22_ADC0_RA + (address - K22_ADC0_SC1A), 4,
-                      device->adc_channels[channel]);
-            raw_store(device, address, 4, value | 0x80u);
-            if ((value & 0x40u) != 0) {
-                cortex_m4_set_irq(device->cpu, K22_ADC0_IRQ, true);
-            }
-        }
-        return true;
-    }
-    if (address == K22_DMA_CERQ && size == 1) {
-        const uint8_t channel = (uint8_t)value;
-        if ((channel & 0x40u) != 0) {
-            device->dma_enabled = 0;
-        } else if ((channel & 0x0fu) < 16) {
-            device->dma_enabled &= (uint16_t)~(1u << (channel & 15u));
-        }
-        return true;
-    }
-    if (address == K22_DMA_SERQ && size == 1) {
-        const uint8_t channel = (uint8_t)value;
-        if ((channel & 0x40u) != 0) {
-            device->dma_enabled = 0xffffu;
-        } else {
-            device->dma_enabled |= (uint16_t)(1u << (channel & 15u));
-        }
-        return true;
-    }
-    if (address == K22_DMA_CINT && size == 1) {
-        const uint8_t channel = (uint8_t)value & 15u;
-        device->dma_interrupts &= (uint16_t)~(1u << channel);
-        cortex_m4_set_irq(device->cpu, channel, false);
-        return true;
-    }
-    if (address == K22_DMA_CDNE && size == 1) {
-        const uint8_t channel = (uint8_t)value & 15u;
-        const uint32_t descriptor = K22_DMA_TCD_BASE + (uint32_t)channel * 32u;
-        raw_store(device, descriptor + 0x1c, 2,
-                  raw_load(device, descriptor + 0x1c, 2) & ~(1u << 7));
-        return true;
-    }
-    if (address >= K22_PIT_CHANNEL_BASE && address < K22_PIT_CHANNEL_BASE + 4u * 0x10u &&
-        size == 4) {
-        const uint8_t channel = (uint8_t)((address - K22_PIT_CHANNEL_BASE) / 0x10u);
-        const uint32_t offset = (address - K22_PIT_CHANNEL_BASE) & 15u;
-        if (offset == 0) {
-            raw_store(device, address, size, value);
-            device->pit_current[channel] = value;
-            return true;
-        }
-        if (offset == 12) {
-            raw_store(device, address, size, raw_load(device, address, 4) & ~(value & 1u));
-            if ((value & 1u) != 0) {
-                cortex_m4_set_irq(device->cpu, K22_PIT0_IRQ + channel, false);
-            }
-            return true;
-        }
-    }
-    if (address == K22_UART1_D && size == 1) {
-        fifo_push(&device->uart1_transmit, (uint8_t)value);
-        raw_store(device, address, size, value);
-        update_uart_status(device);
-        dma_request(device, 5);
-        return true;
-    }
-    if (address == K22_UART1_S1 && size == 1) {
-        raw_store(device, address, size, raw_load(device, address, 1) & ~(value & 0x1fu));
-        return true;
-    }
-    if (address == K22_SPI0_PUSHR && size == 4) {
-        fifo_push(&device->spi0_transmit, (uint16_t)value);
-        raw_store(device, address, size, value);
-        update_spi_status(device);
-        dma_request(device, 15);
-        return true;
-    }
-    if (address == K22_SPI0_SR && size == 4) {
-        raw_store(device, address, size, raw_load(device, address, 4) & ~value);
-        update_spi_status(device);
-        return true;
-    }
-    raw_store(device, address, size, value);
-    return true;
+    kinetis_k22_refresh_signals(device);
+    return handled;
 }
 
-void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
-    const uint64_t watchdog_cycles = (uint64_t)device->watchdog_cycle_remainder + cycles;
-    device->watchdog_cycle_remainder = (uint32_t)(watchdog_cycles % K22_WDOG_CLOCK_DIVIDER);
-    kinetis_k22_watchdog_advance(device,
-                                 (uint32_t)(watchdog_cycles / K22_WDOG_CLOCK_DIVIDER));
-    const uint32_t total = device->pit_cycle_remainder + cycles;
-    const uint32_t pit_ticks = total / 4u;
-    device->pit_cycle_remainder = (uint8_t)(total % 4u);
-    for (uint8_t channel = 0; channel < 4; channel++) {
-        const uint32_t base = K22_PIT_CHANNEL_BASE + (uint32_t)channel * 0x10u;
-        const uint32_t control = raw_load(device, base + 8, 4);
-        if ((control & 1u) == 0 || pit_ticks == 0) {
-            continue;
-        }
-        uint32_t remaining = pit_ticks;
-        while (remaining != 0) {
-            if (device->pit_current[channel] >= remaining) {
-                device->pit_current[channel] -= remaining;
-                remaining = 0;
-            } else {
-                remaining -= device->pit_current[channel] + 1u;
-                device->pit_current[channel] = raw_load(device, base, 4);
-                raw_store(device, base + 12, 4, 1);
-                if ((control & 2u) != 0) {
-                    cortex_m4_set_irq(device->cpu, K22_PIT0_IRQ + channel, true);
-                }
-            }
-        }
-    }
-    if ((raw_load(device, K22_UART1_C2, 1) & 0xa0u) != 0) {
-        update_uart_status(device);
-        const uint8_t status = (uint8_t)raw_load(device, K22_UART1_S1, 1);
-        if (((status & 0x20u) != 0 && (raw_load(device, K22_UART1_C2, 1) & 0x20u) != 0) ||
-            ((status & 0x80u) != 0 && (raw_load(device, K22_UART1_C2, 1) & 0x80u) != 0)) {
-            cortex_m4_set_irq(device->cpu, K22_UART1_IRQ, true);
+static void reset_manifest(KinetisK22* device) {
+    memset(device->peripheral, 0, K22_PERIPHERAL_SIZE);
+    for (size_t index = 0; index < device->manifest->register_count; index++) {
+        const K22RegisterDescriptor* descriptor = &device->manifest->registers[index];
+        const uint8_t size = (uint8_t)(descriptor->width / 8u);
+        if (descriptor->address >= K22_PERIPHERAL_BASE &&
+            descriptor->address - K22_PERIPHERAL_BASE <=
+                (uint32_t)K22_PERIPHERAL_SIZE - size) {
+            raw_store(device, descriptor->address, size,
+                      descriptor->reset_value & descriptor->reset_mask &
+                          descriptor->implemented_mask);
         }
     }
 }
 
 void kinetis_k22_peripheral_reset(KinetisK22* device) {
-    memset(device->pit_current, 0, sizeof(device->pit_current));
-    memset(&device->uart1_receive, 0, sizeof(device->uart1_receive));
-    memset(&device->uart1_transmit, 0, sizeof(device->uart1_transmit));
-    memset(&device->spi0_receive, 0, sizeof(device->spi0_receive));
-    memset(&device->spi0_transmit, 0, sizeof(device->spi0_transmit));
-    memset(&device->i2c0_receive, 0, sizeof(device->i2c0_receive));
-    memset(&device->i2c0_transfer, 0, sizeof(device->i2c0_transfer));
-    device->pit_cycle_remainder = 0;
-    device->dma_enabled = 0;
-    device->dma_interrupts = 0;
-    device->dma_active = 0;
-    device->watchdog_unlock_stage = 0;
-    device->watchdog_refresh_stage = 0;
-    device->watchdog_ticks = 0;
-    device->watchdog_cycle_remainder = 0;
-    raw_store(device, K22_WDOG_STCTRLH, 2, 0x01d3u);
-    raw_store(device, K22_WDOG_TOVALH, 2, 0x004cu);
-    raw_store(device, K22_WDOG_TOVALL, 2, 0x4b4cu);
-    raw_store(device, K22_SMC_PMSTAT, 1, 1);
-    raw_store(device, K22_UART1_S1, 1, 0xc0u);
-    raw_store(device, K22_SPI0_MCR, 4, 1u);
-    update_spi_status(device);
+    uint32_t external[5];
+    uint32_t driven[5];
+    memcpy(external, device->io.gpio_external, sizeof(external));
+    memcpy(driven, device->io.gpio_external_drive, sizeof(driven));
+    reset_manifest(device);
+    k22_data_reset(device->data);
+    k22_serial_reset(&device->serial);
+    k22_io_reset(&device->io);
+    memcpy(device->io.gpio_external, external, sizeof(external));
+    memcpy(device->io.gpio_external_drive, driven, sizeof(driven));
+    for (uint8_t port = 0; port < 5; port++) {
+        device->io.gpio_filtered[port] = k22_io_pin_input(&device->io, port);
+        device->io.gpio_pending[port] = device->io.gpio_filtered[port];
+    }
+    device->event_read_index = 0;
+    device->event_write_index = 0;
+    device->event_count = 0;
+}
+
+void kinetis_k22_peripheral_advance(KinetisK22* device, uint32_t cycles) {
+    k22_timing_advance(&device->timing, cycles);
+    k22_data_advance(device->data, cycles);
+    k22_serial_advance(&device->serial, cycles);
+    k22_io_advance(&device->io, cycles);
+    kinetis_k22_refresh_signals(device);
+}
+
+bool kinetis_k22_next_event(KinetisK22* device, KinetisK22Event* event) {
+    if (device == NULL || event == NULL || device->event_count == 0) {
+        return false;
+    }
+    *event = device->events[device->event_read_index];
+    device->event_read_index =
+        (uint8_t)((device->event_read_index + 1u) % K22_EVENT_CAPACITY);
+    device->event_count--;
+    return true;
+}
+
+bool kinetis_k22_set_adc_channel(KinetisK22* device, uint8_t instance,
+                                 uint8_t channel, uint16_t value) {
+    return device != NULL &&
+           k22_data_set_adc_input(device->data, instance, channel, value);
 }
 
 void kinetis_k22_set_adc0_channel(KinetisK22* device, uint8_t channel, uint16_t value) {
-    if (device != NULL && channel < 32) {
-        device->adc_channels[channel] = value;
-    }
+    (void)kinetis_k22_set_adc_channel(device, 0, channel, value);
 }
 
-static void update_port_interrupt(KinetisK22* device, uint8_t port, uint8_t pin,
-                                  bool previous, bool current) {
-    const uint32_t address =
-        K22_PORT_BASE + (uint32_t)port * K22_PORT_STRIDE + (uint32_t)pin * 4u;
-    const uint32_t control = raw_load(device, address, 4);
-    const uint8_t interrupt = (uint8_t)((control >> 16) & 15u);
-    const bool trigger =
-        (interrupt == 8 && !current) || (interrupt == 9 && !previous && current) ||
-        (interrupt == 10 && previous && !current) ||
-        (interrupt == 11 && previous != current) || (interrupt == 12 && current);
-    if (trigger) {
-        raw_store(device, address, 4, control | (1u << 24));
-        cortex_m4_set_irq(device->cpu, K22_PORTA_IRQ + port, true);
+bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t input,
+                               uint8_t value) {
+    return device != NULL && k22_data_set_cmp_input(device->data, instance, input, value);
+}
+
+bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
+                                uint16_t* value) {
+    return device != NULL && instance < 2u &&
+           k22_package_has_peripheral(
+               device->package, (K22PeripheralId)(K22_PERIPHERAL_DAC0 + instance)) &&
+           k22_data_get_dac_output(device->data, instance, value);
+}
+
+void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed) {
+    if (device != NULL) {
+        k22_data_rng_seed(device->data, seed);
     }
 }
 
 void kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high) {
-    if (device == NULL || port >= 5 || pin >= 32) {
-        return;
+    if (device != NULL) {
+        (void)k22_io_drive_pin(&device->io, port, pin, high);
     }
-    const uint32_t mask = 1u << pin;
-    const bool previous = (gpio_input(device, port) & mask) != 0;
-    device->gpio_driven[port] |= mask;
-    if (high) {
-        device->gpio_external[port] |= mask;
-    } else {
-        device->gpio_external[port] &= ~mask;
-    }
-    update_port_interrupt(device, port, pin, previous, high);
 }
 
 void kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin) {
-    if (device == NULL || port >= 5 || pin >= 32) {
-        return;
+    if (device != NULL) {
+        (void)k22_io_release_pin(&device->io, port, pin);
     }
-    const uint32_t mask = 1u << pin;
-    const bool previous = (gpio_input(device, port) & mask) != 0;
-    device->gpio_driven[port] &= ~mask;
-    const bool current = (gpio_input(device, port) & mask) != 0;
-    update_port_interrupt(device, port, pin, previous, current);
+}
+
+bool kinetis_k22_serial_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                                uint16_t value, uint8_t status) {
+    if (!serial_endpoint_available(device, endpoint)) {
+        return false;
+    }
+    const K22PeripheralId id = serial_endpoint_peripheral(endpoint);
+    (void)k22_serial_set_clock_gate(&device->serial, id, true);
+    const bool result = k22_serial_push_receive(&device->serial, (K22SerialEndpoint)endpoint,
+                                                value, status);
+    k22_serial_advance(&device->serial, UINT32_MAX);
+    refresh_serial_signals(device);
+    kinetis_k22_sync_clock_gates(device);
+    return result;
+}
+
+bool kinetis_k22_serial_transmit(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                                 uint16_t* value) {
+    return serial_endpoint_available(device, endpoint) &&
+           k22_serial_pop_transmit(&device->serial, (K22SerialEndpoint)endpoint, value);
+}
+
+bool kinetis_k22_spi_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                              KinetisK22SpiTransfer* transfer) {
+    if (!serial_endpoint_available(device, endpoint) || transfer == NULL ||
+        (endpoint != KINETIS_K22_SERIAL_SPI0 &&
+         endpoint != KINETIS_K22_SERIAL_SPI1)) {
+        return false;
+    }
+    K22SerialSpiTransfer internal;
+    if (!k22_serial_pop_spi_transfer(&device->serial, (K22SerialEndpoint)endpoint,
+                                     &internal)) {
+        return false;
+    }
+    transfer->data = internal.data;
+    transfer->chip_selects = internal.chip_selects;
+    transfer->clock_and_transfer_attributes = internal.clock_and_transfer_attributes;
+    transfer->continuous_chip_select = internal.continuous_chip_select;
+    transfer->end_of_queue = internal.end_of_queue;
+    return true;
+}
+
+bool kinetis_k22_i2c_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                              KinetisK22I2cTransfer* transfer) {
+    if (!serial_endpoint_available(device, endpoint) || transfer == NULL ||
+        endpoint < KINETIS_K22_SERIAL_I2C0 ||
+        endpoint > KINETIS_K22_SERIAL_I2C2) {
+        return false;
+    }
+    K22SerialEvent event;
+    if (!pop_serial_event(&device->serial, (K22SerialEndpoint)endpoint, &event)) {
+        return false;
+    }
+    static const KinetisK22I2cTransferType types[] = {
+        KINETIS_K22_I2C_START,
+        KINETIS_K22_I2C_REPEATED_START,
+        KINETIS_K22_I2C_STOP,
+        KINETIS_K22_I2C_WRITE,
+        KINETIS_K22_I2C_READ,
+    };
+    if ((unsigned)event.type >= sizeof(types) / sizeof(types[0])) {
+        return false;
+    }
+    transfer->type = types[event.type];
+    transfer->value = (uint8_t)event.value;
+    return true;
+}
+
+bool kinetis_k22_i2c_acknowledge(KinetisK22* device,
+                                 KinetisK22SerialEndpoint endpoint, bool acknowledge) {
+    if (!serial_endpoint_available(device, endpoint) ||
+        endpoint < KINETIS_K22_SERIAL_I2C0 ||
+        endpoint > KINETIS_K22_SERIAL_I2C2) {
+        return false;
+    }
+    const bool result = k22_serial_i2c_set_acknowledge(
+        &device->serial, (K22SerialEndpoint)endpoint, acknowledge);
+    k22_serial_advance(&device->serial, UINT32_MAX);
+    refresh_serial_signals(device);
+    return result;
+}
+
+bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
+                             uint8_t value) {
+    return endpoint >= KINETIS_K22_SERIAL_I2C0 &&
+           endpoint <= KINETIS_K22_SERIAL_I2C2 &&
+           kinetis_k22_serial_receive(device, endpoint, value, 0);
+}
+
+bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
+                           bool transmit) {
+    return device != NULL && k22_io_usb_token(&device->io, endpoint, token, transmit);
+}
+
+bool kinetis_k22_can_receive(KinetisK22* device, const KinetisK22CanFrame* frame) {
+    if (device == NULL || frame == NULL) {
+        return false;
+    }
+    K22CanFrame internal;
+    internal.identifier = frame->identifier;
+    internal.length = frame->length;
+    memcpy(internal.data, frame->data, sizeof(internal.data));
+    internal.extended = frame->extended;
+    internal.remote = frame->remote;
+    return k22_io_can_receive(&device->io, &internal);
+}
+
+bool kinetis_k22_i2s_receive(KinetisK22* device, uint32_t sample) {
+    return device != NULL && k22_io_i2s_receive(&device->io, sample);
+}
+
+bool kinetis_k22_i2s_transmit(KinetisK22* device, uint32_t* sample) {
+    return device != NULL && k22_io_i2s_transmit(&device->io, sample);
 }
 
 bool kinetis_k22_uart1_receive(KinetisK22* device, uint8_t value, uint8_t status) {
-    if (device == NULL || !fifo_push(&device->uart1_receive, value)) {
+    if (device == NULL) {
         return false;
     }
-    raw_store(device, K22_UART1_S1, 1,
-              raw_load(device, K22_UART1_S1, 1) | 0x20u | (status & 0x0fu));
-    update_uart_status(device);
-    if ((raw_load(device, K22_UART1_C5, 1) & 0x20u) != 0) {
-        dma_request(device, 4);
+    K22SerialUart* uart = &device->serial.uart[1];
+    if (!uart->present || uart->receive.count == K22_SERIAL_FIFO_CAPACITY) {
+        return false;
     }
-    if ((raw_load(device, K22_UART1_C2, 1) & 0x20u) != 0) {
-        cortex_m4_set_irq(device->cpu, K22_UART1_IRQ, true);
-    }
-    if ((status & raw_load(device, K22_UART1_C3, 1) & 0x0fu) != 0) {
-        cortex_m4_set_irq(device->cpu, K22_UART1_ERROR_IRQ, true);
-    }
+    uart->receive.values[uart->receive.write_index] = value;
+    uart->receive.metadata[uart->receive.write_index] = status & 0x0fu;
+    uart->receive.write_index =
+        (uint16_t)((uart->receive.write_index + 1u) % K22_SERIAL_FIFO_CAPACITY);
+    uart->receive.count++;
+    (void)k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_UART1, true);
+    (void)k22_serial_read(&device->serial, uart->base + 4u, 1, &(uint32_t){0});
+    refresh_serial_signals(device);
+    kinetis_k22_sync_clock_gates(device);
     return true;
 }
 
 bool kinetis_k22_uart1_transmit(KinetisK22* device, uint8_t* value) {
-    uint16_t data = 0;
-    if (device == NULL || value == NULL || !fifo_pop(&device->uart1_transmit, &data)) {
+    uint16_t wide = 0;
+    if (device == NULL || value == NULL) {
         return false;
     }
-    *value = (uint8_t)data;
+    K22SerialFifo* fifo = &device->serial.uart[1].transmit;
+    if (fifo->count == 0) {
+        if (!kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &wide)) {
+            return false;
+        }
+    } else {
+        wide = fifo->values[fifo->read_index];
+        fifo->read_index =
+            (uint16_t)((fifo->read_index + 1u) % K22_SERIAL_FIFO_CAPACITY);
+        fifo->count--;
+    }
+    *value = (uint8_t)wide;
     return true;
 }
 
 bool kinetis_k22_spi0_receive(KinetisK22* device, uint16_t value) {
-    if (device == NULL || !fifo_push(&device->spi0_receive, value)) {
+    if (device == NULL) {
         return false;
     }
-    update_spi_status(device);
-    if ((raw_load(device, K22_SPI0_RSER, 4) & (1u << 16)) != 0) {
-        dma_request(device, 14);
-    } else if ((raw_load(device, K22_SPI0_RSER, 4) & (1u << 17)) != 0) {
-        cortex_m4_set_irq(device->cpu, 26, true);
+    K22SerialSpi* spi = &device->serial.spi[0];
+    if (!spi->present || spi->receive.count == K22_SERIAL_FIFO_CAPACITY) {
+        return false;
     }
+    spi->receive.values[spi->receive.write_index] = value;
+    spi->receive.metadata[spi->receive.write_index] = 0;
+    spi->receive.write_index =
+        (uint16_t)((spi->receive.write_index + 1u) % K22_SERIAL_FIFO_CAPACITY);
+    spi->receive.count++;
+    (void)k22_serial_read(&device->serial, spi->base, 4, &(uint32_t){0});
+    refresh_serial_signals(device);
     return true;
 }
 
 bool kinetis_k22_spi0_transmit(KinetisK22* device, uint16_t* value) {
-    return device != NULL && value != NULL && fifo_pop(&device->spi0_transmit, value);
+    if (device == NULL || value == NULL) {
+        return false;
+    }
+    K22SerialFifo* fifo = &device->serial.spi[0].transmit;
+    if (fifo->count == 0) {
+        return kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_SPI0, value);
+    }
+    *value = fifo->values[fifo->read_index];
+    fifo->read_index =
+        (uint16_t)((fifo->read_index + 1u) % K22_SERIAL_FIFO_CAPACITY);
+    fifo->count--;
+    return true;
 }
 
 bool kinetis_k22_i2c0_transfer(KinetisK22* device, KinetisK22I2cTransfer* transfer) {
-    uint16_t encoded = 0;
-    if (device == NULL || transfer == NULL || !fifo_pop(&device->i2c0_transfer, &encoded)) {
-        return false;
-    }
-    transfer->type = (KinetisK22I2cTransferType)(encoded >> 8);
-    transfer->value = (uint8_t)encoded;
-    return true;
-}
-
-static void raise_i2c_interrupt(KinetisK22* device) {
-    raw_store(device, K22_I2C0_S, 1, raw_load(device, K22_I2C0_S, 1) | 0x82u);
-    if ((raw_load(device, K22_I2C0_C1, 1) & 0x40u) != 0) {
-        cortex_m4_set_irq(device->cpu, K22_I2C0_IRQ, true);
-    }
+    return kinetis_k22_i2c_transfer(device, KINETIS_K22_SERIAL_I2C0, transfer);
 }
 
 void kinetis_k22_i2c0_acknowledge(KinetisK22* device, bool acknowledge) {
-    if (device == NULL) {
-        return;
-    }
-    uint8_t status = (uint8_t)raw_load(device, K22_I2C0_S, 1);
-    if (acknowledge) {
-        status &= (uint8_t)~1u;
-    } else {
-        status |= 1u;
-    }
-    raw_store(device, K22_I2C0_S, 1, status);
-    raise_i2c_interrupt(device);
+    (void)kinetis_k22_i2c_acknowledge(device, KINETIS_K22_SERIAL_I2C0, acknowledge);
 }
 
 bool kinetis_k22_i2c0_receive(KinetisK22* device, uint8_t value) {
-    if (device == NULL || !fifo_push(&device->i2c0_receive, value)) {
+    if (device == NULL || !device->serial.i2c[0].present) {
         return false;
     }
-    raw_store(device, K22_I2C0_D, 1, value);
-    raise_i2c_interrupt(device);
+    device->serial.i2c[0].registers[4] = value;
+    device->serial.i2c[0].registers[3] |= 0x82u;
+    (void)k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C0, true);
+    refresh_serial_signals(device);
+    kinetis_k22_sync_clock_gates(device);
     return true;
+}
+
+K22DataBus kinetis_k22_data_bus(KinetisK22* device) {
+    const K22DataBus bus = {device, data_bus_read, data_bus_write, data_interrupt};
+    return bus;
+}
+
+K22TimingSignals kinetis_k22_timing_signals(KinetisK22* device) {
+    const K22TimingSignals signals = {device, timing_irq, timing_dma, timing_reset};
+    return signals;
+}
+
+K22IoConfiguration kinetis_k22_io_configuration(KinetisK22* device) {
+    K22IoConfiguration configuration = k22_io_default_configuration(device->profile);
+    for (uint8_t port = 0; port < K22_PACKAGE_PORT_COUNT; port++) {
+        configuration.package_pin_mask[port] =
+            k22_package_port_pin_mask(device->package, port);
+    }
+    configuration.event_handler = io_event;
+    configuration.event_context = device;
+    return configuration;
 }
