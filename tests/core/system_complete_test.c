@@ -366,23 +366,28 @@ static void test_public_ppb_access(TestState* state) {
     TEST_EXPECT(state, cortex_m4_bus_write(&cpu, ITM_STIMULUS + 1u, 1u,
                                            CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0xa5u));
     TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == 0xa55au);
-    TEST_EXPECT(state, cortex_m4_write_memory(&cpu, ITM_STIMULUS + 2u, 1u, 0x3cu));
+    cpu.control = CORTEX_M4_CONTROL_NPRIV;
+    TEST_EXPECT(state, cortex_m4_bus_write(&cpu, ITM_STIMULUS + 2u, 1u,
+                                           CORTEX_M4_ACCESS_DATA, 0x3cu));
     TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == 0x3ca55au);
     cpu.debug.itm_trace_privilege = 0u;
     const uint32_t stimulus = cpu.debug.itm_stimulus[0];
-    TEST_EXPECT(state, !cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u,
-                                            CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u));
+    TEST_EXPECT(state,
+                !cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA, 0u));
     TEST_EXPECT(state, cpu.debug.itm_stimulus[0] == stimulus);
-    TEST_EXPECT(state, !cortex_m4_bus_write(&cpu, NVIC_STIR, 4u,
-                                            CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 1u));
+    TEST_EXPECT(state,
+                !cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u));
     cpu.ccr |= 1u << 1u;
-    TEST_EXPECT(state, cortex_m4_bus_write(&cpu, NVIC_STIR, 4u,
-                                           CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 1u));
+    TEST_EXPECT(state, cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u));
     TEST_EXPECT(state, cortex_m4_get_irq_pending(&cpu, 1u));
     TEST_EXPECT(state, !cortex_m4_get_irq_pending(&cpu, 2u));
+    TEST_EXPECT(state, cortex_m4_bus_write(&cpu, NVIC_STIR, 4u,
+                                           CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u));
+    TEST_EXPECT(state, cortex_m4_get_irq_pending(&cpu, 2u));
+    TEST_EXPECT(state, !cortex_m4_get_irq_pending(&cpu, 3u));
     TEST_EXPECT(state, !cortex_m4_bus_write(&cpu, NVIC_STIR + 1u, 4u,
-                                            CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u));
-    TEST_EXPECT(state, !cortex_m4_get_irq_pending(&cpu, 2u));
+                                            CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 3u));
+    TEST_EXPECT(state, !cortex_m4_get_irq_pending(&cpu, 3u));
 }
 
 int main(void) {

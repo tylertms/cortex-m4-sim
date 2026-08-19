@@ -69,7 +69,7 @@ static bool debug_access_permitted(const CortexM4* cpu, uint32_t address,
     if (privileged_access(cpu, access)) {
         return true;
     }
-    if (access != CORTEX_M4_ACCESS_UNPRIVILEGED_DATA || address >= 0xe0000080u) {
+    if (!cortex_m4_access_is_unprivileged_data(cpu, access) || address >= 0xe0000080u) {
         return false;
     }
     const uint8_t port_group = (uint8_t)((address >> 5u) & 3u);
@@ -548,7 +548,7 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         return cortex_m4_debug_write(cpu, address, size, value);
     }
     const bool user_stir = address == NVIC_STIR && size == 4u &&
-                           access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA &&
+                           cortex_m4_access_is_unprivileged_data(cpu, access) &&
                            (cpu->ccr & (1u << 1u)) != 0u;
     if (!valid_access(address, size) && !user_stir) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;

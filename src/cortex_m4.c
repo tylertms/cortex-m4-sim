@@ -15,6 +15,12 @@ static CortexM4Result cortex_m4_result(const CortexM4* cpu) {
     return result;
 }
 
+bool cortex_m4_access_is_unprivileged_data(const CortexM4* cpu, CortexM4Access access) {
+    return access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA ||
+           (access == CORTEX_M4_ACCESS_DATA && (cpu->xpsr & 0x1ffu) == 0u &&
+            (cpu->control & CORTEX_M4_CONTROL_NPRIV) != 0u);
+}
+
 CortexM4* cortex_m4_create(CortexM4Bus bus) {
     if (bus.read == NULL || bus.write == NULL) {
         return NULL;

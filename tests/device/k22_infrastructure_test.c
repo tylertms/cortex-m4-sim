@@ -175,6 +175,10 @@ static void test_access_controls(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state,
                 !kinetis_k22_peripheral_read(device, CMT_MSC, 1u,
                                              CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value));
+    cortex_m4_set_control(kinetis_k22_cpu(device), CORTEX_M4_CONTROL_NPRIV);
+    TEST_EXPECT(state, !kinetis_k22_peripheral_read(device, CMT_MSC, 1u,
+                                                    CORTEX_M4_ACCESS_DATA, &value));
+    cortex_m4_set_control(kinetis_k22_cpu(device), 0u);
     TEST_EXPECT(state, kinetis_k22_peripheral_read(device, CMT_MSC, 1u,
                                                    CORTEX_M4_ACCESS_DATA, &value));
     TEST_EXPECT(state, !kinetis_k22_peripheral_write(device, CMT_MSC, 1u,

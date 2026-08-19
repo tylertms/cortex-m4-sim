@@ -21,6 +21,8 @@ enum {
     CORTEX_M4_MPU_REGION_COUNT = 8,
 };
 
+bool cortex_m4_access_is_unprivileged_data(const CortexM4* cpu, CortexM4Access access);
+
 typedef enum {
     CORTEX_M4_SYSTEM_ACCESS_OUTSIDE,
     CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,

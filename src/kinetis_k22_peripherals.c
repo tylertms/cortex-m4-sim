@@ -82,7 +82,8 @@ static bool aips_access_allowed(const KinetisK22* device, uint32_t address,
     if (write && (permission & 2u) != 0u) {
         return false;
     }
-    return access != CORTEX_M4_ACCESS_UNPRIVILEGED_DATA || (permission & 4u) == 0u;
+    return !cortex_m4_access_is_unprivileged_data(device->cpu, access) ||
+           (permission & 4u) == 0u;
 }
 
 static bool axbs_write_allowed(const KinetisK22* device, uint32_t address) {

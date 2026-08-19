@@ -1,6 +1,7 @@
 #ifndef CORTEX_M4_KINETIS_K22_INTERNAL_H
 #define CORTEX_M4_KINETIS_K22_INTERNAL_H
 
+#include "cortex_m4_internal.h"
 #include "cortex_m4_sim/kinetis_k22.h"
 #include "k22_data.h"
 #include "k22_io.h"
