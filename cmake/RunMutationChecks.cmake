@@ -68,6 +68,31 @@ run_mutation(
   "return false && kinetis_k22_flash_controller_write(context, address, size, value);"
   cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
 run_mutation(
+  fmc_bank_control src/kinetis_k22.c
+  "0x4001f004u + (uint32_t)bank * 4u"
+  "((void)bank, 0x4001f004u)" cortex_m4_device_k22_fmc_complete_test
+  device_k22_fmc_complete)
+run_mutation(
+  fmc_bank_identity src/kinetis_k22.c
+  "device->fmc_bank[candidate][set] == bank"
+  "device->fmc_bank[candidate][set] == 0u" cortex_m4_device_k22_fmc_complete_test
+  device_k22_fmc_complete)
+run_mutation(
+  fmc_flexnvm_access src/kinetis_k22.c
+  "if (!flash_access_allowed(device, access, flash_master, false))\n            return false;\n        const uint32_t offset = address - device->profile->flexnvm_address;"
+  "if (false && !flash_access_allowed(device, access, flash_master, false))\n            return false;\n        const uint32_t offset = address - device->profile->flexnvm_address;"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_flexram_access src/kinetis_k22.c
+  "return flash_access_allowed(device, access, flash_master, false) &&\n               k22_data_read(device->data, address, size, value);"
+  "return k22_data_read(device->data, address, size, value);"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
+  fmc_flexnvm_cpu_write src/kinetis_k22.c
+  "if (access != CORTEX_M4_ACCESS_DEBUG ||\n            !k22_data_write(device->data, address, size, value))"
+  "if ((false && access != CORTEX_M4_ACCESS_DEBUG) ||\n            !k22_data_write(device->data, address, size, value))"
+  cortex_m4_device_k22_fmc_complete_test device_k22_fmc_complete)
+run_mutation(
   package_dac1 src/k22_package.c
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package != K22_PACKAGE_FX_88_HVQFN;"
   "if (selected->profile == K22_PROFILE_MK22FN51212 && peripheral == K22_PERIPHERAL_DAC1)\n        return selected->package == K22_PACKAGE_FX_88_HVQFN;"
