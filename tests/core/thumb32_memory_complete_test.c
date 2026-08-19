@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "cortex_m4_internal.h"
 #include "test.h"
 
 enum { SCB_CCR = 0xe000ed14u };
@@ -82,6 +83,18 @@ static void test_doubleword(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 3) == values[0]);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 4) == values[1]);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 5) == 0x20000054u);
+
+    load_instruction(state, device, 0xe8e8u, 0x6704u);
+    cortex_m4_set_register(cpu, 6, 0x89abcdefu);
+    cortex_m4_set_register(cpu, 7, 0x76543210u);
+    cortex_m4_set_register(cpu, 8, 0x60000000u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u);
+
+    load_instruction(state, device, 0xe9d2u, 0x0100u);
+    cortex_m4_set_register(cpu, 2, 0x60000000u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u);
 }
 
 static void test_decrement_before_multiple(TestState* state, KinetisK22* device) {
@@ -112,6 +125,24 @@ static void test_decrement_before_multiple(TestState* state, KinetisK22* device)
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 3) == 4);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 10) == 10);
     TEST_EXPECT(state, cortex_m4_get_register(cpu, 9) == 0x2000008cu);
+
+    const uint32_t resumed_values[3] = {0x22222222u, 0x33333333u, 0xaaaaaaaa};
+    load_instruction(state, device, 0xe939u, 0x040fu);
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x20000094u, resumed_values,
+                                         sizeof(resumed_values)));
+    cortex_m4_set_register(cpu, 0, 0x10101010u);
+    cortex_m4_set_register(cpu, 1, 0x11111111u);
+    cortex_m4_set_register(cpu, 9, 0x200000a0u);
+    cpu->ici_valid = true;
+    cpu->ici_register = 2u;
+    cpu->ici_address = 0x20000094u;
+    execute(state, device);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0x10101010u);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 1) == 0x11111111u);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 2) == 0x22222222u);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 3) == 0x33333333u);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 10) == 0xaaaaaaaau);
+    TEST_EXPECT(state, !cpu->ici_valid);
 }
 
 static void test_register_offset(TestState* state, KinetisK22* device) {
@@ -161,6 +192,21 @@ static void test_unprivileged(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 11, 0x200000d0u);
     execute(state, device);
     TEST_EXPECT(state, read_word(state, device, 0x200000dcu) == 0x5aa55aa5u);
+
+    const uint32_t signed_values = 0x00008081u;
+    load_instruction(state, device, 0xf911u, 0x0e00u);
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x200000f0u, &signed_values,
+                                         sizeof(signed_values)));
+    cortex_m4_set_register(cpu, 1, 0x200000f0u);
+    execute(state, device);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0xffffff81u);
+
+    load_instruction(state, device, 0xf931u, 0x0e00u);
+    TEST_EXPECT(state, kinetis_k22_write(device, 0x200000f0u, &signed_values,
+                                         sizeof(signed_values)));
+    cortex_m4_set_register(cpu, 1, 0x200000f0u);
+    execute(state, device);
+    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0xffff8081u);
 
     uint32_t byte_value = 0;
     TEST_EXPECT(state, !cortex_m4_read_memory(cpu, 0xe000ed00u, 1u, &byte_value));
@@ -244,6 +290,22 @@ static bool tracking_write(void* context, uint32_t address, uint8_t size,
     return true;
 }
 
+static void test_multiple_read_failure(TestState* state) {
+    TrackingBus bus = {0};
+    const uint32_t vectors[2] = {0x300u, 0x101u};
+    const uint16_t program[] = {0xe939u, 0x0003u};
+    memcpy(bus.memory, vectors, sizeof(vectors));
+    memcpy(bus.memory + 0x100u, program, sizeof(program));
+    CortexM4* cpu =
+        cortex_m4_create((CortexM4Bus){&bus, tracking_read, tracking_write, NULL, NULL});
+    TEST_EXPECT(state, cpu != NULL);
+    TEST_EXPECT(state, cortex_m4_reset(cpu, 0u));
+    cortex_m4_set_register(cpu, 9u, 0x408u);
+    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u);
+    cortex_m4_destroy(cpu);
+}
+
 static void test_unprivileged_access_type(TestState* state) {
     TrackingBus bus = {0};
     const uint32_t vectors[2] = {0x300u, 0x101u};
@@ -276,6 +338,7 @@ int main(void) {
     test_unprivileged(&state, device);
     test_alignment_faults(&state, device);
     kinetis_k22_destroy(device);
+    test_multiple_read_failure(&state);
     test_unprivileged_access_type(&state);
     return test_finish(&state);
 }
