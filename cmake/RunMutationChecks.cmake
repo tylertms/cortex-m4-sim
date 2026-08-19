@@ -163,8 +163,8 @@ run_mutation(
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_center_init_trigger_boundary src/k22_timing.c
-  "ftm_phase_crossing_count(phase, ticks, period, 0u) != 0u"
-  "ftm_phase_crossing_count(phase, ticks, period, 1u) != 0u"
+  "if (minimum_points != 0u &&"
+  "if (false &&"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_up_init_trigger src/k22_timing.c
@@ -285,7 +285,7 @@ run_mutation(
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
   ftm_swoctrl_software_sync src/k22_timing.c
-  "if ((synconf & (1u << 12u)) != 0u)"
+  "if ((synconf & (1u << 12u)) != 0u && (synconf & (1u << 5u)) != 0u)"
   "if (false)"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
 run_mutation(
@@ -293,3 +293,33 @@ run_mutation(
   "(enhanced && (synconf & (1u << 8u)) != 0u)"
   "(false && (synconf & (1u << 8u)) != 0u)"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_modulo_write_buffer src/k22_timing.c
+  "ftm->modulo_pending = true;"
+  "ftm->modulo_pending = false;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_counter_initial_write_buffer src/k22_timing.c
+  "ftm->initial_pending = true;"
+  "ftm->initial_pending = false;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_channel_value_write_buffer src/k22_timing.c
+  "ftm->channel_value_pending[channel] = true;"
+  "ftm->channel_value_pending[channel] = false;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_software_write_buffer_sync src/k22_timing.c
+  "enhanced ? (synconf & (1u << 9u)) != 0u : true;"
+  "enhanced ? false : true;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_intermediate_load_enable src/k22_timing.c
+  "(ftm->registers[17] & (1u << 9u)) != 0u && intermediate"
+  "false && intermediate"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_intermediate_load_complete src/k22_timing.c
+  "ftm->registers[17] &= ~(1u << 9u);"
+  "ftm->registers[17] |= 1u << 9u;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)

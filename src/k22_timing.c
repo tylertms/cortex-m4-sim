@@ -888,6 +888,32 @@ static void ftm_overflow(K22Timing* timing, uint8_t index, uint64_t count) {
     ftm->overflow_count = (uint8_t)((ftm->overflow_count + count % cycle) % cycle);
 }
 
+static void ftm_apply_modulo(K22FtmState* ftm);
+static void ftm_apply_channel_value(K22FtmState* ftm, uint8_t channel);
+static bool ftm_pair_synchronization_enabled(const K22FtmState* ftm, uint8_t channel);
+static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
+                              uint8_t channel_matches);
+
+static void ftm_apply_counter_change_values(K22FtmState* ftm, uint8_t channels) {
+    const bool enhanced = (ftm->registers[0] & 1u) != 0u;
+    for (uint8_t channel = 0u; channel < channels; channel++) {
+        if (ftm->channel_value_pending[channel] && ftm_output_compare_mode(ftm, channel) &&
+            (!enhanced || !ftm_pair_synchronization_enabled(ftm, channel)))
+            ftm_apply_channel_value(ftm, channel);
+    }
+}
+
+static void ftm_apply_legacy_boundary_values(K22FtmState* ftm, uint8_t channels) {
+    if ((ftm->registers[0] & 1u) != 0u)
+        return;
+    ftm_apply_modulo(ftm);
+    for (uint8_t channel = 0u; channel < channels; channel++) {
+        if (ftm_edge_aligned_pwm_mode(ftm, channel) ||
+            ftm_center_aligned_pwm_mode(ftm, channel))
+            ftm_apply_channel_value(ftm, channel);
+    }
+}
+
 static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks) {
     K22FtmState* ftm = &timing->ftm[index];
     const uint32_t first = ftm->initial;
@@ -903,6 +929,8 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
     }
     const uint32_t span = last - first;
     const uint32_t period = span * 2u;
+    const uint8_t channels = ftm_channel_count(index);
+    ftm_apply_counter_change_values(ftm, channels);
     uint32_t phase;
     if (ftm->counter < first || ftm->counter > last) {
         phase = 0u;
@@ -911,8 +939,8 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
     } else {
         phase = ftm->counter - first;
     }
-    const uint8_t channels = ftm_channel_count(index);
     uint64_t matches[8] = {0};
+    uint8_t match_mask = 0u;
     for (uint8_t channel = 0u; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
         if (compare <= first || compare >= last)
@@ -921,12 +949,16 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         const uint32_t down_phase = period - up_phase;
         matches[channel] = ftm_phase_crossing_count(phase, ticks, period, up_phase) +
                            ftm_phase_crossing_count(phase, ticks, period, down_phase);
-        if (matches[channel] != 0u)
+        if (matches[channel] != 0u) {
+            match_mask |= (uint8_t)(1u << channel);
             ftm_channel_event(timing, index, channel);
+        }
     }
-    ftm_overflow(timing, index, ftm_phase_crossing_count(phase, ticks, period, span + 1u));
-    if (ftm_phase_crossing_count(phase, ticks, period, 0u) != 0u &&
-        (ftm->registers[6] & (1u << 6u)) != 0u)
+    const uint64_t maximum_points =
+        ftm_phase_crossing_count(phase, ticks, period, span + 1u);
+    const uint64_t minimum_points = ftm_phase_crossing_count(phase, ticks, period, 0u);
+    ftm_overflow(timing, index, maximum_points);
+    if (minimum_points != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
     phase = (uint32_t)(((uint64_t)phase + ticks) % period);
     if (phase <= span) {
@@ -936,8 +968,11 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         ftm->counter = (uint16_t)(last - (phase - span));
         ftm->counting_down = true;
     }
+    if (maximum_points != 0u)
+        ftm_apply_legacy_boundary_values(ftm, channels);
     for (uint8_t channel = 0u; channel < channels; channel++)
         ftm_center_aligned_pwm_advance(ftm, channel, matches[channel], ticks);
+    ftm_loading_point(ftm, minimum_points != 0u, maximum_points != 0u, match_mask);
     update_ftm_irq(timing, index);
 }
 
@@ -963,6 +998,8 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
         advance_ftm_up_down(timing, index, ticks);
         return;
     }
+    const uint8_t channels = ftm_channel_count(index);
+    ftm_apply_counter_change_values(ftm, channels);
     const uint32_t first = ftm->initial;
     const uint32_t last = ftm->modulo >= first ? ftm->modulo : 0xffffu;
     const uint32_t period = last - first + 1u;
@@ -970,8 +1007,8 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
         ftm->counter < first || ftm->counter > last ? first : ftm->counter;
     const uint64_t relative = (uint64_t)(start - first) + ticks;
     const uint64_t overflows = relative / period;
-    const uint8_t channels = ftm_channel_count(index);
     uint64_t matches[8] = {0};
+    uint8_t match_mask = 0u;
     for (uint8_t channel = 0; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
         const uint32_t distance =
@@ -982,6 +1019,7 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
                                                   : compare > first && compare <= last;
         if ((output_compare || edge_aligned) && valid_compare && ticks >= distance) {
             matches[channel] = 1u + (ticks - distance) / period;
+            match_mask |= (uint8_t)(1u << channel);
             ftm_channel_event(timing, index, channel);
         }
     }
@@ -989,10 +1027,13 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
     ftm_overflow(timing, index, overflows);
     if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
+    if (overflows != 0u)
+        ftm_apply_legacy_boundary_values(ftm, channels);
     for (uint8_t channel = 0u; channel < channels; channel++) {
         ftm_output_compare_match(ftm, channel, matches[channel]);
         ftm_edge_aligned_pwm_advance(ftm, channel, matches[channel], overflows);
     }
+    ftm_loading_point(ftm, overflows != 0u, overflows != 0u, match_mask);
     update_ftm_irq(timing, index);
 }
 
@@ -1051,6 +1092,72 @@ static void ftm_apply_swoctrl(K22FtmState* ftm) {
     }
 }
 
+static void ftm_apply_modulo(K22FtmState* ftm) {
+    if (ftm->modulo_pending) {
+        ftm->modulo = ftm->modulo_buffer;
+        ftm->modulo_pending = false;
+    }
+}
+
+static void ftm_apply_initial(K22FtmState* ftm) {
+    if (ftm->initial_pending) {
+        ftm->initial = ftm->initial_buffer;
+        ftm->initial_pending = false;
+    }
+}
+
+static void ftm_apply_channel_value(K22FtmState* ftm, uint8_t channel) {
+    if (ftm->channel_value_pending[channel]) {
+        ftm->channel_value[channel] = ftm->channel_value_buffer[channel];
+        ftm->channel_value_pending[channel] = false;
+    }
+}
+
+static bool ftm_pair_synchronization_enabled(const K22FtmState* ftm, uint8_t channel) {
+    return (ftm->registers[4] & (1u << ((channel / 2u) * 8u + 5u))) != 0u;
+}
+
+static void ftm_apply_synchronized_write_buffers(K22FtmState* ftm, bool enhanced) {
+    if ((ftm->registers[0] & 1u) == 0u)
+        return;
+    ftm_apply_modulo(ftm);
+    if (enhanced && (ftm->registers[14] & (1u << 2u)) != 0u)
+        ftm_apply_initial(ftm);
+    for (uint8_t channel = 0u; channel < 8u; channel++) {
+        if (ftm_pair_synchronization_enabled(ftm, channel))
+            ftm_apply_channel_value(ftm, channel);
+    }
+}
+
+static void ftm_apply_intermediate_load(K22FtmState* ftm) {
+    ftm_apply_modulo(ftm);
+    if ((ftm->registers[14] & (1u << 2u)) != 0u)
+        ftm_apply_initial(ftm);
+    for (uint8_t channel = 0u; channel < 8u; channel++) {
+        if (ftm_pair_synchronization_enabled(ftm, channel))
+            ftm_apply_channel_value(ftm, channel);
+    }
+    ftm->registers[17] &= ~(1u << 9u);
+}
+
+static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
+                              uint8_t channel_matches) {
+    if (ftm->software_sync_pending && (((ftm->registers[1] & 1u) != 0u && minimum) ||
+                                       ((ftm->registers[1] & 2u) != 0u && maximum))) {
+        const bool enhanced = (ftm->registers[14] & (1u << 7u)) != 0u;
+        const bool write_buffers =
+            enhanced ? (ftm->registers[14] & (1u << 9u)) != 0u : true;
+        if (write_buffers)
+            ftm_apply_synchronized_write_buffers(ftm, enhanced);
+        ftm->registers[1] &= ~0x80u;
+        ftm->software_sync_pending = false;
+    }
+    const bool intermediate =
+        maximum || (channel_matches & (uint8_t)ftm->registers[17]) != 0u;
+    if ((ftm->registers[17] & (1u << 9u)) != 0u && intermediate)
+        ftm_apply_intermediate_load(ftm);
+}
+
 static void ftm_apply_system_clock_updates(K22FtmState* ftm) {
     if ((ftm->registers[1] & 8u) == 0u)
         ftm_apply_outmask(ftm);
@@ -1058,25 +1165,35 @@ static void ftm_apply_system_clock_updates(K22FtmState* ftm) {
         ftm_apply_invctrl(ftm);
     if ((ftm->registers[14] & (1u << 5u)) == 0u)
         ftm_apply_swoctrl(ftm);
+    if (ftm->initial_pending &&
+        (((ftm->registers[0] & 1u) == 0u) || (ftm->registers[14] & (1u << 2u)) == 0u))
+        ftm_apply_initial(ftm);
 }
 
 static void ftm_apply_software_sync(K22FtmState* ftm) {
     const uint32_t synconf = ftm->registers[14];
     const bool enhanced = (synconf & (1u << 7u)) != 0u;
-    if ((synconf & (1u << 12u)) != 0u)
+    if ((synconf & (1u << 12u)) != 0u && (synconf & (1u << 5u)) != 0u)
         ftm_apply_swoctrl(ftm);
-    if ((synconf & (1u << 11u)) != 0u)
+    if ((synconf & (1u << 11u)) != 0u && (synconf & (1u << 4u)) != 0u)
         ftm_apply_invctrl(ftm);
-    if ((enhanced && (synconf & (1u << 10u)) != 0u) ||
-        (!enhanced && (ftm->registers[0] & 8u) == 0u &&
-         (ftm->registers[1] & 8u) != 0u))
+    if ((enhanced && (synconf & (1u << 10u)) != 0u && (ftm->registers[1] & 8u) != 0u) ||
+        (!enhanced && (ftm->registers[0] & 8u) == 0u && (ftm->registers[1] & 8u) != 0u))
         ftm_apply_outmask(ftm);
-    if ((enhanced && (synconf & (1u << 8u)) != 0u) ||
-        (!enhanced && (ftm->registers[1] & 4u) != 0u)) {
+    const bool reset_counter = (enhanced && (synconf & (1u << 8u)) != 0u) ||
+                               (!enhanced && (ftm->registers[1] & 4u) != 0u);
+    if (reset_counter) {
+        const bool write_buffers = enhanced ? (synconf & (1u << 9u)) != 0u : true;
+        if (write_buffers)
+            ftm_apply_synchronized_write_buffers(ftm, enhanced);
         ftm->counter = ftm->initial;
         ftm->counting_down = false;
         ftm->overflow_count = 0u;
         ftm->remainder = 0u;
+        ftm->registers[1] &= ~0x80u;
+        ftm->software_sync_pending = false;
+    } else {
+        ftm->software_sync_pending = true;
     }
 }
 
@@ -1333,10 +1450,9 @@ static bool ftm_read(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t 
 
 static uint32_t ftm_register_mask(uint8_t index, uint8_t register_index) {
     static const uint32_t masks[18] = {
-        0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, 0x7f7f7f7fu,
-        0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000efu, 0x0000ffffu,
-        0x00000fffu, 0x000000ffu, 0x000006dfu, 0x0000000fu, 0x001f1fb5u,
-        0x0000000fu, 0x0000ffffu, 0x000002ffu,
+        0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, 0x7f7f7f7fu, 0x000000ffu,
+        0x000000ffu, 0x000000ffu, 0x000000efu, 0x0000ffffu, 0x00000fffu, 0x000000ffu,
+        0x000006dfu, 0x0000000fu, 0x001f1fb5u, 0x0000000fu, 0x0000ffffu, 0x000002ffu,
     };
     uint32_t mask = masks[register_index];
     if (ftm_channel_count(index) == 2u) {
@@ -1354,9 +1470,9 @@ static uint32_t ftm_register_mask(uint8_t index, uint8_t register_index) {
 
 static uint32_t ftm_write_protected_mask(uint8_t register_index) {
     static const uint32_t masks[18] = {
-        0x00000071u, 0u,          0u,          0u, 0x57575757u, 0x000000ffu,
-        0u,          0x000000ffu, 0u,          0u, 0x000000ffu, 0x00000001u,
-        0u,          0x0000000fu, 0u,          0u, 0u,          0u,
+        0x00000071u, 0u,          0u, 0u, 0x57575757u, 0x000000ffu,
+        0u,          0x000000ffu, 0u, 0u, 0x000000ffu, 0x00000001u,
+        0u,          0x0000000fu, 0u, 0u, 0u,          0u,
     };
     return masks[register_index];
 }
@@ -1389,9 +1505,15 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         }
         if ((ftm->registers[6] & (1u << 6u)) != 0u)
             ftm_trigger(timing, index);
-    } else if (offset == 8)
-        ftm->modulo = (uint16_t)value;
-    else if (offset >= 0x0cu && offset < 0x4cu) {
+    } else if (offset == 8) {
+        ftm->modulo_buffer = (uint16_t)value;
+        if ((ftm->sc & 0x18u) == 0u) {
+            ftm->modulo = ftm->modulo_buffer;
+            ftm->modulo_pending = false;
+        } else {
+            ftm->modulo_pending = true;
+        }
+    } else if (offset >= 0x0cu && offset < 0x4cu) {
         const uint8_t channel = (uint8_t)((offset - 0x0cu) / 8u);
         if (channel >= ftm_channel_count(index))
             return false;
@@ -1402,11 +1524,24 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             ftm->channel_sc[channel] = flag | (value & 0x7fu);
             ftm->channel_flag_read[channel] = false;
             update_ftm_irq(timing, index);
-        } else if (!ftm_input_capture_mode(ftm, channel))
-            ftm->channel_value[channel] = (uint16_t)value;
-    } else if (offset == 0x4cu)
-        ftm->initial = (uint16_t)value;
-    else if (offset == 0x50u) {
+        } else if (!ftm_input_capture_mode(ftm, channel)) {
+            ftm->channel_value_buffer[channel] = (uint16_t)value;
+            if ((ftm->sc & 0x18u) == 0u) {
+                ftm->channel_value[channel] = ftm->channel_value_buffer[channel];
+                ftm->channel_value_pending[channel] = false;
+            } else {
+                ftm->channel_value_pending[channel] = true;
+            }
+        }
+    } else if (offset == 0x4cu) {
+        ftm->initial_buffer = (uint16_t)value;
+        if ((ftm->sc & 0x18u) == 0u) {
+            ftm->initial = ftm->initial_buffer;
+            ftm->initial_pending = false;
+        } else {
+            ftm->initial_pending = true;
+        }
+    } else if (offset == 0x50u) {
         const uint8_t channels = ftm_channel_count(index);
         for (uint8_t channel = 0; channel < channels; channel++) {
             if ((value & (1u << channel)) == 0) {
@@ -1426,8 +1561,7 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                 next = (next & ~protected_mask) | (value & protected_mask);
             if ((current & 4u) != 0u || ((value & 4u) != 0u && ftm->write_protection_read))
                 next |= 4u;
-            if ((current & 4u) == 0u && (value & 4u) != 0u &&
-                ftm->write_protection_read) {
+            if ((current & 4u) == 0u && (value & 4u) != 0u && ftm->write_protection_read) {
                 ftm->registers[8] &= ~0x40u;
                 ftm->write_protection_read = false;
             }
@@ -1439,9 +1573,12 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
                         (ftm->registers[2] & (1u << channel)) != 0u;
             }
         } else if (offset == 0x58u) {
-            ftm->registers[1] = value & 0x7fu;
-            if ((value & 0x80u) != 0u)
+            ftm->registers[1] = value;
+            if ((value & 0x80u) != 0u) {
                 ftm_apply_software_sync(ftm);
+            } else {
+                ftm->software_sync_pending = false;
+            }
         } else if (offset == 0x60u) {
             ftm->outmask_buffer = value;
             ftm->outmask_pending = true;
@@ -1465,6 +1602,8 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         } else if (offset == 0x94u) {
             ftm->swoctrl_buffer = value;
             ftm->swoctrl_pending = true;
+        } else if (offset == 0x98u) {
+            ftm->registers[17] = value;
         } else {
             const uint32_t protected_mask = ftm_write_protected_mask(register_index);
             if ((ftm->registers[0] & 4u) == 0u)

@@ -17,9 +17,9 @@ if(PROJECT_IS_TOP_LEVEL)
   add_custom_target(
     cortex_m4_mutation_check
     COMMAND
-      ${CMAKE_COMMAND} -D SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}
-      -D MUTATION_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/mutations
-      -D C_COMPILER=${CMAKE_C_COMPILER} -D CTEST_COMMAND=${CMAKE_CTEST_COMMAND} -P
+      ${CMAKE_COMMAND} -D SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR} -D
+      MUTATION_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/mutations -D
+      C_COMPILER=${CMAKE_C_COMPILER} -D CTEST_COMMAND=${CMAKE_CTEST_COMMAND} -P
       ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunMutationChecks.cmake
     VERBATIM)
 endif()
@@ -75,7 +75,8 @@ target_compile_features(cortex_m4_firmware_runner PRIVATE c_std_11)
 target_compile_features(cortex_m4_firmware_image PUBLIC c_std_11)
 target_include_directories(cortex_m4_firmware_image PUBLIC include)
 target_link_libraries(cortex_m4_firmware_image PUBLIC cortex_m4_simulator)
-target_link_libraries(cortex_m4_firmware_runner PRIVATE cortex_m4_firmware_image)
+target_link_libraries(cortex_m4_firmware_runner
+                      PRIVATE cortex_m4_firmware_image)
 
 if(MSVC)
   target_compile_options(cortex_m4_simulator PRIVATE /W4 /WX)
@@ -86,8 +87,8 @@ else()
                                                      -Werror)
   target_compile_options(cortex_m4_firmware_runner PRIVATE -Wall -Wextra
                                                            -Wpedantic -Werror)
-  target_compile_options(cortex_m4_firmware_image PRIVATE -Wall -Wextra -Wpedantic
-                                                        -Werror)
+  target_compile_options(cortex_m4_firmware_image PRIVATE -Wall -Wextra
+                                                          -Wpedantic -Werror)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
@@ -116,20 +117,22 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      tests/core/thumb16_arithmetic_test.c "core;unit")
   cortex_m4_add_test(core_thumb16_memory tests/core/thumb16_memory_test.c
                      "core;integration")
-  cortex_m4_add_test(core_thumb16_complete
-                     tests/core/thumb16_complete_test.c "core;integration")
+  cortex_m4_add_test(core_thumb16_complete tests/core/thumb16_complete_test.c
+                     "core;integration")
   cortex_m4_add_test(core_thumb32 tests/core/thumb32_test.c "core;integration")
   cortex_m4_add_test(core_thumb32_extended tests/core/thumb32_extended_test.c
                      "core;integration")
-  cortex_m4_add_test(core_thumb32_complete
-                     tests/core/thumb32_complete_test.c "core;unit;integration")
-  cortex_m4_add_test(core_thumb32_memory_complete
-                     tests/core/thumb32_memory_complete_test.c "core;integration")
+  cortex_m4_add_test(core_thumb32_complete tests/core/thumb32_complete_test.c
+                     "core;unit;integration")
+  cortex_m4_add_test(
+    core_thumb32_memory_complete tests/core/thumb32_memory_complete_test.c
+    "core;integration")
   cortex_m4_add_test(core_power tests/core/power_test.c "core;integration")
   cortex_m4_add_test(core_processor_state tests/core/processor_state_test.c
                      "core;integration")
-  cortex_m4_add_test(core_constraints_complete
-                     tests/core/constraints_complete_test.c "core;unit;integration")
+  cortex_m4_add_test(
+    core_constraints_complete tests/core/constraints_complete_test.c
+    "core;unit;integration")
   cortex_m4_add_test(core_debug_complete tests/core/debug_complete_test.c
                      "core;unit;integration")
   cortex_m4_add_test(core_dsp tests/core/dsp_test.c "core;unit")
@@ -140,18 +143,19 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "core;unit;integration")
   cortex_m4_add_test(core_mpu_complete tests/core/mpu_complete_test.c
                      "core;unit;integration")
-  cortex_m4_add_test(core_instruction_census
-                     tests/core/instruction_census_test.c "core;unit;integration")
+  cortex_m4_add_test(
+    core_instruction_census tests/core/instruction_census_test.c
+    "core;unit;integration")
   cortex_m4_add_test(core_it_complete tests/core/it_complete_test.c
                      "core;unit;integration")
   cortex_m4_add_test(core_exception tests/core/exception_test.c
                      "core;integration")
-  cortex_m4_add_test(core_exception_advanced
-                     tests/core/exception_advanced_test.c
-                     "core;unit;integration")
-  cortex_m4_add_test(core_exception_integration_complete
-                     tests/core/exception_integration_complete_test.c
-                     "core;integration")
+  cortex_m4_add_test(
+    core_exception_advanced tests/core/exception_advanced_test.c
+    "core;unit;integration")
+  cortex_m4_add_test(
+    core_exception_integration_complete
+    tests/core/exception_integration_complete_test.c "core;integration")
   cortex_m4_add_test(core_fault tests/core/fault_test.c "core;integration")
   cortex_m4_add_test(core_system_exception tests/core/system_exception_test.c
                      "core;integration")
@@ -167,35 +171,41 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "device;unit")
   cortex_m4_add_test(device_k22_register_manifest
                      tests/device/k22_register_manifest_test.c "device;unit")
-  cortex_m4_add_test(device_k22_register_access
-                     tests/device/k22_register_access_test.c "device;integration")
+  cortex_m4_add_test(
+    device_k22_register_access tests/device/k22_register_access_test.c
+    "device;integration")
   cortex_m4_add_test(device_k22_data_complete
                      tests/device/k22_data_complete_test.c "device;integration")
-  cortex_m4_add_test(device_k22_io_complete
-                     tests/device/k22_io_complete_test.c "device;integration")
+  cortex_m4_add_test(device_k22_io_complete tests/device/k22_io_complete_test.c
+                     "device;integration")
   cortex_m4_add_test(device_k22_package tests/device/k22_package_test.c
                      "device;unit")
-  cortex_m4_add_test(device_k22_serial_complete
-                     tests/device/k22_serial_complete_test.c "device;integration")
+  cortex_m4_add_test(
+    device_k22_serial_complete tests/device/k22_serial_complete_test.c
+    "device;integration")
   cortex_m4_add_test(device_k22_sdhc_complete
                      tests/device/k22_sdhc_complete_test.c "device;integration")
-  cortex_m4_add_test(device_k22_timing_complete
-                     tests/device/k22_timing_complete_test.c "device;integration")
-  cortex_m4_add_test(device_k22_integration_complete
-                     tests/device/k22_integration_complete_test.c
-                     "device;integration")
-  cortex_m4_add_test(device_k22_host_api_complete
-                     tests/device/k22_host_api_complete_test.c
-                     "device;integration")
-  cortex_m4_add_test(device_k22_clock_gate_complete
-                     tests/device/k22_clock_gate_complete_test.c
-                     "device;integration")
-  cortex_m4_add_test(device_k22_sysmpu_integration
-                     tests/device/k22_sysmpu_integration_test.c
-                     "device;integration")
-  cortex_m4_add_test(device_k22_infrastructure
-                     tests/device/k22_infrastructure_test.c
-                     "device;integration")
+  cortex_m4_add_test(
+    device_k22_timing_complete tests/device/k22_timing_complete_test.c
+    "device;integration")
+  cortex_m4_add_test(
+    device_k22_ftm_synchronization tests/device/k22_ftm_synchronization_test.c
+    "device;integration")
+  cortex_m4_add_test(
+    device_k22_integration_complete
+    tests/device/k22_integration_complete_test.c "device;integration")
+  cortex_m4_add_test(
+    device_k22_host_api_complete tests/device/k22_host_api_complete_test.c
+    "device;integration")
+  cortex_m4_add_test(
+    device_k22_clock_gate_complete tests/device/k22_clock_gate_complete_test.c
+    "device;integration")
+  cortex_m4_add_test(
+    device_k22_sysmpu_integration tests/device/k22_sysmpu_integration_test.c
+    "device;integration")
+  cortex_m4_add_test(
+    device_k22_infrastructure tests/device/k22_infrastructure_test.c
+    "device;integration")
   cortex_m4_add_test(device_gpio tests/device/gpio_test.c "device;integration")
   cortex_m4_add_test(device_pit tests/device/pit_test.c "device;integration")
   cortex_m4_add_test(device_adc tests/device/adc_test.c "device;integration")
@@ -209,8 +219,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      "device;integration")
   cortex_m4_add_test(firmware_image tests/system/firmware_image_test.c
                      "runner;system")
-  target_link_libraries(cortex_m4_firmware_image_test PRIVATE
-                        cortex_m4_firmware_image)
+  target_link_libraries(cortex_m4_firmware_image_test
+                        PRIVATE cortex_m4_firmware_image)
 
   if(CORTEX_M4_ENABLE_COVERAGE)
     set(coverage_directory "${CMAKE_CURRENT_BINARY_DIR}/coverage")
@@ -229,8 +239,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     add_custom_target(
       cortex_m4_coverage_check
       COMMAND
-        ${CMAKE_COMMAND} -D COVERAGE_DIRECTORY=${coverage_directory}
-        -D COVERAGE_EXCLUSIONS=${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_exclusions.txt
+        ${CMAKE_COMMAND} -D COVERAGE_DIRECTORY=${coverage_directory} -D
+        COVERAGE_EXCLUSIONS=${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_exclusions.txt
         -D MINIMUM_LINE_BASIS_POINTS=9980 -D MINIMUM_BRANCH_BASIS_POINTS=9900 -P
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckCoverage.cmake
       DEPENDS cortex_m4_coverage_report

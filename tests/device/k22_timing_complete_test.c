@@ -866,7 +866,8 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_write(state, &timing, FTM0_CNT, 4, 0u);
     k22_timing_advance(&timing, 6u);
     expect_ftm_output(state, &timing, false);
-    expect_read(state, &timing, FTM0_C0SC, 4, 0x28u);
+    expect_read(state, &timing, FTM0_C0SC, 4, 0xa8u);
+    expect_write(state, &timing, FTM0_C0SC, 4, 0x28u);
     expect_write(state, &timing, FTM0_C0V, 4, 6u);
     k22_timing_advance(&timing, 6u);
     expect_ftm_output(state, &timing, true);
@@ -977,22 +978,28 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_ftm_output(state, &timing, false);
 
     expect_write(state, &timing, FTM0_SYNCONF, 4,
-                 (1u << 12u) | (1u << 11u) | (1u << 10u) | (1u << 7u) |
-                     (1u << 5u) | (1u << 4u));
+                 (1u << 12u) | (1u << 11u) | (1u << 10u) | (1u << 7u) | (1u << 5u) |
+                     (1u << 4u));
+    expect_write(state, &timing, FTM0_SC, 4, 0u);
+    expect_write(state, &timing, FTM0_MOD, 4, 1u);
+    expect_write(state, &timing, FTM0_CNT, 4, 0u);
+    expect_write(state, &timing, FTM0_SC, 4, 8u);
     expect_write(state, &timing, FTM0_SWOCTRL, 4, 1u);
     expect_write(state, &timing, FTM0_INVCTRL, 4, 0u);
-    expect_write(state, &timing, FTM0_SYNC, 4, 8u);
+    expect_write(state, &timing, FTM0_SYNC, 4, 0x0au);
     expect_write(state, &timing, FTM0_OUTMASK, 4, 1u);
     k22_timing_advance(&timing, 2u);
     expect_read(state, &timing, FTM0_SWOCTRL, 4, 0u);
     expect_read(state, &timing, FTM0_INVCTRL, 4, 1u);
     expect_read(state, &timing, FTM0_OUTMASK, 4, 0u);
-    expect_write(state, &timing, FTM0_SYNC, 4, 0x80u);
+    expect_write(state, &timing, FTM0_SYNC, 4, 0x8au);
     expect_read(state, &timing, FTM0_SWOCTRL, 4, 1u);
     expect_read(state, &timing, FTM0_INVCTRL, 4, 0u);
     expect_read(state, &timing, FTM0_OUTMASK, 4, 1u);
-    expect_read(state, &timing, FTM0_SYNC, 4, 0u);
+    expect_read(state, &timing, FTM0_SYNC, 4, 0x8au);
     expect_ftm_output(state, &timing, false);
+    k22_timing_advance(&timing, 2u);
+    expect_read(state, &timing, FTM0_SYNC, 4, 0x0au);
 
     expect_write(state, &timing, FTM0_SC, 4, 0u);
     expect_write(state, &timing, FTM0_MOD, 4, 5u);
