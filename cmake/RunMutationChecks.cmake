@@ -226,3 +226,25 @@ run_mutation(
   "(ftm->registers[2] & (1u << channel)) != 0u"
   "(ftm->registers[2] & (1u << channel)) == 0u"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_explicit_output_initialization src/k22_timing.c
+  "if ((value & 2u) != 0u) {"
+  "if (false) {"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_software_output src/k22_timing.c
+  "const bool software_enabled = (ftm->registers[16] & (1u << channel)) != 0u;"
+  "const bool software_enabled = false;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_complementary_software_output src/k22_timing.c
+  "(channel & 1u) != 0u && complementary && pair_software_enabled && output &&"
+  "(channel & 1u) != 0u && !complementary && pair_software_enabled && output &&"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_output_mask src/k22_timing.c
+  [=[    if ((ftm->registers[3] & (1u << channel)) != 0u)
+        output = false;]=]
+  [=[    if (false)
+        output = false;]=]
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

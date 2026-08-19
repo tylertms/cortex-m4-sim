@@ -725,7 +725,24 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
     const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
     if (!has(timing, peripheral))
         return false;
-    *high = timing->ftm[instance].channel_output[channel];
+    const K22FtmState* ftm = &timing->ftm[instance];
+    bool output = ftm->channel_output[channel];
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    const bool dual_capture = ((ftm->registers[4] >> pair_shift) & 4u) != 0u;
+    const bool software_enabled = (ftm->registers[16] & (1u << channel)) != 0u;
+    if ((ftm->registers[11] & 1u) == 0u && !dual_capture && software_enabled) {
+        output = (ftm->registers[16] & (1u << (channel + 8u))) != 0u;
+        const bool complementary = ((ftm->registers[4] >> pair_shift) & 2u) != 0u;
+        const uint8_t first_channel = channel & 0xfeu;
+        const bool pair_software_enabled =
+            (ftm->registers[16] & (3u << first_channel)) == (3u << first_channel);
+        if ((channel & 1u) != 0u && complementary && pair_software_enabled && output &&
+            (ftm->registers[16] & (1u << (first_channel + 8u))) != 0u)
+            output = false;
+    }
+    if ((ftm->registers[3] & (1u << channel)) != 0u)
+        output = false;
+    *high = output;
     return true;
 }
 
@@ -1312,7 +1329,15 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         update_ftm_irq(timing, index);
     } else if (offset >= 0x54u && offset <= 0x98u) {
         const uint8_t register_index = (uint8_t)((offset - 0x54u) / 4u);
-        if (offset == 0x6cu) {
+        if (offset == 0x54u) {
+            ftm->registers[register_index] = value & ~2u;
+            if ((value & 2u) != 0u) {
+                const uint8_t channels = ftm_channel_count(index);
+                for (uint8_t channel = 0u; channel < channels; channel++)
+                    ftm->channel_output[channel] =
+                        (ftm->registers[2] & (1u << channel)) != 0u;
+            }
+        } else if (offset == 0x6cu) {
             const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
             uint32_t next =
                 (ftm->registers[register_index] & 0x80u) | (value & mask & 0x7fu);
