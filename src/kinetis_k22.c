@@ -172,7 +172,8 @@ static bool k22_read_bus(void* context, uint32_t address, uint8_t size,
                          CortexM4Access access, uint32_t* value) {
     KinetisK22* device = context;
     if (address >= K22_BIT_BAND_BASE && address < K22_BIT_BAND_BASE + K22_BIT_BAND_SIZE) {
-        return size == 4 && bit_band_read(device, address, access, value);
+        return (size == 1 || size == 2 || size == 4) &&
+               bit_band_read(device, address, access, value);
     }
     return kinetis_k22_memory_read(device, address, size, access, value);
 }
@@ -181,7 +182,8 @@ static bool k22_write_bus(void* context, uint32_t address, uint8_t size,
                           CortexM4Access access, uint32_t value) {
     KinetisK22* device = context;
     if (address >= K22_BIT_BAND_BASE && address < K22_BIT_BAND_BASE + K22_BIT_BAND_SIZE) {
-        return size == 4 && bit_band_write(device, address, access, value);
+        return (size == 1 || size == 2 || size == 4) &&
+               bit_band_write(device, address, access, value);
     }
     return kinetis_k22_memory_write(device, address, size, access, value);
 }

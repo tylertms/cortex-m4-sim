@@ -75,9 +75,9 @@ int main(void) {
     TEST_EXPECT(&state, !kinetis_k22_i2c0_transfer(device, &transfer));
 
     const uint32_t vectors[] = {0x20001000u, 0x00000101u};
-    const uint16_t store = 0x6008u;
+    const uint16_t stores[] = {0x7008u, 0x8008u};
     TEST_EXPECT(&state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
-    TEST_EXPECT(&state, kinetis_k22_load(device, 0x100u, &store, sizeof(store)));
+    TEST_EXPECT(&state, kinetis_k22_load(device, 0x100u, stores, sizeof(stores)));
     TEST_EXPECT(&state, kinetis_k22_reset(device));
     write32(&state, device, SIM_SCGC4, read32(&state, device, SIM_SCGC4) | (1u << 6));
     write8(&state, device, I2C0_C1, 0xf0u);
@@ -87,6 +87,10 @@ int main(void) {
     TEST_EXPECT(&state,
                 cortex_m4_step(kinetis_k22_cpu(device)).stop == CORTEX_M4_STOP_RUNNING);
     expect_transfer(&state, device, KINETIS_K22_I2C_REPEATED_START, 0);
+    cortex_m4_set_register(kinetis_k22_cpu(device), 1, I2C0_C1_TXAK);
+    TEST_EXPECT(&state,
+                cortex_m4_step(kinetis_k22_cpu(device)).stop == CORTEX_M4_STOP_RUNNING);
+    TEST_EXPECT(&state, (read8(&state, device, I2C0_C1) & 8u) != 0);
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }
