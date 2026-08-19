@@ -53,6 +53,11 @@ static void test_data_api(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, kinetis_k22_set_ftm_input(device, 0u, 0u, true));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(device, 4u, 0u, false));
     TEST_EXPECT(state, !kinetis_k22_set_ftm_input(NULL, 0u, 0u, false));
+    bool ftm_output = true;
+    TEST_EXPECT(state, kinetis_k22_get_ftm_output(device, 0u, 0u, &ftm_output));
+    TEST_EXPECT(state, !ftm_output);
+    TEST_EXPECT(state, !kinetis_k22_get_ftm_output(device, 4u, 0u, &ftm_output));
+    TEST_EXPECT(state, !kinetis_k22_get_ftm_output(NULL, 0u, 0u, &ftm_output));
     uint16_t output = 0u;
     TEST_EXPECT(state, kinetis_k22_get_dac_output(device, 0u, &output));
     TEST_EXPECT(state, !kinetis_k22_get_dac_output(device, 2u, &output));

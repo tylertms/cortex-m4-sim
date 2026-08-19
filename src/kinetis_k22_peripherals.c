@@ -947,6 +947,12 @@ bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t cha
            k22_timing_set_ftm_input(&device->timing, instance, channel, high);
 }
 
+bool kinetis_k22_get_ftm_output(const KinetisK22* device, uint8_t instance, uint8_t channel,
+                                bool* high) {
+    return device != NULL &&
+           k22_timing_get_ftm_output(&device->timing, instance, channel, high);
+}
+
 bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
                                 uint16_t* value) {
     return device != NULL && instance < 2u &&

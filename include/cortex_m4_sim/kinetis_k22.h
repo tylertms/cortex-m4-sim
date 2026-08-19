@@ -144,6 +144,8 @@ bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t inp
 bool kinetis_k22_set_lptmr_input(KinetisK22* device, uint8_t input, bool high);
 bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,
                                bool high);
+bool kinetis_k22_get_ftm_output(const KinetisK22* device, uint8_t instance, uint8_t channel,
+                                bool* high);
 bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
                                 uint16_t* value);
 void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed);

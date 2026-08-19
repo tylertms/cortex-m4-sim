@@ -717,6 +717,18 @@ bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t chann
     return true;
 }
 
+bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
+                               bool* high) {
+    if (timing == NULL || high == NULL || timing->profile == NULL || instance >= 4u ||
+        channel >= ftm_channel_count(instance))
+        return false;
+    const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
+    if (!has(timing, peripheral))
+        return false;
+    *high = timing->ftm[instance].channel_output[channel];
+    return true;
+}
+
 static void update_ftm_irq(const K22Timing* timing, uint8_t index) {
     const K22FtmState* ftm = &timing->ftm[index];
     bool asserted = (ftm->sc & 0xc0u) == 0xc0u;
@@ -743,12 +755,6 @@ static bool ftm_gate(const K22Timing* timing, uint8_t index) {
     return (timing->sim_scgc6 & (1u << (24u + index))) != 0;
 }
 
-static bool ftm_crossed_phase(uint32_t phase, uint64_t ticks, uint32_t period,
-                              uint32_t target) {
-    const uint32_t distance = target > phase ? target - phase : period - (phase - target);
-    return ticks >= distance;
-}
-
 static uint64_t ftm_phase_crossing_count(uint32_t phase, uint64_t ticks, uint32_t period,
                                          uint32_t target) {
     const uint32_t distance = target > phase ? target - phase : period - (phase - target);
@@ -764,6 +770,86 @@ static void ftm_channel_event(K22Timing* timing, uint8_t index, uint8_t channel)
     const uint8_t trigger_bit = ftm_trigger_bit(channel);
     if (trigger_bit != UINT8_MAX && (ftm->registers[6] & (1u << trigger_bit)) != 0u)
         ftm_trigger(timing, index);
+}
+
+static bool ftm_pair_mode_disabled(const K22FtmState* ftm, uint8_t channel) {
+    const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
+    return ((ftm->registers[4] >> pair_shift) & 5u) == 0u;
+}
+
+static bool ftm_output_compare_mode(const K22FtmState* ftm, uint8_t channel) {
+    return (ftm->sc & (1u << 5u)) == 0u && (ftm->channel_sc[channel] & 0x30u) == 0x10u &&
+           (ftm->registers[11] & 1u) == 0u && ftm_pair_mode_disabled(ftm, channel);
+}
+
+static bool ftm_edge_aligned_pwm_mode(const K22FtmState* ftm, uint8_t channel) {
+    return (ftm->sc & (1u << 5u)) == 0u && (ftm->channel_sc[channel] & 0x20u) != 0u &&
+           (ftm->registers[11] & 1u) == 0u && ftm_pair_mode_disabled(ftm, channel);
+}
+
+static bool ftm_center_aligned_pwm_mode(const K22FtmState* ftm, uint8_t channel) {
+    return (ftm->sc & (1u << 5u)) != 0u && (ftm->registers[11] & 1u) == 0u &&
+           ftm_pair_mode_disabled(ftm, channel);
+}
+
+static void ftm_output_compare_match(K22FtmState* ftm, uint8_t channel, uint64_t count) {
+    if (count == 0u || !ftm_output_compare_mode(ftm, channel))
+        return;
+    switch ((ftm->channel_sc[channel] >> 2u) & 3u) {
+    case 1u:
+        if ((count & 1u) != 0u)
+            ftm->channel_output[channel] = !ftm->channel_output[channel];
+        break;
+    case 2u:
+        ftm->channel_output[channel] = false;
+        break;
+    case 3u:
+        ftm->channel_output[channel] = true;
+        break;
+    default:
+        break;
+    }
+}
+
+static void ftm_edge_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel,
+                                         uint64_t matches, uint64_t overflows) {
+    if (!ftm_edge_aligned_pwm_mode(ftm, channel))
+        return;
+    const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
+    if (edges == 0u)
+        return;
+    const bool high_true = edges == 2u;
+    const uint32_t compare = ftm->channel_value[channel];
+    if (overflows != 0u) {
+        const bool active = compare < ftm->initial || compare > ftm->modulo
+                                ? true
+                                : compare != ftm->initial && ftm->counter < compare;
+        ftm->channel_output[channel] = high_true ? active : !active;
+    } else if (matches != 0u) {
+        ftm->channel_output[channel] = !high_true;
+    }
+}
+
+static void ftm_center_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel,
+                                           uint64_t matches, uint64_t ticks) {
+    if (ticks == 0u || !ftm_center_aligned_pwm_mode(ftm, channel))
+        return;
+    const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
+    if (edges == 0u)
+        return;
+    const bool high_true = edges == 2u;
+    const uint16_t compare = ftm->channel_value[channel];
+    bool active;
+    if (compare <= ftm->initial || (compare & 0x8000u) != 0u)
+        active = false;
+    else if (compare >= ftm->modulo)
+        active = true;
+    else {
+        if (matches == 0u)
+            return;
+        active = ftm->counter < compare || (ftm->counting_down && ftm->counter == compare);
+    }
+    ftm->channel_output[channel] = high_true ? active : !active;
 }
 
 static void ftm_overflow(K22Timing* timing, uint8_t index, uint64_t count) {
@@ -804,14 +890,16 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         phase = ftm->counter - first;
     }
     const uint8_t channels = ftm_channel_count(index);
+    uint64_t matches[8] = {0};
     for (uint8_t channel = 0u; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
         if (compare <= first || compare >= last)
             continue;
         const uint32_t up_phase = compare - first;
         const uint32_t down_phase = period - up_phase;
-        if (ftm_crossed_phase(phase, ticks, period, up_phase) ||
-            ftm_crossed_phase(phase, ticks, period, down_phase))
+        matches[channel] = ftm_phase_crossing_count(phase, ticks, period, up_phase) +
+                           ftm_phase_crossing_count(phase, ticks, period, down_phase);
+        if (matches[channel] != 0u)
             ftm_channel_event(timing, index, channel);
     }
     ftm_overflow(timing, index, ftm_phase_crossing_count(phase, ticks, period, span + 1u));
@@ -826,6 +914,8 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
         ftm->counter = (uint16_t)(last - (phase - span));
         ftm->counting_down = true;
     }
+    for (uint8_t channel = 0u; channel < channels; channel++)
+        ftm_center_aligned_pwm_advance(ftm, channel, matches[channel], ticks);
     update_ftm_irq(timing, index);
 }
 
@@ -859,18 +949,28 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
     const uint64_t relative = (uint64_t)(start - first) + ticks;
     const uint64_t overflows = relative / period;
     const uint8_t channels = ftm_channel_count(index);
+    uint64_t matches[8] = {0};
     for (uint8_t channel = 0; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
         const uint32_t distance =
             compare > start ? compare - start : period - (start - compare);
-        if ((ftm->channel_sc[channel] & 0x30u) != 0u && compare >= first &&
-            compare <= last && ticks >= distance)
+        const bool output_compare = ftm_output_compare_mode(ftm, channel);
+        const bool edge_aligned = ftm_edge_aligned_pwm_mode(ftm, channel);
+        const bool valid_compare = output_compare ? compare >= first && compare <= last
+                                                  : compare > first && compare <= last;
+        if ((output_compare || edge_aligned) && valid_compare && ticks >= distance) {
+            matches[channel] = 1u + (ticks - distance) / period;
             ftm_channel_event(timing, index, channel);
+        }
     }
     ftm->counter = (uint16_t)(first + relative % period);
     ftm_overflow(timing, index, overflows);
     if (overflows != 0u && (ftm->registers[6] & (1u << 6u)) != 0u)
         ftm_trigger(timing, index);
+    for (uint8_t channel = 0u; channel < channels; channel++) {
+        ftm_output_compare_match(ftm, channel, matches[channel]);
+        ftm_edge_aligned_pwm_advance(ftm, channel, matches[channel], overflows);
+    }
     update_ftm_irq(timing, index);
 }
 
@@ -1177,6 +1277,11 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         ftm->counter = ftm->initial;
         ftm->counting_down = false;
         ftm->overflow_count = 0u;
+        const uint8_t channels = ftm_channel_count(index);
+        for (uint8_t channel = 0u; channel < channels; channel++) {
+            if (!ftm_output_compare_mode(ftm, channel))
+                ftm->channel_output[channel] = (ftm->registers[2] & (1u << channel)) != 0u;
+        }
         if ((ftm->registers[6] & (1u << 6u)) != 0u)
             ftm_trigger(timing, index);
     } else if (offset == 8)
