@@ -341,6 +341,7 @@ bool cortex_m4_mpu_access_permitted(const CortexM4* cpu, uint32_t address, uint8
 bool cortex_m4_mpu_check(CortexM4* cpu, uint32_t address, uint8_t size,
                          CortexM4Access access, bool write);
 void cortex_m4_debug_reset(CortexM4* cpu);
+bool cortex_m4_debug_address(uint32_t address);
 CortexM4SystemAccess cortex_m4_debug_read(CortexM4* cpu, uint32_t address, uint8_t size,
                                           uint32_t* value);
 CortexM4SystemAccess cortex_m4_debug_write(CortexM4* cpu, uint32_t address, uint8_t size,

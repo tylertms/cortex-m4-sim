@@ -67,7 +67,7 @@ static bool word_access(uint32_t address, uint8_t size) {
     return size == 4 && (address & 3u) == 0;
 }
 
-static bool debug_address(uint32_t address) {
+bool cortex_m4_debug_address(uint32_t address) {
     return (address >= ITM_BASE && address < ITM_BASE + 0x1000u) ||
            (address >= DWT_BASE && address < DWT_BASE + 0x1000u) ||
            (address >= FPB_BASE && address < FPB_BASE + 0x1000u) ||
@@ -607,7 +607,7 @@ void cortex_m4_debug_reset(CortexM4* cpu) {
 
 CortexM4SystemAccess cortex_m4_debug_read(CortexM4* cpu, uint32_t address, uint8_t size,
                                           uint32_t* value) {
-    if (!debug_address(address)) {
+    if (!cortex_m4_debug_address(address)) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
     if (cpu == NULL || value == NULL || !valid_access(address, size)) {
@@ -630,7 +630,7 @@ CortexM4SystemAccess cortex_m4_debug_read(CortexM4* cpu, uint32_t address, uint8
 
 CortexM4SystemAccess cortex_m4_debug_write(CortexM4* cpu, uint32_t address, uint8_t size,
                                            uint32_t value) {
-    if (!debug_address(address)) {
+    if (!cortex_m4_debug_address(address)) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
     if (cpu == NULL || !valid_access(address, size)) {

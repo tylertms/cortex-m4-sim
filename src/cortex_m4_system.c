@@ -365,12 +365,11 @@ CortexM4SystemAccess cortex_m4_system_read(CortexM4* cpu, uint32_t address, uint
     if (cpu == NULL || value == NULL) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
-    const CortexM4SystemAccess debug_access =
-        cortex_m4_debug_read(cpu, address, size, value);
-    if (debug_access != CORTEX_M4_SYSTEM_ACCESS_OUTSIDE) {
-        return debug_access_permitted(cpu, address, access)
-                   ? debug_access
-                   : CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    if (cortex_m4_debug_address(address)) {
+        if (!debug_access_permitted(cpu, address, access)) {
+            return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+        }
+        return cortex_m4_debug_read(cpu, address, size, value);
     }
     if (!valid_access(address, size) || !privileged_access(cpu, access)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
@@ -542,14 +541,13 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     const uint32_t aligned = address & ~3u;
-    const CortexM4SystemAccess debug_access =
-        cortex_m4_debug_write(cpu, address, size, value);
-    if (debug_access != CORTEX_M4_SYSTEM_ACCESS_OUTSIDE) {
-        return debug_access_permitted(cpu, address, access)
-                   ? debug_access
-                   : CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+    if (cortex_m4_debug_address(address)) {
+        if (!debug_access_permitted(cpu, address, access)) {
+            return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
+        }
+        return cortex_m4_debug_write(cpu, address, size, value);
     }
-    const bool user_stir = aligned == NVIC_STIR && size == 4u &&
+    const bool user_stir = address == NVIC_STIR && size == 4u &&
                            access == CORTEX_M4_ACCESS_UNPRIVILEGED_DATA &&
                            (cpu->ccr & (1u << 1u)) != 0u;
     if (!valid_access(address, size) && !user_stir) {
@@ -691,7 +689,7 @@ CortexM4SystemAccess cortex_m4_system_write(CortexM4* cpu, uint32_t address, uin
         cpu->cpacr = write_partial(cpu->cpacr, address, size, value) & 0x00f00000u;
         return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
     }
-    if (aligned == NVIC_STIR) {
+    if (address == NVIC_STIR) {
         const uint16_t irq = (uint16_t)(value & 0x1ffu);
         if (size != 4 || irq >= cpu->external_irq_count) {
             return CORTEX_M4_SYSTEM_ACCESS_REJECTED;

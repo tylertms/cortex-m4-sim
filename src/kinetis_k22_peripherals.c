@@ -646,13 +646,14 @@ static void apply_fmc_control(KinetisK22* device, uint32_t address, uint8_t size
         return;
     }
     const uint8_t ways = (uint8_t)((value >> 20u) & 0x0fu);
+    const uint8_t sets = device->profile->id >= K22_PROFILE_MK22FN1M012 ? 4u : 8u;
     for (uint8_t way = 0u; way < 4u; way++) {
         if ((ways & (1u << way)) == 0u) {
             continue;
         }
-        for (uint8_t set = 0u; set < 8u; set++) {
+        for (uint8_t set = 0u; set < sets; set++) {
             const uint32_t tag_address =
-                K22_FMC + 0x100u + (uint32_t)way * 0x20u + (uint32_t)set * 4u;
+                K22_FMC + 0x100u + ((uint32_t)way * sets + set) * 4u;
             if (k22_register_manifest_lookup(device->profile->id, tag_address, 32u) !=
                 NULL) {
                 raw_store(device, tag_address, 4u, raw_load(device, tag_address, 4u) & ~1u);

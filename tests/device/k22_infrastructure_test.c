@@ -12,6 +12,11 @@ enum {
     AXBS_PRS0 = 0x40004000u,
     AXBS_CRS0 = 0x40004010u,
     FMC_PFAPR = 0x4001f000u,
+    FMC_PFB0CR = 0x4001f004u,
+    FMC_TAGVDW0S0 = 0x4001f100u,
+    FMC_TAGVDW1S0 = 0x4001f110u,
+    FMC_TAGVDW2S0 = 0x4001f120u,
+    FMC_TAGVDW3S0 = 0x4001f130u,
     DMAMUX_CHCFG0 = 0x40021000u,
     USBDCD_CONTROL = 0x40035000u,
     USBDCD_CLOCK = 0x40035004u,
@@ -187,6 +192,21 @@ static void test_access_controls(TestState* state, KinetisK22* device) {
         state, kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_DEBUG, &value));
 }
 
+static void test_fmc_geometry(TestState* state, KinetisK22* device) {
+    write32(state, device, FMC_TAGVDW0S0, 0x41u);
+    write32(state, device, FMC_TAGVDW1S0, 0x81u);
+    write32(state, device, FMC_TAGVDW2S0, 0xc1u);
+    write32(state, device, FMC_TAGVDW3S0, 0x101u);
+    write32(state, device, FMC_PFB0CR, 1u << 20u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW0S0) == 0x40u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW1S0) == 0x81u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW2S0) == 0xc1u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW3S0) == 0x101u);
+    write32(state, device, FMC_PFB0CR, 1u << 21u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW1S0) == 0x80u);
+    TEST_EXPECT(state, read32(state, device, FMC_TAGVDW2S0) == 0xc1u);
+}
+
 static void test_retention(TestState* state, KinetisK22* device) {
     write32(state, device, RFVBAT_REG0, 0x12345678u);
     write32(state, device, RFSYS_REG0, 0xa5a55a5au);
@@ -203,6 +223,7 @@ int main(void) {
     test_cmt(&state, device);
     test_usbdcd(&state, device);
     test_access_controls(&state, device);
+    test_fmc_geometry(&state, device);
     test_retention(&state, device);
     kinetis_k22_destroy(device);
     return test_finish(&state);
