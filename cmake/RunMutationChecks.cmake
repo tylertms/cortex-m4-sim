@@ -44,6 +44,17 @@ run_mutation(
   "data->flash[0] = 0u;" cortex_m4_device_k22_data_complete_test
   device_k22_data_complete)
 run_mutation(
+  flash_command_layout src/k22_data.c
+  "static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,"
+  "static const uint8_t offsets[12] = {4u, 6u, 5u,  7u,  11u, 10u,"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_partition src/k22_data.c "case 0x0fu:" "case 0x0eu:"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
+  flash_protection_range src/k22_data.c "region <= last" "region < last"
+  cortex_m4_device_k22_data_complete_test device_k22_data_complete)
+run_mutation(
   sysmpu_access src/kinetis_k22.c "if (!sysmpu_access_allowed("
   "if (false && !sysmpu_access_allowed(" cortex_m4_device_k22_sysmpu_integration_test
   device_k22_sysmpu_integration)

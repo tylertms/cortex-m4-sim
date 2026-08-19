@@ -11,7 +11,7 @@ enum {
     FMC_TAGVDW0S0 = 0x4001f100u,
     FMC_TAGVDW1S0 = 0x4001f120u,
     FTFA_FSTAT = 0x40020000u,
-    FTFA_FCCOB0 = 0x40020004u,
+    FTFA_FCCOB3 = 0x40020004u,
     PDB_SC = 0x40036000u,
     PDB_MOD = 0x40036004u,
     PDB_CH0C1 = 0x40036010u,
@@ -83,6 +83,12 @@ static bool cpu_write8(KinetisK22* device, uint32_t address, uint8_t value) {
     return cortex_m4_write_memory(kinetis_k22_cpu(device), address, 1u, value);
 }
 
+static uint32_t flash_fccob_address(uint8_t index) {
+    static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,
+                                        9u, 8u, 15u, 14u, 13u, 12u};
+    return FTFA_FCCOB3 - 4u + offsets[index];
+}
+
 static KinetisK22* create_device(TestState* state, KinetisK22Package package) {
     KinetisK22Configuration configuration = kinetis_k22_default_configuration();
     configuration.package = package;
@@ -142,14 +148,9 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
     uint32_t value = 0u;
     TEST_EXPECT(state, read32(device, target, &value));
     TEST_EXPECT(state, value == UINT32_MAX);
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0, 0x06u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 1u, 0x00u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 2u, 0x10u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 3u, 0x00u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 4u, 0x12u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 5u, 0x34u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 6u, 0x56u));
-    TEST_EXPECT(state, cpu_write8(device, FTFA_FCCOB0 + 7u, 0x78u));
+    const uint8_t command[8] = {0x06u, 0x00u, 0x10u, 0x00u, 0x78u, 0x56u, 0x34u, 0x12u};
+    for (uint8_t index = 0u; index < sizeof(command); index++)
+        TEST_EXPECT(state, cpu_write8(device, flash_fccob_address(index), command[index]));
     TEST_EXPECT(state, cpu_write8(device, FTFA_FSTAT, 0x80u));
     TEST_EXPECT(state, read32(device, target, &value));
     TEST_EXPECT(state, value == 0x12345678u);

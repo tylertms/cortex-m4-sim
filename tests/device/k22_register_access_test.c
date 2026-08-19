@@ -85,6 +85,9 @@ widest_covering_descriptor(const K22RegisterManifest* manifest,
 static uint32_t expected_reset_value(const K22RegisterManifest* manifest,
                                      const K22RegisterDescriptor* descriptor) {
     const uint32_t offset = descriptor->address - 0x40020000u;
+    if (offset == 1u && (manifest->profile == K22_PROFILE_MK22FN1M012 ||
+                         manifest->profile == K22_PROFILE_MK22FX51212))
+        return 2u;
     if (offset == 2u)
         return flash_configuration[12];
     if (offset == 3u)

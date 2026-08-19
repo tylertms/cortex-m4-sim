@@ -114,6 +114,20 @@ static void write_value(TestState* state, K22Data* data, uint32_t address, uint8
     TEST_EXPECT(state, k22_data_write(data, address, size, value));
 }
 
+static uint32_t flash_fccob_address(uint8_t index) {
+    static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,
+                                        9u, 8u, 15u, 14u, 13u, 12u};
+    return FTFA + offsets[index];
+}
+
+static void write_fccob(TestState* state, K22Data* data, uint8_t index, uint8_t value) {
+    write_value(state, data, flash_fccob_address(index), 1u, value);
+}
+
+static uint8_t read_fccob(TestState* state, K22Data* data, uint8_t index) {
+    return (uint8_t)read_value(state, data, flash_fccob_address(index), 1u);
+}
+
 static void write_tcd(TestState* state, K22Data* data, uint32_t base, uint32_t source,
                       int16_t source_offset, uint16_t attributes, uint32_t bytes,
                       int32_t source_last, uint32_t destination, int16_t destination_offset,
@@ -476,19 +490,25 @@ static void test_flash_flex_copy(TestState* state) {
     memset(bus.flash, 0xff, sizeof(bus.flash));
     K22Data* data = create(state, &bus, K22_PROFILE_MK22FX51212);
     TEST_EXPECT(state, read_value(state, data, FTFA, 1) == 0x80u);
-    write_value(state, data, FTFA + 4, 1, 0x07u);
-    write_value(state, data, FTFA + 5, 1, 0x00u);
-    write_value(state, data, FTFA + 6, 1, 0x10u);
-    write_value(state, data, FTFA + 7, 1, 0x00u);
-    write_value(state, data, FTFA + 8, 4, 0x78563412u);
-    write_value(state, data, FTFA + 12, 4, 0xf0debc9au);
+    write_fccob(state, data, 0u, 0x07u);
+    write_fccob(state, data, 1u, 0x00u);
+    write_fccob(state, data, 2u, 0x10u);
+    write_fccob(state, data, 3u, 0x00u);
+    write_fccob(state, data, 4u, 0x12u);
+    write_fccob(state, data, 5u, 0x34u);
+    write_fccob(state, data, 6u, 0x56u);
+    write_fccob(state, data, 7u, 0x78u);
+    write_fccob(state, data, 8u, 0x9au);
+    write_fccob(state, data, 9u, 0xbcu);
+    write_fccob(state, data, 10u, 0xdeu);
+    write_fccob(state, data, 11u, 0xf0u);
     write_value(state, data, FTFA, 1, 0x80u);
     TEST_EXPECT(state, read_value(state, data, FTFA, 1) == 0);
-    TEST_EXPECT(state, load(bus.flash, 0x1000, 4) == 0x12345678u);
-    TEST_EXPECT(state, load(bus.flash, 0x1004, 4) == 0x9abcdef0u);
+    TEST_EXPECT(state, load(bus.flash, 0x1000, 4) == 0x78563412u);
+    TEST_EXPECT(state, load(bus.flash, 0x1004, 4) == 0xf0debc9au);
     k22_data_advance(data, 40);
     TEST_EXPECT(state, read_value(state, data, FTFA, 1) == 0x80u);
-    write_value(state, data, FTFA + 4, 1, 0xffu);
+    write_fccob(state, data, 0u, 0xffu);
     write_value(state, data, FTFA, 1, 0x80u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x20u) != 0);
     write_value(state, data, FTFA, 1, 0x20u);
@@ -503,12 +523,12 @@ static void test_flash_flex_copy(TestState* state) {
     TEST_EXPECT(state, read_value(state, data, 0x408u, 1) == 0xfeu);
     k22_data_reset(data);
     TEST_EXPECT(state, read_value(state, data, FTFA + 0x10, 1) == 0xfeu);
-    write_value(state, data, FTFA + 4, 1, 0x07u);
-    write_value(state, data, FTFA + 5, 1, 0x00u);
-    write_value(state, data, FTFA + 6, 1, 0x10u);
-    write_value(state, data, FTFA + 7, 1, 0x00u);
-    write_value(state, data, FTFA + 8, 4, 0xffffffffu);
-    write_value(state, data, FTFA + 12, 4, 0xffffffffu);
+    write_fccob(state, data, 0u, 0x07u);
+    write_fccob(state, data, 1u, 0x00u);
+    write_fccob(state, data, 2u, 0x10u);
+    write_fccob(state, data, 3u, 0x00u);
+    for (uint8_t index = 4u; index < 12u; index++)
+        write_fccob(state, data, index, 0xffu);
     write_value(state, data, FTFA, 1, 0x80u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x10u) != 0);
 
@@ -531,9 +551,9 @@ static void test_flash_flex_copy(TestState* state) {
 }
 
 static void set_flash_address(TestState* state, K22Data* data, uint32_t address) {
-    write_value(state, data, FTFA + 5u, 1, address >> 16u);
-    write_value(state, data, FTFA + 6u, 1, address >> 8u);
-    write_value(state, data, FTFA + 7u, 1, address);
+    write_fccob(state, data, 1u, (uint8_t)(address >> 16u));
+    write_fccob(state, data, 2u, (uint8_t)(address >> 8u));
+    write_fccob(state, data, 3u, (uint8_t)address);
 }
 
 static void launch_flash(TestState* state, K22Data* data, uint32_t cycles) {
@@ -550,23 +570,25 @@ static void test_flash_controller_geometry(TestState* state) {
     bus.flash[0x1000] = 0;
     bus.flash[0x1ffc] = 0;
     bus.flash[0x2000] = 0;
-    write_value(state, data, FTFA + 4u, 1, 0x09u);
+    write_fccob(state, data, 0u, 0x09u);
     set_flash_address(state, data, 0x1000u);
     launch_flash(state, data, 2000u);
     TEST_EXPECT(state, load(bus.flash, 0x1000u, 4) == UINT32_MAX);
     TEST_EXPECT(state, load(bus.flash, 0x1ffcu, 4) == UINT32_MAX);
     TEST_EXPECT(state, bus.flash[0x2000] == 0);
 
-    write_value(state, data, FTFA + 4u, 1, 0x43u);
-    write_value(state, data, FTFA + 5u, 1, 2u);
-    write_value(state, data, FTFA + 8u, 4, 0x78563412u);
-    write_value(state, data, FTFA + 12u, 4, 0xf0debc9au);
+    write_fccob(state, data, 0u, 0x43u);
+    write_fccob(state, data, 1u, 2u);
+    const uint8_t once_data[8] = {0x12u, 0x34u, 0x56u, 0x78u, 0x9au, 0xbcu, 0xdeu, 0xf0u};
+    for (uint8_t index = 0u; index < sizeof(once_data); index++)
+        write_fccob(state, data, (uint8_t)(4u + index), once_data[index]);
     launch_flash(state, data, 40u);
-    write_value(state, data, FTFA + 4u, 1, 0x41u);
-    write_value(state, data, FTFA + 5u, 1, 2u);
+    write_fccob(state, data, 0u, 0x41u);
+    write_fccob(state, data, 1u, 2u);
     launch_flash(state, data, 40u);
-    TEST_EXPECT(state, read_value(state, data, FTFA + 8u, 4) == 0x78563412u);
-    TEST_EXPECT(state, read_value(state, data, FTFA + 12u, 4) == 0xf0debc9au);
+    for (uint8_t index = 0u; index < sizeof(once_data); index++)
+        TEST_EXPECT(state,
+                    read_fccob(state, data, (uint8_t)(4u + index)) == once_data[index]);
     k22_data_destroy(data);
 
     memset(&bus, 0, sizeof(bus));
@@ -575,13 +597,13 @@ static void test_flash_controller_geometry(TestState* state) {
     bus.flash[0x1000] = 0;
     bus.flash[0x17fc] = 0;
     bus.flash[0x1800] = 0;
-    write_value(state, data, FTFA + 4u, 1, 0x09u);
+    write_fccob(state, data, 0u, 0x09u);
     set_flash_address(state, data, 0x1000u);
     launch_flash(state, data, 2000u);
     TEST_EXPECT(state, load(bus.flash, 0x1000u, 4) == UINT32_MAX);
     TEST_EXPECT(state, load(bus.flash, 0x17fcu, 4) == UINT32_MAX);
     TEST_EXPECT(state, bus.flash[0x1800] == 0);
-    write_value(state, data, FTFA + 4u, 1, 0x07u);
+    write_fccob(state, data, 0u, 0x07u);
     set_flash_address(state, data, 0x2000u);
     write_value(state, data, FTFA, 1, 0x80u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x20u) != 0u);
@@ -590,8 +612,14 @@ static void test_flash_controller_geometry(TestState* state) {
 
 static void flash_command(TestState* state, K22Data* data, uint8_t command,
                           uint32_t address, uint32_t cycles) {
-    write_value(state, data, FTFA + 4u, 1, command);
+    write_fccob(state, data, 0u, command);
     set_flash_address(state, data, address);
+    launch_flash(state, data, cycles);
+}
+
+static void flash_command_without_address(TestState* state, K22Data* data, uint8_t command,
+                                          uint32_t cycles) {
+    write_fccob(state, data, 0u, command);
     launch_flash(state, data, cycles);
 }
 
@@ -615,6 +643,9 @@ static void test_flash_commands_and_failures(TestState* state) {
     TEST_EXPECT(state, bus.flash[0u] == 0xffu);
     TEST_EXPECT(state, bus.flash[0xfffffu] == 0xffu);
 
+    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 5u, 1u);
+    write_fccob(state, data, 6u, 0u);
     flash_command(state, data, 0x01u, 0x1000u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 1u) == 0u);
     bus.flash[0x1000u] = 0u;
@@ -622,21 +653,29 @@ static void test_flash_commands_and_failures(TestState* state) {
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 1u) != 0u);
     write_value(state, data, FTFA, 1, 1u);
     memset(bus.flash, 0xff, sizeof(bus.flash));
+    write_fccob(state, data, 1u, 0u);
     flash_command(state, data, 0x40u, 0u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 1u) == 0u);
 
     store(bus.flash, 0x2000u, 4, 0x12345678u);
-    write_value(state, data, FTFA + 8u, 4, 0x78563412u);
+    write_fccob(state, data, 4u, 1u);
+    write_fccob(state, data, 8u, 0x78u);
+    write_fccob(state, data, 9u, 0x56u);
+    write_fccob(state, data, 10u, 0x34u);
+    write_fccob(state, data, 11u, 0x12u);
     flash_command(state, data, 0x02u, 0x2000u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 1u) == 0u);
-    write_value(state, data, FTFA + 8u, 4, 0x21436587u);
+    write_fccob(state, data, 8u, 0x87u);
+    write_fccob(state, data, 9u, 0x65u);
+    write_fccob(state, data, 10u, 0x43u);
+    write_fccob(state, data, 11u, 0x21u);
     flash_command(state, data, 0x02u, 0x2000u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 1u) != 0u);
     write_value(state, data, FTFA, 1, 1u);
 
     bus.fail_read = true;
-    write_value(state, data, FTFA + 8u, 4, 0x78563412u);
-    write_value(state, data, FTFA + 12u, 4, 0xf0debc9au);
+    for (uint8_t index = 4u; index < 12u; index++)
+        write_fccob(state, data, index, (uint8_t)(index * 17u));
     flash_command(state, data, 0x07u, 0x3000u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x20u) != 0u);
     bus.fail_read = false;
@@ -647,32 +686,313 @@ static void test_flash_commands_and_failures(TestState* state) {
     bus.fail_write = false;
     write_value(state, data, FTFA, 1, 0x20u);
 
-    flash_command(state, data, 0x03u, 0u, 40u);
+    write_fccob(state, data, 4u, 1u);
+    flash_command(state, data, 0x03u, 8u, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x30u) == 0u);
     flash_command(state, data, 0x45u, 0u, 40u);
-    TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x30u) == 0u);
-    write_value(state, data, FTFA + 4u, 1, 0x43u);
-    write_value(state, data, FTFA + 5u, 1, 1u);
-    write_value(state, data, FTFA + 8u, 4, 0x78563412u);
-    write_value(state, data, FTFA + 12u, 4, 0xf0debc9au);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x20u) != 0u);
+    write_value(state, data, FTFA, 1, 0x20u);
+    write_fccob(state, data, 0u, 0x43u);
+    write_fccob(state, data, 1u, 1u);
+    for (uint8_t index = 4u; index < 12u; index++)
+        write_fccob(state, data, index, (uint8_t)(index * 19u));
     launch_flash(state, data, 40u);
     launch_flash(state, data, 40u);
     TEST_EXPECT(state, (read_value(state, data, FTFA, 1) & 0x20u) != 0u);
     write_value(state, data, FTFA, 1, 0x20u);
     write_value(state, data, FTFA + 1u, 1, 0x80u);
-    flash_command(state, data, 0x03u, 0u, 40u);
+    flash_command(state, data, 0x03u, 8u, 40u);
     TEST_EXPECT(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA]);
     k22_data_destroy(data);
 
     memset(&bus, 0, sizeof(bus));
     memset(bus.flash, 0xff, sizeof(bus.flash));
     data = create_without_program(state, &bus, K22_PROFILE_MK22FN51212);
-    write_value(state, data, FTFA + 4u, 1, 0x06u);
+    write_fccob(state, data, 0u, 0x06u);
     set_flash_address(state, data, 0x1000u);
-    write_value(state, data, FTFA + 8u, 4, 0x78563412u);
+    write_fccob(state, data, 4u, 0x78u);
+    write_fccob(state, data, 5u, 0x56u);
+    write_fccob(state, data, 6u, 0x34u);
+    write_fccob(state, data, 7u, 0x12u);
     launch_flash(state, data, 40u);
     TEST_EXPECT(state, load(bus.flash, 0x1000u, 4) == 0x12345678u);
     k22_data_destroy(data);
+}
+
+static void clear_flash_status(TestState* state, K22Data* data) {
+    write_value(state, data, FTFA, 1u, 0x70u);
+}
+
+static void set_flash_data(TestState* state, K22Data* data, const uint8_t* bytes,
+                           uint8_t length) {
+    for (uint8_t index = 0u; index < length; index++)
+        write_fccob(state, data, (uint8_t)(4u + index), bytes[index]);
+}
+
+static void test_flash_command_semantics(TestState* state) {
+    TestBus bus;
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    const uint8_t longword[4] = {0x11u, 0x22u, 0x33u, 0x44u};
+    set_flash_data(state, data, longword, sizeof(longword));
+    flash_command(state, data, 0x06u, 0x2000u, 40u);
+    TEST_EXPECT(state, load(bus.flash, 0x2000u, 4u) == 0x44332211u);
+    flash_command(state, data, 0x06u, 0x2000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x06u, 0x2001u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x07u, 0x3000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+
+    write_fccob(state, data, 1u, 0u);
+    set_flash_data(state, data, longword, sizeof(longword));
+    flash_command(state, data, 0x43u, 0u, 40u);
+    flash_command(state, data, 0x41u, 0u, 40u);
+    for (uint8_t index = 0u; index < sizeof(longword); index++)
+        TEST_EXPECT(state,
+                    read_fccob(state, data, (uint8_t)(4u + index)) == longword[index]);
+    flash_command(state, data, 0x43u, 0u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 8u, 1u);
+    flash_command(state, data, 0x03u, 0u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 4u) == 0x01u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 0x46u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 0x54u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN1M012);
+    uint8_t erased_configuration[16];
+    memset(erased_configuration, 0xff, sizeof(erased_configuration));
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, erased_configuration,
+                                                        sizeof(erased_configuration)));
+    k22_data_reset(data);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x00u, 0x00000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) == 0u);
+    bus.flash[0x7fffcu] = 0u;
+    flash_command(state, data, 0x00u, 0x00000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 5u, 2u);
+    write_fccob(state, data, 6u, 0u);
+    bus.flash[0x1010u] = 0u;
+    flash_command(state, data, 0x01u, 0x1000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 5u, 0u);
+    flash_command(state, data, 0x01u, 0x1000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+
+    for (uint8_t index = 0u; index < 16u; index++)
+        write_value(state, data, 0x14000000u + index, 1u, (uint8_t)(0x80u + index));
+    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 5u, 1u);
+    flash_command(state, data, 0x0bu, 0x3000u, 40u);
+    for (uint8_t index = 0u; index < 16u; index++)
+        TEST_EXPECT(state, bus.flash[0x3000u + index] == (uint8_t)(0x80u + index));
+    flash_command(state, data, 0x0bu, 0x3000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 0u);
+    write_fccob(state, data, 5u, 0u);
+    flash_command(state, data, 0x0bu, 0x4000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x46u, 0x4000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 5u) == 0u);
+    TEST_EXPECT(state, read_fccob(state, data, 6u) == 0u);
+    TEST_EXPECT(state, read_fccob(state, data, 7u) == 0u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FX51212);
+    uint8_t flex_configuration[16];
+    memset(flex_configuration, 0xff, sizeof(flex_configuration));
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, flex_configuration,
+                                                        sizeof(flex_configuration)));
+    k22_data_reset(data);
+    write_fccob(state, data, 3u, 0u);
+    write_fccob(state, data, 4u, 2u);
+    write_fccob(state, data, 5u, 3u);
+    flash_command_without_address(state, data, 0x80u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 4u) == UINT32_MAX);
+    k22_data_reset(data);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u);
+    flash_command_without_address(state, data, 0x80u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    write_fccob(state, data, 1u, 0xffu);
+    flash_command_without_address(state, data, 0x81u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 3u) == 2u);
+    TEST_EXPECT(state, read_value(state, data, 0x14000000u, 4u) == UINT32_MAX);
+    write_fccob(state, data, 1u, 0u);
+    flash_command_without_address(state, data, 0x81u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u);
+    write_fccob(state, data, 1u, 1u);
+    flash_command_without_address(state, data, 0x81u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    const uint8_t phrase[8] = {1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u};
+    set_flash_data(state, data, phrase, sizeof(phrase));
+    flash_command(state, data, 0x07u, 0x800000u, 40u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 4u) == 0x04030201u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000004u, 4u) == 0x08070605u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FX51212);
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, flex_configuration,
+                                                        sizeof(flex_configuration)));
+    k22_data_reset(data);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x03u, 0u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 4u) == 0xffu);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x00u, 0x800000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) == 0u);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x03u, 0x800000u, 40u);
+    TEST_EXPECT(state, read_fccob(state, data, 4u) == 0xffu);
+    write_fccob(state, data, 3u, 0u);
+    write_fccob(state, data, 4u, 0x02u);
+    write_fccob(state, data, 5u, 0x04u);
+    flash_command_without_address(state, data, 0x80u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) == 0u);
+    write_fccob(state, data, 4u, 0u);
+    flash_command(state, data, 0x00u, 0x800000u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) == 0u);
+    write_value(state, data, 0x10000000u, 1u, 0u);
+    write_fccob(state, data, 1u, 0u);
+    flash_command_without_address(state, data, 0x40u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 1u) != 0u);
+    clear_flash_status(state, data);
+    flash_command(state, data, 0x08u, 0x800000u, 2000u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 1u) == 0xffu);
+    bus.flash[0u] = 0u;
+    flash_command(state, data, 0x08u, 0u, 2000u);
+    TEST_EXPECT(state, bus.flash[0u] == 0xffu);
+    write_value(state, data, 0x10000000u, 1u, 0u);
+    flash_command(state, data, 0x44u, 0u, 2000u);
+    TEST_EXPECT(state, read_value(state, data, 0x10000000u, 1u) == 0xffu);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    bus.flash[0u] = 0u;
+    flash_command(state, data, 0x08u, 0u, 2000u);
+    TEST_EXPECT(state, bus.flash[0u] == 0xffu);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    write_fccob(state, data, 1u, 0x10u);
+    const uint8_t once_phrase[8] = {9u, 8u, 7u, 6u, 5u, 4u, 3u, 2u};
+    set_flash_data(state, data, once_phrase, sizeof(once_phrase));
+    flash_command_without_address(state, data, 0x43u, 40u);
+    write_fccob(state, data, 1u, 0x10u);
+    flash_command_without_address(state, data, 0x41u, 40u);
+    for (uint8_t index = 0u; index < sizeof(once_phrase); index++)
+        TEST_EXPECT(state,
+                    read_fccob(state, data, (uint8_t)(4u + index)) == once_phrase[index]);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN1M012);
+    uint8_t protected_configuration[16];
+    memset(protected_configuration, 0xff, sizeof(protected_configuration));
+    protected_configuration[8] = 0xfdu;
+    protected_configuration[12] = 0xfeu;
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, protected_configuration,
+                                                        sizeof(protected_configuration)));
+    k22_data_reset(data);
+    bus.flash[0u] = 0u;
+    flash_command(state, data, 0x08u, 0u, 2000u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x10u) != 0u);
+    TEST_EXPECT(state, bus.flash[0u] == 0u);
+    k22_data_destroy(data);
+
+    memset(&bus, 0, sizeof(bus));
+    memset(bus.flash, 0xff, sizeof(bus.flash));
+    data = create(state, &bus, K22_PROFILE_MK22FN51212);
+    uint8_t configuration[16];
+    for (uint8_t index = 0u; index < sizeof(configuration); index++)
+        configuration[index] = (uint8_t)(index + 1u);
+    configuration[8] = 0xffu;
+    configuration[9] = 0xffu;
+    configuration[10] = 0xffu;
+    configuration[11] = 0xffu;
+    configuration[12] = 0x80u;
+    TEST_EXPECT(state, k22_data_set_flash_configuration(data, configuration,
+                                                        sizeof(configuration)));
+    k22_data_reset(data);
+    set_flash_data(state, data, configuration, 8u);
+    flash_command(state, data, 0x45u, 0u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA + 2u, 1u) & 3u) == 2u);
+    k22_data_reset(data);
+    configuration[0] ^= 0xffu;
+    set_flash_data(state, data, configuration, 8u);
+    flash_command(state, data, 0x45u, 0u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    clear_flash_status(state, data);
+    configuration[0] ^= 0xffu;
+    set_flash_data(state, data, configuration, 8u);
+    flash_command(state, data, 0x45u, 0u, 40u);
+    TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+    k22_data_destroy(data);
+}
+
+static void test_flash_partition_codes(TestState* state) {
+    static const struct {
+        uint8_t code;
+        uint32_t data_size;
+    } cases[] = {{0x00u, 0x20000u}, {0x03u, 0x18000u}, {0x04u, 0x10000u},
+                 {0x05u, 0u},       {0x08u, 0u},       {0x0bu, 0x8000u},
+                 {0x0cu, 0x10000u}, {0x0du, 0x20000u}, {0x0fu, 0x20000u}};
+    const uint8_t phrase[8] = {1u, 3u, 5u, 7u, 9u, 11u, 13u, 15u};
+    for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+        TestBus bus;
+        memset(&bus, 0, sizeof(bus));
+        memset(bus.flash, 0xff, sizeof(bus.flash));
+        K22Data* data = create(state, &bus, K22_PROFILE_MK22FX51212);
+        write_fccob(state, data, 3u, 0u);
+        write_fccob(state, data, 4u, cases[index].data_size == 0x20000u ? 0x0fu : 2u);
+        write_fccob(state, data, 5u, cases[index].code);
+        flash_command_without_address(state, data, 0x80u, 2000u);
+        TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) == 0u);
+        set_flash_data(state, data, phrase, sizeof(phrase));
+        const uint32_t address = cases[index].data_size == 0u
+                                     ? 0x800000u
+                                     : 0x800000u + cases[index].data_size - sizeof(phrase);
+        flash_command(state, data, 0x07u, address, 40u);
+        TEST_EXPECT(state, ((read_value(state, data, FTFA, 1u) & 0x20u) != 0u) ==
+                               (cases[index].data_size == 0u));
+        if (cases[index].data_size != 0u) {
+            TEST_EXPECT(state,
+                        read_value(state, data, 0x10000000u + cases[index].data_size - 8u,
+                                   4u) == 0x07050301u);
+            clear_flash_status(state, data);
+            flash_command(state, data, 0x07u, 0x800000u + cases[index].data_size, 40u);
+            TEST_EXPECT(state, (read_value(state, data, FTFA, 1u) & 0x20u) != 0u);
+        }
+        k22_data_destroy(data);
+    }
 }
 
 int main(void) {
@@ -688,5 +1008,7 @@ int main(void) {
     test_flash_flex_copy(&state);
     test_flash_controller_geometry(&state);
     test_flash_commands_and_failures(&state);
+    test_flash_command_semantics(&state);
+    test_flash_partition_codes(&state);
     return test_finish(&state);
 }
