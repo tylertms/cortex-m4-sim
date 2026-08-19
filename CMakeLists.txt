@@ -105,9 +105,13 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      tests/core/thumb16_arithmetic_test.c "core;unit")
   cortex_m4_add_test(core_thumb16_memory tests/core/thumb16_memory_test.c
                      "core;integration")
+  cortex_m4_add_test(core_thumb16_complete
+                     tests/core/thumb16_complete_test.c "core;integration")
   cortex_m4_add_test(core_thumb32 tests/core/thumb32_test.c "core;integration")
   cortex_m4_add_test(core_thumb32_extended tests/core/thumb32_extended_test.c
                      "core;integration")
+  cortex_m4_add_test(core_thumb32_complete
+                     tests/core/thumb32_complete_test.c "core;unit;integration")
   cortex_m4_add_test(core_thumb32_memory_complete
                      tests/core/thumb32_memory_complete_test.c "core;integration")
   cortex_m4_add_test(core_power tests/core/power_test.c "core;integration")

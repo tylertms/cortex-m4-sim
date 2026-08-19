@@ -506,10 +506,6 @@ static bool execute_miscellaneous(CortexM4* cpu, uint16_t opcode) {
 }
 
 bool cortex_m4_execute_thumb16(CortexM4* cpu, uint16_t opcode) {
-    if ((opcode & 0xff00u) == 0xbe00u) {
-        cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
-        return true;
-    }
     if ((opcode & 0xff00u) == 0xbf00u) {
         const uint8_t immediate = (uint8_t)opcode;
         if ((immediate & 15u) != 0) {
@@ -677,33 +673,6 @@ static uint32_t reverse_bits(uint32_t value) {
     value = ((value & 0x0f0f0f0fu) << 4) | ((value >> 4) & 0x0f0f0f0fu);
     value = ((value & 0x00ff00ffu) << 8) | ((value >> 8) & 0x00ff00ffu);
     return (value << 16) | (value >> 16);
-}
-
-static uint32_t saturate_signed(CortexM4* cpu, int32_t value, uint8_t width) {
-    const int64_t minimum = -(INT64_C(1) << (width - 1u));
-    const int64_t maximum = (INT64_C(1) << (width - 1u)) - 1;
-    if ((int64_t)value < minimum) {
-        cpu->xpsr |= CORTEX_M4_XPSR_Q;
-        return (uint32_t)minimum;
-    }
-    if ((int64_t)value > maximum) {
-        cpu->xpsr |= CORTEX_M4_XPSR_Q;
-        return (uint32_t)maximum;
-    }
-    return (uint32_t)value;
-}
-
-static uint32_t saturate_unsigned(CortexM4* cpu, int32_t value, uint8_t width) {
-    const uint64_t maximum = width == 32 ? UINT32_MAX : (UINT64_C(1) << width) - 1;
-    if (value < 0) {
-        cpu->xpsr |= CORTEX_M4_XPSR_Q;
-        return 0;
-    }
-    if ((uint64_t)value > maximum) {
-        cpu->xpsr |= CORTEX_M4_XPSR_Q;
-        return (uint32_t)maximum;
-    }
-    return (uint32_t)value;
 }
 
 static uint32_t expand_immediate(uint16_t first, uint16_t second, bool carry_in,
@@ -919,25 +888,6 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         const uint8_t destination = (uint8_t)((second >> 8) & 15u);
         cortex_m4_write_register_internal(
             cpu, destination, reverse_bits(cortex_m4_read_register_internal(cpu, source)));
-        return true;
-    }
-    if (((first & 0xfbd0u) == 0xf300u || (first & 0xfbd0u) == 0xf380u) &&
-        (second & 0x8000u) == 0) {
-        const bool unsigned_saturation = (first & 0x0080u) != 0;
-        const uint8_t source = (uint8_t)(first & 15u);
-        const uint8_t destination = (uint8_t)((second >> 8) & 15u);
-        const uint8_t shift_type = (first & 0x0020u) != 0 ? 2 : 0;
-        const uint8_t shift_amount =
-            (uint8_t)(((second >> 12) & 7u) << 2) | (uint8_t)((second >> 6) & 3u);
-        const uint32_t shifted =
-            cortex_m4_shift(cortex_m4_read_register_internal(cpu, source), shift_type,
-                            shift_amount, (cpu->xpsr & CORTEX_M4_XPSR_C) != 0, NULL);
-        const uint8_t width =
-            unsigned_saturation ? (uint8_t)(second & 31u) : (uint8_t)((second & 31u) + 1u);
-        const uint32_t result = unsigned_saturation
-                                    ? saturate_unsigned(cpu, (int32_t)shifted, width)
-                                    : saturate_signed(cpu, (int32_t)shifted, width);
-        cortex_m4_write_register_internal(cpu, destination, result);
         return true;
     }
     if ((first & 0xfff0u) == 0xf360u && (second & 0x8000u) == 0) {
