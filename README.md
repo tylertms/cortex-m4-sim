@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change three critical behaviors in temporary source copies.
+The mutation checks change six critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -131,4 +131,11 @@ Run the mutation checks:
 cmake --build build/simulator --target cortex_m4_mutation_check
 ```
 
-The checks cover IT conditions, flash reset state, and SYSMPU access control.
+The checks cover these behaviors:
+
+- IT conditions
+- Flash reset state
+- Flash command register layout
+- FlexNVM partition codes
+- Flash protection ranges
+- SYSMPU access control
