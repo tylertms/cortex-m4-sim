@@ -53,6 +53,7 @@ cmake --build build/simulator --parallel
 The build provides these targets:
 
 - `cortex_m4::simulator` is the static simulator library.
+- `cortex_m4::firmware_image` loads ELF and raw binary images.
 - `cortex_m4::firmware_runner` loads and runs a firmware image.
 
 The runner accepts an Arm ELF file or a raw binary file. It requires a vector
