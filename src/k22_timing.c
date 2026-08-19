@@ -524,40 +524,75 @@ bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high) {
     return true;
 }
 
+static uint32_t rtc_access_reset(const K22Timing* timing) {
+    return timing->profile->id == K22_PROFILE_MK22FN1M012 ||
+                   timing->profile->id == K22_PROFILE_MK22FX51212
+               ? 0xffffu
+               : 0xffu;
+}
+
 static void update_rtc_irq(const K22Timing* timing) {
-    set_irq(timing, IRQ_RTC,
-            timing->rtc_tsr == timing->rtc_tar && (timing->rtc_ier & 4u) != 0);
+    const uint32_t enabled_flags = timing->rtc_ier & timing->rtc_sr & 7u;
+    set_irq(timing, IRQ_RTC, enabled_flags != 0u);
+}
+
+static uint32_t rtc_second_ticks(const K22Timing* timing) {
+    const int8_t compensation = (int8_t)(timing->rtc_tcr >> 16u);
+    return (uint32_t)(32768 - compensation);
+}
+
+static void rtc_complete_second(K22Timing* timing) {
+    const uint8_t interval_counter = (uint8_t)(timing->rtc_tcr >> 24u);
+    if (interval_counter == 0u) {
+        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) |
+                          ((timing->rtc_tcr & 0xff00u) << 16u) |
+                          ((timing->rtc_tcr & 0xffu) << 16u);
+    } else {
+        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) |
+                          ((uint32_t)(interval_counter - 1u) << 24u);
+    }
+    const bool overflow = timing->rtc_tsr == UINT32_MAX;
+    if (overflow) {
+        timing->rtc_tsr = 0u;
+        timing->rtc_tpr = 0u;
+        timing->rtc_subsecond_ticks = 0u;
+        timing->rtc_sr |= 2u;
+    } else {
+        timing->rtc_tsr++;
+    }
+    trigger_adc_alternate(timing, 13u);
+    set_irq(timing, IRQ_RTC_SECONDS, (timing->rtc_ier & 0x10u) != 0u);
+    set_irq(timing, IRQ_RTC_SECONDS, false);
+    if (timing->rtc_tsr == timing->rtc_tar) {
+        timing->rtc_sr |= 4u;
+        trigger_adc_alternate(timing, 12u);
+    }
+    update_rtc_irq(timing);
 }
 
 static void advance_rtc(K22Timing* timing, uint32_t cycles) {
-    if (!has(timing, K22_PERIPHERAL_RTC) || (timing->sim_scgc6 & (1u << 29u)) == 0 ||
-        (timing->rtc_sr & 0x10u) == 0 || (timing->rtc_sr & 1u) != 0) {
+    if (!has(timing, K22_PERIPHERAL_RTC) || (timing->rtc_cr & 0x100u) == 0u ||
+        (timing->rtc_sr & 0x10u) == 0 || (timing->rtc_sr & 3u) != 0) {
         return;
     }
     const uint64_t ticks = clock_ticks(&timing->rtc_remainder, cycles,
                                        timing->rtc_oscillator_hz, timing->core_clock_hz);
-    const uint64_t prescaled = (uint64_t)timing->rtc_tpr + ticks;
-    const uint64_t seconds = prescaled >> 15u;
-    timing->rtc_tpr = (uint16_t)(prescaled & 0x7fffu);
-    if (seconds == 0) {
-        return;
+    uint64_t remaining = ticks;
+    while (remaining != 0u && (timing->rtc_sr & 2u) == 0u) {
+        const uint32_t second_ticks = rtc_second_ticks(timing);
+        const uint32_t needed = second_ticks - timing->rtc_subsecond_ticks;
+        if (remaining < needed) {
+            timing->rtc_subsecond_ticks += (uint32_t)remaining;
+            remaining = 0u;
+        } else {
+            remaining -= needed;
+            timing->rtc_subsecond_ticks = 0u;
+            rtc_complete_second(timing);
+        }
     }
-    const uint32_t previous = timing->rtc_tsr;
-    timing->rtc_tsr += (uint32_t)seconds;
-    trigger_adc_alternate(timing, 13u);
-    if ((timing->rtc_ier & 0x10u) != 0) {
-        set_irq(timing, IRQ_RTC_SECONDS, true);
-    }
-    const uint64_t alarm_distance = (uint32_t)(timing->rtc_tar - previous);
-    if (seconds >=
-        (alarm_distance == 0u ? UINT64_C(1) << 32u : alarm_distance)) {
-        set_irq(timing, IRQ_RTC, (timing->rtc_ier & 4u) != 0);
-        trigger_adc_alternate(timing, 12u);
-    }
-    if (timing->rtc_tsr < previous) {
-        timing->rtc_sr |= 0x10u;
-        set_irq(timing, IRQ_RTC, (timing->rtc_ier & 2u) != 0);
-    }
+    timing->rtc_tpr =
+        (uint16_t)(timing->rtc_subsecond_ticks > 0x7fffu ? 0x7fffu
+                                                         : timing->rtc_subsecond_ticks);
 }
 
 static uint32_t pdb_divider(uint32_t sc) {
@@ -991,6 +1026,130 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
     return true;
 }
 
+static bool rtc_access_allowed(uint32_t access, uint32_t offset) {
+    return offset > 0x1cu || (access & (1u << (offset >> 2u))) != 0u;
+}
+
+static void rtc_software_reset(K22Timing* timing) {
+    timing->rtc_tsr = 0u;
+    timing->rtc_tpr = 0u;
+    timing->rtc_tar = 0u;
+    timing->rtc_tcr = 0u;
+    timing->rtc_cr = 1u;
+    timing->rtc_sr = 1u;
+    timing->rtc_lr = rtc_access_reset(timing);
+    timing->rtc_ier = 7u;
+    timing->rtc_remainder = 0u;
+    timing->rtc_subsecond_ticks = 0u;
+    update_rtc_irq(timing);
+    set_irq(timing, IRQ_RTC_SECONDS, false);
+}
+
+static bool rtc_read(K22Timing* timing, uint32_t offset, uint32_t* value) {
+    if (offset != 0x800u && offset != 0x804u &&
+        !rtc_access_allowed(timing->rtc_rar, offset)) {
+        *value = 0u;
+        return true;
+    }
+    switch (offset) {
+    case 0:
+        *value = (timing->rtc_sr & 3u) == 0u ? timing->rtc_tsr : 0u;
+        return true;
+    case 4:
+        *value = (timing->rtc_sr & 3u) == 0u ? timing->rtc_tpr : 0u;
+        return true;
+    case 8:
+        *value = timing->rtc_tar;
+        return true;
+    case 12:
+        *value = timing->rtc_tcr;
+        return true;
+    case 16:
+        *value = timing->rtc_cr;
+        return true;
+    case 20:
+        *value = timing->rtc_sr;
+        return true;
+    case 24:
+        *value = timing->rtc_lr;
+        return true;
+    case 28:
+        *value = timing->rtc_ier;
+        return true;
+    case 0x800:
+        *value = timing->rtc_war;
+        return true;
+    case 0x804:
+        *value = timing->rtc_rar;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool rtc_write(K22Timing* timing, uint32_t offset, uint32_t value) {
+    if (offset == 0x800u) {
+        timing->rtc_war &= value & rtc_access_reset(timing);
+        return true;
+    }
+    if (offset == 0x804u) {
+        timing->rtc_rar &= value & rtc_access_reset(timing);
+        return true;
+    }
+    if (!rtc_access_allowed(timing->rtc_war, offset))
+        return true;
+    switch (offset) {
+    case 0:
+        if ((timing->rtc_sr & 0x10u) == 0u) {
+            timing->rtc_tsr = value;
+            timing->rtc_sr &= ~3u;
+            update_rtc_irq(timing);
+        }
+        return true;
+    case 4:
+        if ((timing->rtc_sr & 0x10u) == 0u) {
+            timing->rtc_tpr = (uint16_t)value & 0x7fffu;
+            timing->rtc_subsecond_ticks = timing->rtc_tpr;
+        }
+        return true;
+    case 8:
+        timing->rtc_tar = value;
+        timing->rtc_sr &= ~4u;
+        update_rtc_irq(timing);
+        return true;
+    case 12:
+        if ((timing->rtc_lr & 8u) != 0u)
+            timing->rtc_tcr = (timing->rtc_tcr & 0xffff0000u) | (value & 0xffffu);
+        return true;
+    case 16:
+        if ((timing->rtc_lr & 0x10u) != 0u) {
+            if ((value & 1u) != 0u)
+                rtc_software_reset(timing);
+            else
+                timing->rtc_cr = value & 0x3f1eu;
+        }
+        return true;
+    case 20:
+        if ((timing->rtc_lr & 0x20u) != 0u ||
+            ((timing->rtc_cr & 8u) != 0u &&
+             ((timing->rtc_sr & 0x13u) != 0x10u))) {
+            timing->rtc_sr = (timing->rtc_sr & 7u) | (value & 0x10u);
+            update_rtc_irq(timing);
+        }
+        return true;
+    case 24:
+        if ((timing->rtc_lr & 0x40u) != 0u)
+            timing->rtc_lr &= value | ~UINT32_C(0x78);
+        return true;
+    case 28:
+        timing->rtc_ier = value & 0x17u;
+        update_rtc_irq(timing);
+        return true;
+    default:
+        return false;
+    }
+}
+
 static bool read_timed_register(K22Timing* timing, uint32_t address, uint8_t size,
                                 uint32_t* value) {
     if (address >= PIT_BASE && address < PIT_BASE + 0x140u &&
@@ -1016,42 +1175,8 @@ static bool read_timed_register(K22Timing* timing, uint32_t address, uint8_t siz
         }
     }
     if (address >= RTC_BASE && address <= RTC_BASE + 0x804u && size == 4 &&
-        has(timing, K22_PERIPHERAL_RTC)) {
-        switch (address - RTC_BASE) {
-        case 0:
-            *value = timing->rtc_tsr;
-            return true;
-        case 4:
-            *value = timing->rtc_tpr;
-            return true;
-        case 8:
-            *value = timing->rtc_tar;
-            return true;
-        case 12:
-            *value = timing->rtc_tcr;
-            return true;
-        case 16:
-            *value = timing->rtc_cr;
-            return true;
-        case 20:
-            *value = timing->rtc_sr;
-            return true;
-        case 24:
-            *value = timing->rtc_lr;
-            return true;
-        case 28:
-            *value = timing->rtc_ier;
-            return true;
-        case 0x800:
-            *value = timing->rtc_war;
-            return true;
-        case 0x804:
-            *value = timing->rtc_rar;
-            return true;
-        default:
-            return false;
-        }
-    }
+        has(timing, K22_PERIPHERAL_RTC))
+        return rtc_read(timing, address - RTC_BASE, value);
     if (address >= PDB_BASE && address < PDB_BASE + 0x1a0u && size == 4 &&
         has(timing, K22_PERIPHERAL_PDB0)) {
         const uint32_t offset = address - PDB_BASE;
@@ -1122,46 +1247,8 @@ static bool write_timed_register(K22Timing* timing, uint32_t address, uint8_t si
         }
     }
     if (address >= RTC_BASE && address <= RTC_BASE + 0x804u && size == 4 &&
-        has(timing, K22_PERIPHERAL_RTC)) {
-        switch (address - RTC_BASE) {
-        case 0:
-            timing->rtc_tsr = value;
-            timing->rtc_sr &= ~1u;
-            return true;
-        case 4:
-            timing->rtc_tpr = (uint16_t)value & 0x7fffu;
-            return true;
-        case 8:
-            timing->rtc_tar = value;
-            update_rtc_irq(timing);
-            return true;
-        case 12:
-            timing->rtc_tcr = value;
-            return true;
-        case 16:
-            timing->rtc_cr = value;
-            return true;
-        case 20:
-            timing->rtc_sr = value & 0x1fu;
-            update_rtc_irq(timing);
-            return true;
-        case 24:
-            timing->rtc_lr &= value;
-            return true;
-        case 28:
-            timing->rtc_ier = value & 0x17u;
-            update_rtc_irq(timing);
-            return true;
-        case 0x800:
-            timing->rtc_war &= value;
-            return true;
-        case 0x804:
-            timing->rtc_rar &= value;
-            return true;
-        default:
-            return false;
-        }
-    }
+        has(timing, K22_PERIPHERAL_RTC))
+        return rtc_write(timing, address - RTC_BASE, value);
     if (address >= PDB_BASE && address < PDB_BASE + 0x1a0u && size == 4 &&
         has(timing, K22_PERIPHERAL_PDB0)) {
         const uint32_t offset = address - PDB_BASE;
@@ -1268,17 +1355,10 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
                           ? 2u
                           : 6u;
     timing->rtc_sr = 1u;
-    timing->rtc_lr = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
-                             timing->profile->id == K22_PROFILE_MK22FX51212
-                         ? 0xffffu
-                         : 0xffu;
+    timing->rtc_lr = rtc_access_reset(timing);
     timing->rtc_ier = 7u;
-    const uint32_t rtc_access_reset = timing->profile->id == K22_PROFILE_MK22FN1M012 ||
-                                              timing->profile->id == K22_PROFILE_MK22FX51212
-                                          ? 0xffffu
-                                          : 0xffu;
-    timing->rtc_war = rtc_access_reset;
-    timing->rtc_rar = rtc_access_reset;
+    timing->rtc_war = rtc_access_reset(timing);
+    timing->rtc_rar = rtc_access_reset(timing);
     timing->pdb_mod = 0xffffu;
     timing->pdb_idly = 0xffffu;
     for (uint8_t index = 0; index < 4; index++) {
@@ -1295,6 +1375,8 @@ void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->wdog[11] = 0x0400u;
     timing->ewm_cmph = 0xffu;
     update_clocks(timing);
+    update_rtc_irq(timing);
+    set_irq(timing, IRQ_RTC_SECONDS, false);
 }
 
 void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
@@ -1308,9 +1390,8 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     const uint32_t sr = timing->rtc_sr;
     const uint32_t lr = timing->rtc_lr;
     const uint32_t ier = timing->rtc_ier;
-    const uint32_t war = timing->rtc_war;
-    const uint32_t rar = timing->rtc_rar;
     const uint64_t remainder = timing->rtc_remainder;
+    const uint32_t subsecond_ticks = timing->rtc_subsecond_ticks;
     const uint32_t lptmr_csr = timing->lptmr_csr;
     const uint32_t lptmr_psr = timing->lptmr_psr;
     const uint32_t lptmr_cmr = timing->lptmr_cmr;
@@ -1331,9 +1412,9 @@ void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1) {
     timing->rtc_sr = sr;
     timing->rtc_lr = lr;
     timing->rtc_ier = ier;
-    timing->rtc_war = war;
-    timing->rtc_rar = rar;
     timing->rtc_remainder = remainder;
+    timing->rtc_subsecond_ticks = subsecond_ticks;
+    update_rtc_irq(timing);
     if ((srs0 & 0x84u) == 0) {
         timing->lptmr_csr = lptmr_csr;
         timing->lptmr_psr = lptmr_psr;

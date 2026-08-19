@@ -87,3 +87,18 @@ run_mutation(
   "(timing->pit_mcr & 1u) != 0u && timing->debug_halted"
   "(timing->pit_mcr & 1u) != 0u && false"
   cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)
+run_mutation(
+  rtc_access_control src/k22_timing.c
+  "if (!rtc_access_allowed(timing->rtc_war, offset))"
+  "if (false && !rtc_access_allowed(timing->rtc_war, offset))"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  rtc_compensation src/k22_timing.c
+  "return (uint32_t)(32768 - compensation);"
+  "(void)compensation; return 32768u;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  rtc_oscillator_gate src/k22_timing.c
+  "(timing->rtc_cr & 0x100u) == 0u ||"
+  "false ||"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

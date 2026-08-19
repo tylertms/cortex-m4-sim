@@ -104,6 +104,7 @@ typedef struct {
     uint32_t rtc_war;
     uint32_t rtc_rar;
     uint64_t rtc_remainder;
+    uint32_t rtc_subsecond_ticks;
     uint32_t pdb_sc;
     uint16_t pdb_mod;
     uint16_t pdb_counter;

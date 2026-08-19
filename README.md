@@ -122,7 +122,7 @@ Coverage measures the native model. It does not measure the target hardware.
 
 ## Mutation checks
 
-The mutation checks change twelve critical behaviors in temporary source copies.
+The mutation checks change fifteen critical behaviors in temporary source copies.
 The related tests must reject each change.
 
 Run the mutation checks:
@@ -145,3 +145,6 @@ The checks cover these behaviors:
 - ADC alternate-trigger routing
 - FTM channel triggers
 - PIT debug freeze
+- RTC access control
+- RTC time compensation
+- RTC oscillator gating

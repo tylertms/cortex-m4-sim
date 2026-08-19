@@ -45,8 +45,13 @@ enum {
     RTC_TSR = 0x4003d000u,
     RTC_TPR = 0x4003d004u,
     RTC_TAR = 0x4003d008u,
+    RTC_TCR = 0x4003d00cu,
+    RTC_CR = 0x4003d010u,
     RTC_SR = 0x4003d014u,
+    RTC_LR = 0x4003d018u,
     RTC_IER = 0x4003d01cu,
+    RTC_WAR = 0x4003d800u,
+    RTC_RAR = 0x4003d804u,
     PDB_SC = 0x40036000u,
     PDB_MOD = 0x40036004u,
     PDB_CNT = 0x40036008u,
@@ -74,6 +79,7 @@ enum {
 
 typedef struct {
     bool irq[128];
+    uint32_t irq_assertions[128];
     uint32_t irq_changes;
     uint32_t dma_requests;
     uint8_t last_dma;
@@ -90,6 +96,8 @@ typedef struct {
 static void irq_signal(void* context, uint8_t irq, bool asserted) {
     Observations* observations = context;
     observations->irq[irq] = asserted;
+    if (asserted)
+        observations->irq_assertions[irq]++;
     observations->irq_changes++;
 }
 
@@ -406,23 +414,130 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
 static void test_rtc(TestState* state, K22Timing* timing, Observations* observations) {
     const uint32_t alternate_before = observations->alternate_triggers;
     expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 | (1u << 29u));
+    expect_read(state, timing, RTC_TSR, 4, 0u);
+    expect_read(state, timing, RTC_TPR, 4, 0u);
+    expect_write(state, timing, RTC_TPR, 4, 7u);
     expect_write(state, timing, RTC_TSR, 4, 10u);
+    expect_read(state, timing, RTC_TPR, 4, 7u);
+    expect_write(state, timing, RTC_TPR, 4, 0u);
     expect_write(state, timing, RTC_TAR, 4, 11u);
     expect_write(state, timing, RTC_IER, 4, 0x14u);
+    expect_write(state, timing, RTC_CR, 4, 0x100u);
     expect_write(state, timing, RTC_SR, 4, 0x10u);
+    expect_write(state, timing, RTC_TSR, 4, 20u);
+    expect_write(state, timing, RTC_TPR, 4, 20u);
     k22_timing_advance(timing, timing->core_clock_hz);
     expect_read(state, timing, RTC_TSR, 4, 11u);
     expect_read(state, timing, RTC_TPR, 4, 0u);
     TEST_EXPECT(state, observations->irq[46]);
-    TEST_EXPECT(state, observations->irq[47]);
+    TEST_EXPECT(state, !observations->irq[47]);
+    TEST_EXPECT(state, observations->irq_assertions[47] == 1u);
+    expect_read(state, timing, RTC_SR, 4, 0x14u);
     TEST_EXPECT(state, observations->alternate_triggers == alternate_before + 2u);
     TEST_EXPECT(state, observations->last_trigger_instance == 12u);
+    expect_write(state, timing, RTC_TAR, 4, 15u);
+    expect_read(state, timing, RTC_SR, 4, 0x10u);
+    TEST_EXPECT(state, !observations->irq[46]);
     const uint32_t retained_tsr = timing->rtc_tsr;
     const uint16_t retained_tpr = timing->rtc_tpr;
+    expect_write(state, timing, RTC_RAR, 4, 0xfbu);
+    expect_read(state, timing, RTC_TAR, 4, 0u);
+    expect_write(state, timing, RTC_RAR, 4, 0xffu);
+    expect_read(state, timing, RTC_TAR, 4, 0u);
+    expect_write(state, timing, RTC_WAR, 4, 0xfbu);
+    expect_write(state, timing, RTC_TAR, 4, 22u);
     k22_timing_warm_reset(timing, 0x20u, 0);
     TEST_EXPECT(state, timing->rtc_tsr == retained_tsr);
     TEST_EXPECT(state, timing->rtc_tpr == retained_tpr);
+    expect_read(state, timing, RTC_WAR, 4, 0xffu);
+    expect_read(state, timing, RTC_RAR, 4, 0xffu);
+    expect_read(state, timing, RTC_TAR, 4, 15u);
     expect_read(state, timing, RCM_SRS0, 1, 0x20u);
+}
+
+static void test_rtc_protection_and_compensation(TestState* state,
+                                                 const K22Profile* profile) {
+    Observations observations = {0};
+    K22Timing timing;
+    TEST_EXPECT(state, k22_timing_init(&timing, profile, 8000000u, 32768u,
+                                       signals(&observations)));
+    expect_write(state, &timing, RTC_TSR, 4, 1u);
+    expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    k22_timing_advance(&timing, timing.core_clock_hz);
+    expect_read(state, &timing, RTC_TSR, 4, 1u);
+    expect_write(state, &timing, RTC_SR, 4, 0u);
+    expect_write(state, &timing, RTC_CR, 4, 0x100u);
+    expect_write(state, &timing, RTC_TCR, 4, 0x017fu);
+    expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    k22_timing_advance(&timing, timing.core_clock_hz);
+    expect_read(state, &timing, RTC_TSR, 4, 2u);
+    expect_read(state, &timing, RTC_TCR, 4, 0x017f017fu);
+    k22_timing_advance(&timing,
+                       cycles_for_ticks(&timing, 32640u, timing.rtc_oscillator_hz));
+    expect_read(state, &timing, RTC_TSR, 4, 2u);
+    k22_timing_advance(&timing,
+                       cycles_for_ticks(&timing, 1u, timing.rtc_oscillator_hz));
+    expect_read(state, &timing, RTC_TSR, 4, 3u);
+    expect_read(state, &timing, RTC_TCR, 4, 0x0000017fu);
+
+    expect_write(state, &timing, RTC_SR, 4, 0u);
+    expect_write(state, &timing, RTC_TCR, 4, 0x0080u);
+    expect_write(state, &timing, RTC_TPR, 4, 0u);
+    expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    k22_timing_advance(&timing, timing.core_clock_hz);
+    expect_read(state, &timing, RTC_TCR, 4, 0x00800080u);
+    const uint32_t before = timing.rtc_tsr;
+    k22_timing_advance(&timing, timing.core_clock_hz);
+    expect_read(state, &timing, RTC_TSR, 4, before);
+    k22_timing_advance(&timing,
+                       cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
+    expect_read(state, &timing, RTC_TSR, 4, before + 1u);
+
+    expect_write(state, &timing, RTC_SR, 4, 0u);
+    expect_write(state, &timing, RTC_TSR, 4, UINT32_MAX);
+    expect_write(state, &timing, RTC_IER, 4, 2u);
+    expect_write(state, &timing, RTC_CR, 4, 0x100u);
+    expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    k22_timing_advance(&timing, timing.core_clock_hz +
+                                    cycles_for_ticks(&timing, 128u,
+                                                     timing.rtc_oscillator_hz));
+    expect_read(state, &timing, RTC_SR, 4, 0x16u);
+    expect_read(state, &timing, RTC_TSR, 4, 0u);
+    expect_read(state, &timing, RTC_TPR, 4, 0u);
+    TEST_EXPECT(state, observations.irq[46]);
+    expect_write(state, &timing, RTC_SR, 4, 0u);
+    expect_write(state, &timing, RTC_TSR, 4, 9u);
+    expect_write(state, &timing, RTC_TAR, 4, 10u);
+    expect_read(state, &timing, RTC_SR, 4, 0u);
+    TEST_EXPECT(state, !observations.irq[46]);
+
+    expect_write(state, &timing, RTC_CR, 4, 0x108u);
+    expect_write(state, &timing, RTC_LR, 4, 0xdfu);
+    expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    expect_read(state, &timing, RTC_SR, 4, 0x10u);
+    expect_write(state, &timing, RTC_SR, 4, 0u);
+    expect_read(state, &timing, RTC_SR, 4, 0x10u);
+    expect_write(state, &timing, RTC_CR, 4, 1u);
+    expect_read(state, &timing, RTC_SR, 4, 1u);
+
+    expect_write(state, &timing, RTC_TCR, 4, 0x1234u);
+    expect_write(state, &timing, RTC_LR, 4, 0xf7u);
+    expect_write(state, &timing, RTC_TCR, 4, 0x5678u);
+    expect_read(state, &timing, RTC_TCR, 4, 0x00001234u);
+    expect_write(state, &timing, RTC_CR, 4, 1u);
+    expect_read(state, &timing, RTC_CR, 4, 1u);
+    expect_read(state, &timing, RTC_SR, 4, 1u);
+    expect_read(state, &timing, RTC_LR, 4, 0xffu);
+    expect_write(state, &timing, RTC_CR, 4, 0u);
+    expect_read(state, &timing, RTC_CR, 4, 0u);
+
+    expect_write(state, &timing, RTC_WAR, 4, 0x7fu);
+    expect_write(state, &timing, RTC_IER, 4, 0x17u);
+    expect_read(state, &timing, RTC_IER, 4, 7u);
+    expect_write(state, &timing, RTC_RAR, 4, 0x7fu);
+    expect_read(state, &timing, RTC_IER, 4, 0u);
+    expect_read(state, &timing, RTC_WAR, 4, 0x7fu);
+    expect_read(state, &timing, RTC_RAR, 4, 0x7fu);
 }
 
 static void test_pdb(TestState* state, K22Timing* timing, Observations* observations) {
@@ -631,10 +746,10 @@ static void test_timer_register_surface(TestState* state, K22Timing* timing) {
     };
     for (size_t index = 0; index < sizeof(rtc_registers) / sizeof(rtc_registers[0]);
          index++) {
-        expect_write(state, timing, rtc_registers[index], 4, 0xa5u);
         TEST_EXPECT(state,
                     k22_timing_read(timing, rtc_registers[index], 4, &(uint32_t){0}));
     }
+    expect_write(state, timing, RTC_TSR, 4, 0u);
     expect_write(state, timing, RTC_TPR, 4, 123u);
     expect_read(state, timing, RTC_TPR, 4, 123u);
     const uint32_t pdb_offsets[] = {0x10u,  0x14u,  0x18u,  0x1cu,  0x38u,
@@ -735,6 +850,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
                  timing.sim_scgc6 | (1u << 29u) | (1u << 22u));
     expect_write(state, &timing, RTC_TSR, 4, UINT32_MAX);
     expect_write(state, &timing, RTC_IER, 4, 2u);
+    expect_write(state, &timing, RTC_CR, 4, 0x100u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
     const uint32_t alternate_before = observations.alternate_triggers;
     k22_timing_advance(&timing, timing.core_clock_hz);
@@ -801,6 +917,7 @@ int main(void) {
     test_pit(&state, &timing, &observations);
     test_lptmr(&state, &timing, &observations);
     test_rtc(&state, &timing, &observations);
+    test_rtc_protection_and_compensation(&state, profile);
     test_pdb(&state, &timing, &observations);
     test_ftm(&state, &timing, &observations);
     k22_timing_reset(&timing, 0x82u, 0);
