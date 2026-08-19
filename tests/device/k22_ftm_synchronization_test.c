@@ -187,7 +187,7 @@ static void test_hardware_trigger_domain(TestState* state) {
     write_register(state, &timing, FTM0_MODE, 5u);
     write_register(state, &timing, FTM0_CNTIN, 2u);
     write_register(state, &timing, FTM0_CNT, 0u);
-    write_register(state, &timing, FTM0_SYNCONF, 1u << 16u);
+    write_register(state, &timing, FTM0_SYNCONF, (1u << 16u) | (1u << 7u));
     set_counter(state, &timing, 9u);
     TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
     expect_register(state, &timing, FTM0_CNT, 9u);
@@ -208,7 +208,7 @@ static void test_hardware_trigger_domain(TestState* state) {
     }
 
     set_counter(state, &timing, 11u);
-    write_register(state, &timing, FTM0_SYNCONF, (1u << 16u) | 1u);
+    write_register(state, &timing, FTM0_SYNCONF, (1u << 16u) | (1u << 7u) | 1u);
     write_register(state, &timing, FTM0_SYNC, 1u << 4u);
     TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
     k22_timing_advance(&timing, 1u);
@@ -221,7 +221,7 @@ static void test_hardware_output_synchronization(TestState* state) {
     initialize(state, &timing);
     write_register(state, &timing, FTM0_MODE, 5u);
     write_register(state, &timing, FTM0_SYNC, (1u << 4u) | (1u << 3u));
-    write_register(state, &timing, FTM0_SYNCONF, (1u << 5u) | (1u << 4u));
+    write_register(state, &timing, FTM0_SYNCONF, (1u << 7u) | (1u << 5u) | (1u << 4u));
     write_register(state, &timing, FTM0_OUTMASK, 1u);
     write_register(state, &timing, FTM0_INVCTRL, 1u);
     write_register(state, &timing, FTM0_SWOCTRL, 0x0101u);
@@ -236,7 +236,8 @@ static void test_hardware_output_synchronization(TestState* state) {
     expect_register(state, &timing, FTM0_SWOCTRL, 0u);
     write_register(state, &timing, FTM0_SYNC, (1u << 4u) | (1u << 3u));
     write_register(state, &timing, FTM0_SYNCONF,
-                   (1u << 20u) | (1u << 19u) | (1u << 18u) | (1u << 5u) | (1u << 4u));
+                   (1u << 20u) | (1u << 19u) | (1u << 18u) | (1u << 7u) | (1u << 5u) |
+                       (1u << 4u));
     TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
     k22_timing_advance(&timing, 1u);
     expect_register(state, &timing, FTM0_OUTMASK, 1u);
@@ -301,6 +302,56 @@ static void test_deferred_hardware_write_buffers(TestState* state) {
     expect_register(state, &timing, FTM0_C0V, 4u);
 }
 
+static void prepare_legacy_hardware_sync(TestState* state, K22Timing* timing, uint32_t mode,
+                                         uint32_t sync) {
+    initialize(state, timing);
+    write_register(state, timing, FTM0_MODE, mode);
+    write_register(state, timing, FTM0_COMBINE, 1u << 5u);
+    write_register(state, timing, FTM0_SYNC, sync | (1u << 4u));
+    write_register(state, timing, FTM0_MOD, 3u);
+    write_register(state, timing, FTM0_CNTIN, 0u);
+    write_register(state, timing, FTM0_C0V, 1u);
+    write_register(state, timing, FTM0_CNT, 0u);
+    write_register(state, timing, FTM0_SC, 15u);
+    write_register(state, timing, FTM0_MOD, 7u);
+    write_register(state, timing, FTM0_C0V, 4u);
+}
+
+static void test_legacy_hardware_synchronization(TestState* state) {
+    K22Timing timing;
+    prepare_legacy_hardware_sync(state, &timing, 5u, (1u << 3u) | (1u << 2u));
+    write_register(state, &timing, FTM0_OUTMASK, 1u);
+    TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
+    k22_timing_advance(&timing, 1u);
+    expect_register(state, &timing, FTM0_MOD, 7u);
+    expect_register(state, &timing, FTM0_C0V, 4u);
+    expect_register(state, &timing, FTM0_CNT, 0u);
+    expect_register(state, &timing, FTM0_OUTMASK, 1u);
+    expect_register(state, &timing, FTM0_SYNC, (1u << 3u) | (1u << 2u));
+
+    prepare_legacy_hardware_sync(state, &timing, 13u, (1u << 3u) | (1u << 2u));
+    write_register(state, &timing, FTM0_OUTMASK, 1u);
+    TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
+    k22_timing_advance(&timing, 1u);
+    expect_register(state, &timing, FTM0_MOD, 3u);
+    expect_register(state, &timing, FTM0_C0V, 1u);
+    expect_register(state, &timing, FTM0_CNT, 0u);
+    expect_register(state, &timing, FTM0_OUTMASK, 1u);
+}
+
+static void test_deferred_legacy_hardware_synchronization(TestState* state) {
+    K22Timing timing;
+    prepare_legacy_hardware_sync(state, &timing, 5u, 2u);
+    write_register(state, &timing, FTM0_SC, 8u);
+    TEST_EXPECT(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u));
+    k22_timing_advance(&timing, 1u);
+    expect_register(state, &timing, FTM0_MOD, 3u);
+    expect_register(state, &timing, FTM0_C0V, 1u);
+    k22_timing_advance(&timing, 3u);
+    expect_register(state, &timing, FTM0_MOD, 7u);
+    expect_register(state, &timing, FTM0_C0V, 4u);
+}
+
 int main(void) {
     TestState state = {0};
     test_legacy_updates(&state);
@@ -314,5 +365,7 @@ int main(void) {
     test_immediate_hardware_write_buffers(&state);
     test_hardware_write_buffer_gate(&state);
     test_deferred_hardware_write_buffers(&state);
+    test_legacy_hardware_synchronization(&state);
+    test_deferred_legacy_hardware_synchronization(&state);
     return test_finish(&state);
 }

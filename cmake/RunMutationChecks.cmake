@@ -353,3 +353,23 @@ run_mutation(
   "    } else {\n        ftm->hardware_sync_pending = true;\n    }"
   "    } else {\n        ftm->hardware_sync_pending = false;\n    }"
   cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_legacy_mode src/k22_timing.c
+  "    if (!enhanced) {\n        if ((ftm->registers[1] & 8u) != 0u)"
+  "    if (enhanced) {\n        if ((ftm->registers[1] & 8u) != 0u)"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_legacy_outmask src/k22_timing.c
+  "        if ((ftm->registers[1] & 8u) != 0u)\n            ftm_apply_outmask(ftm);"
+  "        if (false)\n            ftm_apply_outmask(ftm);"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_legacy_reinitialize src/k22_timing.c
+  "const bool reset_counter = (ftm->registers[1] & 4u) != 0u;"
+  "const bool reset_counter = false;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)
+run_mutation(
+  ftm_hardware_legacy_pwm_sync src/k22_timing.c
+  "const bool synchronize_buffers = (ftm->registers[0] & 8u) == 0u;"
+  "const bool synchronize_buffers = (ftm->registers[0] & 8u) != 0u;"
+  cortex_m4_device_k22_ftm_synchronization_test device_k22_ftm_synchronization)

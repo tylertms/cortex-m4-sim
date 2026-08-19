@@ -1164,8 +1164,9 @@ static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
     }
     if (ftm->hardware_sync_pending && (((ftm->registers[1] & 1u) != 0u && minimum) ||
                                        ((ftm->registers[1] & 2u) != 0u && maximum))) {
-        if ((ftm->registers[14] & (1u << 17u)) != 0u)
-            ftm_apply_synchronized_write_buffers(ftm, true);
+        const bool enhanced = (ftm->registers[14] & (1u << 7u)) != 0u;
+        if (!enhanced || (ftm->registers[14] & (1u << 17u)) != 0u)
+            ftm_apply_synchronized_write_buffers(ftm, enhanced);
         ftm->hardware_sync_pending = false;
     }
     const bool intermediate =
@@ -1215,6 +1216,25 @@ static void ftm_apply_software_sync(K22FtmState* ftm) {
 
 static void ftm_apply_hardware_sync(K22FtmState* ftm) {
     const uint32_t synconf = ftm->registers[14];
+    const bool enhanced = (synconf & (1u << 7u)) != 0u;
+    if (!enhanced) {
+        if ((ftm->registers[1] & 8u) != 0u)
+            ftm_apply_outmask(ftm);
+        const bool reset_counter = (ftm->registers[1] & 4u) != 0u;
+        const bool synchronize_buffers = (ftm->registers[0] & 8u) == 0u;
+        if (reset_counter) {
+            if (synchronize_buffers)
+                ftm_apply_synchronized_write_buffers(ftm, false);
+            ftm->counter = ftm->initial;
+            ftm->counting_down = false;
+            ftm->overflow_count = 0u;
+            ftm->remainder = 0u;
+            ftm->hardware_sync_pending = false;
+        } else {
+            ftm->hardware_sync_pending = synchronize_buffers;
+        }
+        return;
+    }
     if ((synconf & (1u << 20u)) != 0u && (synconf & (1u << 5u)) != 0u)
         ftm_apply_swoctrl(ftm);
     if ((synconf & (1u << 19u)) != 0u && (synconf & (1u << 4u)) != 0u)
