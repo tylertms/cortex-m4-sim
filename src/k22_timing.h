@@ -11,8 +11,9 @@ typedef void (*K22TimingDmaSignal)(void* context, uint8_t source);
 typedef void (*K22TimingResetSignal)(void* context, uint8_t srs0, uint8_t srs1);
 
 typedef enum {
-    K22_TIMING_TRIGGER_ADC,
-    K22_TIMING_TRIGGER_DAC,
+    K22_TIMING_TRIGGER_PDB_ADC,
+    K22_TIMING_TRIGGER_PDB_DAC,
+    K22_TIMING_TRIGGER_ADC_ALTERNATE,
 } K22TimingTrigger;
 
 typedef void (*K22TimingTriggerSignal)(void* context, K22TimingTrigger trigger,

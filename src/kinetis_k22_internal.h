@@ -46,6 +46,7 @@ struct KinetisK22 {
     K22Sdhc sdhc;
     K22Serial serial;
     K22Timing timing;
+    bool comparator_output[3];
     KinetisK22Event events[K22_EVENT_CAPACITY];
     uint8_t event_read_index;
     uint8_t event_write_index;

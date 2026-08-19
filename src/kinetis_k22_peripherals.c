@@ -351,12 +351,28 @@ static uint8_t data_irq(K22DataInterrupt interrupt) {
     return irqs[interrupt];
 }
 
+static void adc_alternate_trigger(KinetisK22* device, uint8_t source) {
+    for (uint8_t instance = 0u; instance < 2u; instance++) {
+        const uint8_t selection = (uint8_t)(device->timing.sim_sopt7 >> (instance * 8u));
+        if ((selection & 0x80u) != 0u && (selection & 15u) == source)
+            k22_data_adc_pretrigger(device->data, instance,
+                                    (uint8_t)((selection >> 4u) & 1u));
+    }
+}
+
 static void data_interrupt(void* context, K22DataInterrupt interrupt, bool asserted) {
     KinetisK22* device = context;
-    if (interrupt == K22_DATA_INTERRUPT_CMP0 && device->data != NULL) {
+    if (interrupt >= K22_DATA_INTERRUPT_CMP0 &&
+        interrupt <= K22_DATA_INTERRUPT_CMP2 && device->data != NULL) {
+        const uint8_t instance = (uint8_t)(interrupt - K22_DATA_INTERRUPT_CMP0);
         bool high = false;
-        if (k22_data_get_cmp_output(device->data, 0u, &high))
-            k22_timing_set_lptmr_input(&device->timing, 0u, high);
+        if (k22_data_get_cmp_output(device->data, instance, &high)) {
+            if (instance == 0u)
+                k22_timing_set_lptmr_input(&device->timing, 0u, high);
+            if (high && !device->comparator_output[instance])
+                adc_alternate_trigger(device, (uint8_t)(1u + instance));
+            device->comparator_output[instance] = high;
+        }
     }
     if (device->cpu != NULL && interrupt < K22_DATA_INTERRUPT_COUNT) {
         cortex_m4_set_irq_level(device->cpu, data_irq(interrupt), asserted);
@@ -394,10 +410,15 @@ static void timing_reset(void* context, uint8_t cause_0, uint8_t cause_1) {
 static void timing_trigger(void* context, K22TimingTrigger type, uint8_t instance,
                            uint8_t channel) {
     KinetisK22* device = context;
-    if (type == K22_TIMING_TRIGGER_ADC)
-        k22_data_adc_pretrigger(device->data, instance, channel);
-    else
+    if (type == K22_TIMING_TRIGGER_PDB_ADC) {
+        const uint8_t selection = (uint8_t)(device->timing.sim_sopt7 >> (instance * 8u));
+        if ((selection & 0x80u) == 0u)
+            k22_data_adc_pretrigger(device->data, instance, channel);
+    } else if (type == K22_TIMING_TRIGGER_PDB_DAC) {
         k22_data_dac_trigger(device->data, instance);
+    } else {
+        adc_alternate_trigger(device, instance);
+    }
 }
 
 static void queue_event(KinetisK22* device, const K22IoEvent* source) {
@@ -857,6 +878,7 @@ void kinetis_k22_peripheral_reset(KinetisK22* device) {
     device->cmt_cycles = 0u;
     device->usbdcd_cycles = 0u;
     device->cmt_eoc_read = false;
+    memset(device->comparator_output, 0, sizeof(device->comparator_output));
     k22_data_reset(device->data);
     k22_serial_reset(&device->serial);
     k22_sdhc_reset(&device->sdhc);

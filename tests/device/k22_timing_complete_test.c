@@ -5,6 +5,7 @@
 
 enum {
     SIM_SCGC3 = 0x40048030u,
+    SIM_SOPT7 = 0x40048018u,
     SIM_SCGC5 = 0x40048038u,
     SIM_SCGC6 = 0x4004803cu,
     SIM_CLKDIV1 = 0x40048044u,
@@ -79,6 +80,7 @@ typedef struct {
     uint8_t last_srs1;
     uint32_t adc_triggers;
     uint32_t dac_triggers;
+    uint32_t alternate_triggers;
     uint8_t last_trigger_instance;
     uint8_t last_trigger_channel;
 } Observations;
@@ -105,10 +107,12 @@ static void reset_signal(void* context, uint8_t srs0, uint8_t srs1) {
 static void trigger_signal(void* context, K22TimingTrigger trigger, uint8_t instance,
                            uint8_t channel) {
     Observations* observations = context;
-    if (trigger == K22_TIMING_TRIGGER_ADC)
+    if (trigger == K22_TIMING_TRIGGER_PDB_ADC)
         observations->adc_triggers++;
-    else
+    else if (trigger == K22_TIMING_TRIGGER_PDB_DAC)
         observations->dac_triggers++;
+    else
+        observations->alternate_triggers++;
     observations->last_trigger_instance = instance;
     observations->last_trigger_channel = channel;
 }
@@ -198,6 +202,7 @@ static void test_clock_tree_and_power(TestState* state, K22Timing* timing) {
 }
 
 static void test_pit(TestState* state, K22Timing* timing, Observations* observations) {
+    const uint32_t alternate_before = observations->alternate_triggers;
     expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 | (1u << 23u));
     expect_write(state, timing, PIT_MCR, 4, 0);
     expect_write(state, timing, PIT_LDVAL0, 4, 2u);
@@ -208,6 +213,8 @@ static void test_pit(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, PIT_CVAL0, 4, 2u);
     expect_read(state, timing, PIT_CVAL1, 4, 1u);
     TEST_EXPECT(state, observations->irq[48]);
+    TEST_EXPECT(state, observations->alternate_triggers == alternate_before + 2u);
+    TEST_EXPECT(state, observations->last_trigger_instance == 5u);
     expect_write(state, timing, PIT_TFLG0, 4, 1u);
     TEST_EXPECT(state, !observations->irq[48]);
     expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 & ~(1u << 23u));
@@ -288,6 +295,7 @@ static void test_pit(TestState* state, K22Timing* timing, Observations* observat
 }
 
 static void test_lptmr(TestState* state, K22Timing* timing, Observations* observations) {
+    const uint32_t alternate_before = observations->alternate_triggers;
     expect_write(state, timing, SIM_SCGC5, 4, timing->sim_scgc5 | 1u);
     expect_write(state, timing, LPTMR_PSR, 4, 5u);
     expect_write(state, timing, LPTMR_CMR, 4, 2u);
@@ -346,10 +354,10 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
     TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, false));
     TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, true));
     expect_write(state, timing, LPTMR_CNR, 4, 0u);
-    expect_read(state, timing, LPTMR_CNR, 4, 0u);
+    expect_read(state, timing, LPTMR_CNR, 4, 1u);
     TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 2u, false));
     expect_write(state, timing, LPTMR_CNR, 4, 0u);
-    expect_read(state, timing, LPTMR_CNR, 4, 1u);
+    expect_read(state, timing, LPTMR_CNR, 4, 2u);
 
     expect_write(state, timing, LPTMR_CSR, 4, 0u);
     expect_write(state, timing, LPTMR_PSR, 4, 4u);
@@ -362,6 +370,8 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
     TEST_EXPECT(state, k22_timing_set_lptmr_input(timing, 0u, true));
     expect_read(state, timing, LPTMR_CSR, 4, 0xc7u);
     TEST_EXPECT(state, observations->irq[58]);
+    TEST_EXPECT(state, observations->alternate_triggers > alternate_before);
+    TEST_EXPECT(state, observations->last_trigger_instance == 14u);
     expect_write(state, timing, LPTMR_CNR, 4, 0u);
     expect_read(state, timing, LPTMR_CNR, 4, 2u);
     expect_write(state, timing, LPTMR_CSR, 4, 0xc7u);
@@ -392,6 +402,7 @@ static void test_lptmr(TestState* state, K22Timing* timing, Observations* observ
 }
 
 static void test_rtc(TestState* state, K22Timing* timing, Observations* observations) {
+    const uint32_t alternate_before = observations->alternate_triggers;
     expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 | (1u << 29u));
     expect_write(state, timing, RTC_TSR, 4, 10u);
     expect_write(state, timing, RTC_TAR, 4, 11u);
@@ -402,6 +413,8 @@ static void test_rtc(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, RTC_TPR, 4, 0u);
     TEST_EXPECT(state, observations->irq[46]);
     TEST_EXPECT(state, observations->irq[47]);
+    TEST_EXPECT(state, observations->alternate_triggers == alternate_before + 2u);
+    TEST_EXPECT(state, observations->last_trigger_instance == 12u);
     const uint32_t retained_tsr = timing->rtc_tsr;
     const uint16_t retained_tpr = timing->rtc_tpr;
     k22_timing_warm_reset(timing, 0x20u, 0);
@@ -534,6 +547,7 @@ static void test_sim_surface(TestState* state, K22Timing* timing) {
         expect_write(state, timing, writable[index], 4, 0x5a5a0000u + (uint32_t)index);
         TEST_EXPECT(state, k22_timing_read(timing, writable[index], 4, &(uint32_t){0}));
     }
+    expect_read(state, timing, SIM_SOPT7, 4, 5u);
     expect_read(state, timing, 0x4004804cu, 4, 0xff0f0f00u);
     expect_read(state, timing, 0x40048050u, 4, 0x7f7f0000u);
     TEST_EXPECT(state, !k22_timing_read(timing, 0x40048028u, 4, &(uint32_t){0}));
@@ -698,13 +712,17 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
         expect_write(state, &timing, LPTMR_CSR, 4, 1u);
         k22_timing_advance(&timing, timing.core_clock_hz);
     }
+    expect_write(state, &timing, LPTMR_CSR, 4, 0u);
     expect_write(state, &timing, SIM_SCGC6, 4,
                  timing.sim_scgc6 | (1u << 29u) | (1u << 22u));
     expect_write(state, &timing, RTC_TSR, 4, UINT32_MAX);
     expect_write(state, &timing, RTC_IER, 4, 2u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
+    const uint32_t alternate_before = observations.alternate_triggers;
     k22_timing_advance(&timing, timing.core_clock_hz);
     TEST_EXPECT(state, observations.irq[46]);
+    TEST_EXPECT(state, observations.alternate_triggers == alternate_before + 2u);
+    TEST_EXPECT(state, observations.last_trigger_instance == 12u);
     expect_write(state, &timing, PDB_MOD, 4, 1u);
     expect_write(state, &timing, PDB_SC, 4, 1u);
     k22_timing_advance(&timing, 2u);

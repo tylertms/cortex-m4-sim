@@ -494,6 +494,8 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     destination->usbdcd_cycles = source->usbdcd_cycles;
     destination->cmt_eoc_read = source->cmt_eoc_read;
     destination->usb_charger = source->usb_charger;
+    memcpy(destination->comparator_output, source->comparator_output,
+           sizeof(destination->comparator_output));
     memcpy(destination->events, source->events, sizeof(destination->events));
     destination->event_read_index = source->event_read_index;
     destination->event_write_index = source->event_write_index;

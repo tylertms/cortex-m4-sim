@@ -58,6 +58,16 @@ static void request_dma(const K22Timing* timing, uint8_t source) {
     }
 }
 
+static void trigger(K22Timing* timing, K22TimingTrigger type, uint8_t instance,
+                    uint8_t channel) {
+    if (timing->signals.trigger != NULL)
+        timing->signals.trigger(timing->signals.context, type, instance, channel);
+}
+
+static void trigger_adc_alternate(K22Timing* timing, uint8_t source) {
+    trigger(timing, K22_TIMING_TRIGGER_ADC_ALTERNATE, source, 0u);
+}
+
 static bool has(const K22Timing* timing, K22PeripheralId peripheral) {
     return timing->profile != NULL &&
            k22_profile_has_peripheral(timing->profile, peripheral);
@@ -250,7 +260,7 @@ static bool write_sim(K22Timing* timing, uint32_t address, uint8_t size, uint32_
         timing->sim_sopt5 = value;
         return true;
     case SIM_SOPT7:
-        timing->sim_sopt7 = value;
+        timing->sim_sopt7 = value & 0x00009f9fu;
         return true;
     case SIM_SOPT8:
         timing->sim_sopt8 = value;
@@ -313,6 +323,7 @@ static uint32_t advance_pit_channel(K22Timing* timing, uint8_t channel, uint64_t
         if ((pit->control & 2u) != 0) {
             set_irq(timing, IRQ_PIT0 + channel, true);
         }
+        trigger_adc_alternate(timing, (uint8_t)(4u + channel));
     } else {
         pit->current -= (uint32_t)ticks;
     }
@@ -439,6 +450,7 @@ static void increment_lptmr(K22Timing* timing, uint64_t ticks) {
             timing->lptmr_csr |= 0x80u;
             if ((timing->lptmr_csr & 0x40u) != 0)
                 set_irq(timing, IRQ_LPTMR, true);
+            trigger_adc_alternate(timing, 14u);
         }
         timing->lptmr_counter = (uint16_t)(total % period);
         return;
@@ -448,6 +460,7 @@ static void increment_lptmr(K22Timing* timing, uint64_t ticks) {
         timing->lptmr_csr |= 0x80u;
         if ((timing->lptmr_csr & 0x40u) != 0)
             set_irq(timing, IRQ_LPTMR, true);
+        trigger_adc_alternate(timing, 14u);
     }
     timing->lptmr_counter = (uint16_t)((uint64_t)timing->lptmr_counter + ticks);
 }
@@ -530,11 +543,15 @@ static void advance_rtc(K22Timing* timing, uint32_t cycles) {
     }
     const uint32_t previous = timing->rtc_tsr;
     timing->rtc_tsr += (uint32_t)seconds;
+    trigger_adc_alternate(timing, 13u);
     if ((timing->rtc_ier & 0x10u) != 0) {
         set_irq(timing, IRQ_RTC_SECONDS, true);
     }
-    if (timing->rtc_tar > previous && timing->rtc_tar <= timing->rtc_tsr) {
+    const uint64_t alarm_distance = (uint32_t)(timing->rtc_tar - previous);
+    if (seconds >=
+        (alarm_distance == 0u ? UINT64_C(1) << 32u : alarm_distance)) {
         set_irq(timing, IRQ_RTC, (timing->rtc_ier & 4u) != 0);
+        trigger_adc_alternate(timing, 12u);
     }
     if (timing->rtc_tsr < previous) {
         timing->rtc_sr |= 0x10u;
@@ -561,12 +578,6 @@ static bool counter_reached(uint16_t start, uint64_t ticks, uint32_t period,
     const uint32_t distance =
         target > start ? (uint32_t)target - start : period - ((uint32_t)start - target);
     return ticks >= distance;
-}
-
-static void trigger(K22Timing* timing, K22TimingTrigger type, uint8_t instance,
-                    uint8_t channel) {
-    if (timing->signals.trigger != NULL)
-        timing->signals.trigger(timing->signals.context, type, instance, channel);
 }
 
 static void advance_pdb(K22Timing* timing, uint32_t cycles) {
@@ -597,7 +608,7 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
                 counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period,
                                 delay)) {
                 timing->pdb_registers[(base + 4u) >> 2u] |= 1u << pretrigger;
-                trigger(timing, K22_TIMING_TRIGGER_ADC, channel, pretrigger);
+                trigger(timing, K22_TIMING_TRIGGER_PDB_ADC, channel, pretrigger);
             }
         }
     }
@@ -608,7 +619,7 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
         const uint32_t control = timing->pdb_registers[control_offset >> 2u];
         if ((control & 1u) != 0 && interval <= timing->pdb_mod &&
             counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period, interval)) {
-            trigger(timing, K22_TIMING_TRIGGER_DAC, instance, 0);
+            trigger(timing, K22_TIMING_TRIGGER_PDB_DAC, instance, 0);
         }
     }
     if (delayed) {
@@ -1057,7 +1068,7 @@ static bool write_timed_register(K22Timing* timing, uint32_t address, uint8_t si
                 timing->lptmr_filter_remainder = 0u;
                 timing->lptmr_filter_ticks = 0u;
             } else if (!was_enabled) {
-                timing->lptmr_observed_active = true;
+                timing->lptmr_observed_active = lptmr_selected_active(timing);
                 timing->lptmr_filter_ticks = 0u;
             }
             set_irq(timing, IRQ_LPTMR, (timing->lptmr_csr & 0xc0u) == 0xc0u);

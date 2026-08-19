@@ -67,3 +67,13 @@ run_mutation(
   "const bool was_enabled = (pit->control & 1u) != 0u;"
   "const bool was_enabled = false;"
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  lptmr_initial_input src/k22_timing.c
+  "timing->lptmr_observed_active = lptmr_selected_active(timing);"
+  "timing->lptmr_observed_active = true;"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  adc_alternate_trigger src/kinetis_k22_peripherals.c
+  "if ((selection & 0x80u) != 0u && (selection & 15u) == source)"
+  "if (false && (selection & 15u) == source)"
+  cortex_m4_device_k22_integration_complete_test device_k22_integration_complete)

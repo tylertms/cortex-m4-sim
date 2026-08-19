@@ -18,13 +18,19 @@ enum {
     PDB_CH0DLY0 = 0x40036018u,
     PDB_DACINT0 = 0x40036150u,
     PDB_DACINTC0 = 0x40036154u,
+    PIT_MCR = 0x40037000u,
+    PIT_LDVAL0 = 0x40037100u,
+    PIT_TCTRL0 = 0x40037108u,
+    PIT_TFLG0 = 0x4003710cu,
     LPTMR_CSR = 0x40040000u,
     LPTMR_PSR = 0x40040004u,
     LPTMR_CMR = 0x40040008u,
     LPTMR_CNR = 0x4004000cu,
     ADC0_SC1A = 0x4003b000u,
+    ADC0_SC1B = 0x4003b004u,
     ADC0_CFG1 = 0x4003b008u,
     ADC0_RA = 0x4003b010u,
+    ADC0_RB = 0x4003b014u,
     ADC0_SC2 = 0x4003b020u,
     DAC0_DAT0L = 0x4003f000u,
     DAC0_DAT1L = 0x4003f002u,
@@ -40,6 +46,7 @@ enum {
     SIM_SCGC7 = 0x40048040u,
     SIM_SCGC1 = 0x40048028u,
     SIM_SCGC3 = 0x40048030u,
+    SIM_SOPT7 = 0x40048018u,
     I2C0_C1 = 0x40066002u,
     I2C1_C1 = 0x40067002u,
     UART1_C2 = 0x4006b003u,
@@ -371,6 +378,75 @@ static void expect_pdb_data_triggers(TestState* state, KinetisK22* device) {
     TEST_EXPECT(state, dac == 0x222u);
 }
 
+static void expect_adc_alternate_triggers(TestState* state) {
+    KinetisK22* device = create_device(state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
+    CortexM4* cpu = kinetis_k22_cpu(device);
+    uint32_t gates = 0u;
+    TEST_EXPECT(state, read32(device, SIM_SCGC6, &gates));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u,
+                                               gates | (1u << 23u) | (1u << 27u)));
+    TEST_EXPECT(state, kinetis_k22_set_adc_channel(device, 0u, 5u, 0x345u));
+    TEST_EXPECT(state, kinetis_k22_set_adc_channel(device, 0u, 6u, 0x456u));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_CFG1, 0x04u));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_SC2, 0x40u));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_SC1A, 5u));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_SC1B, 6u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_MCR, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_LDVAL0, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x85u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_TCTRL0, 4u, 1u));
+    kinetis_k22_advance(device, 20u);
+    uint8_t status = 0u;
+    TEST_EXPECT(state, read8(device, ADC0_SC1A, &status));
+    TEST_EXPECT(state, (status & 0x80u) == 0u);
+
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x84u));
+    kinetis_k22_advance(device, 20u);
+    TEST_EXPECT(state, read8(device, ADC0_SC1A, &status));
+    TEST_EXPECT(state, (status & 0x80u) != 0u);
+    uint16_t result = 0u;
+    TEST_EXPECT(state, read16(device, ADC0_RA, &result));
+    TEST_EXPECT(state, result == 0x345u);
+
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x94u));
+    kinetis_k22_advance(device, 20u);
+    TEST_EXPECT(state, read8(device, ADC0_SC1B, &status));
+    TEST_EXPECT(state, (status & 0x80u) != 0u);
+    TEST_EXPECT(state, read16(device, ADC0_RB, &result));
+    TEST_EXPECT(state, result == 0x456u);
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_TCTRL0, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, PIT_TFLG0, 4u, 1u));
+
+    uint32_t data_gates = 0u;
+    TEST_EXPECT(state, read32(device, SIM_SCGC4, &data_gates));
+    TEST_EXPECT(state,
+                cortex_m4_write_memory(cpu, SIM_SCGC4, 4u, data_gates | (1u << 19u)));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x81u));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_SC1A, 5u));
+    TEST_EXPECT(state, kinetis_k22_set_cmp_input(device, 0u, 1u, 10u));
+    TEST_EXPECT(state, kinetis_k22_set_cmp_input(device, 0u, 2u, 20u));
+    TEST_EXPECT(state, cpu_write8(device, CMP0_MUXCR, 0x0au));
+    TEST_EXPECT(state, cpu_write8(device, CMP0_CR1, 1u));
+    TEST_EXPECT(state, kinetis_k22_set_cmp_input(device, 0u, 1u, 30u));
+    kinetis_k22_advance(device, 20u);
+    TEST_EXPECT(state, read16(device, ADC0_RA, &result));
+    TEST_EXPECT(state, result == 0x345u);
+
+    TEST_EXPECT(state, read32(device, SIM_SCGC5, &gates));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SCGC5, 4u, gates | 1u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x8eu));
+    TEST_EXPECT(state, cpu_write8(device, ADC0_SC1A, 6u));
+    TEST_EXPECT(state, kinetis_k22_set_lptmr_input(device, 0u, false));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, LPTMR_PSR, 4u, 4u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, LPTMR_CMR, 4u, 0u));
+    TEST_EXPECT(state, cortex_m4_write_memory(cpu, LPTMR_CSR, 4u, 3u));
+    TEST_EXPECT(state, kinetis_k22_set_lptmr_input(device, 0u, true));
+    kinetis_k22_advance(device, 20u);
+    TEST_EXPECT(state, read16(device, ADC0_RA, &result));
+    TEST_EXPECT(state, result == 0x456u);
+    kinetis_k22_destroy(device);
+}
+
 static void expect_lptmr_pulse_input(TestState* state, KinetisK22* device) {
     CortexM4* cpu = kinetis_k22_cpu(device);
     uint32_t gates = 0u;
@@ -510,6 +586,7 @@ int main(void) {
     expect_clock_gates(&state, device);
     expect_endpoint_event_order(&state, device);
     expect_pdb_data_triggers(&state, device);
+    expect_adc_alternate_triggers(&state);
     expect_lptmr_pulse_input(&state, device);
     expect_flexbus_integration(&state, device);
     expect_reset_domains(&state, device);
