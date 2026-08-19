@@ -248,3 +248,23 @@ run_mutation(
   [=[    if (false)
         output = false;]=]
   cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_output_polarity src/k22_timing.c
+  "if ((ftm->registers[7] & (1u << channel)) != 0u)"
+  "if (false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_write_protection src/k22_timing.c
+  "if ((ftm->registers[0] & 4u) == 0u)"
+  "if (false)"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_write_protection_unlock src/k22_timing.c
+  "ftm->write_protection_read) {"
+  "true) {"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)
+run_mutation(
+  ftm_register_mask src/k22_timing.c
+  "0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, 0x7f7f7f7fu,"
+  "0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, UINT32_MAX,"
+  cortex_m4_device_k22_timing_complete_test device_k22_timing_complete)

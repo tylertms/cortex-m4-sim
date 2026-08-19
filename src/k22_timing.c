@@ -742,6 +742,8 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
     }
     if ((ftm->registers[3] & (1u << channel)) != 0u)
         output = false;
+    if ((ftm->registers[7] & (1u << channel)) != 0u)
+        output = !output;
     *high = output;
     return true;
 }
@@ -1268,9 +1270,41 @@ static bool ftm_read(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t 
         *value = ftm->registers[(offset - 0x54u) / 4u];
         if (offset == 0x6cu && (*value & 0x80u) != 0u)
             ftm->trigger_flag_read = true;
+        if (offset == 0x74u && (*value & 0x40u) != 0u)
+            ftm->write_protection_read = true;
     } else
         return false;
     return true;
+}
+
+static uint32_t ftm_register_mask(uint8_t index, uint8_t register_index) {
+    static const uint32_t masks[18] = {
+        0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000ffu, 0x7f7f7f7fu,
+        0x000000ffu, 0x000000ffu, 0x000000ffu, 0x000000efu, 0x0000ffffu,
+        0x00000fffu, 0x000000ffu, 0x000006dfu, 0x0000000fu, 0x001f1fb5u,
+        0x0000000fu, 0x0000ffffu, 0x000002ffu,
+    };
+    uint32_t mask = masks[register_index];
+    if (ftm_channel_count(index) == 2u) {
+        if (register_index == 2u || register_index == 3u || register_index == 7u)
+            mask &= 3u;
+        else if (register_index == 4u)
+            mask &= 0x7fu;
+        else if (register_index == 16u)
+            mask &= 0x0303u;
+        else if (register_index == 17u)
+            mask &= 0x0203u;
+    }
+    return mask;
+}
+
+static uint32_t ftm_write_protected_mask(uint8_t register_index) {
+    static const uint32_t masks[18] = {
+        0x00000071u, 0u,          0u,          0u, 0x57575757u, 0x000000ffu,
+        0u,          0x000000ffu, 0u,          0u, 0x000000ffu, 0x00000001u,
+        0u,          0x0000000fu, 0u,          0u, 0u,          0u,
+    };
+    return masks[register_index];
 }
 
 static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t size,
@@ -1329,14 +1363,33 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         update_ftm_irq(timing, index);
     } else if (offset >= 0x54u && offset <= 0x98u) {
         const uint8_t register_index = (uint8_t)((offset - 0x54u) / 4u);
+        value &= ftm_register_mask(index, register_index);
         if (offset == 0x54u) {
-            ftm->registers[register_index] = value & ~2u;
+            const uint32_t current = ftm->registers[register_index];
+            const uint32_t protected_mask = ftm_write_protected_mask(register_index);
+            uint32_t next = (current & protected_mask) | (value & ~protected_mask & ~6u);
+            if ((current & 4u) != 0u)
+                next = (next & ~protected_mask) | (value & protected_mask);
+            if ((current & 4u) != 0u || ((value & 4u) != 0u && ftm->write_protection_read))
+                next |= 4u;
+            if ((current & 4u) == 0u && (value & 4u) != 0u &&
+                ftm->write_protection_read) {
+                ftm->registers[8] &= ~0x40u;
+                ftm->write_protection_read = false;
+            }
+            ftm->registers[register_index] = next;
             if ((value & 2u) != 0u) {
                 const uint8_t channels = ftm_channel_count(index);
                 for (uint8_t channel = 0u; channel < channels; channel++)
                     ftm->channel_output[channel] =
                         (ftm->registers[2] & (1u << channel)) != 0u;
             }
+        } else if (offset == 0x74u) {
+            if ((value & 0x40u) != 0u) {
+                ftm->registers[8] |= 0x40u;
+                ftm->registers[0] &= ~4u;
+            }
+            ftm->write_protection_read = false;
         } else if (offset == 0x6cu) {
             const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
             uint32_t next =
@@ -1346,6 +1399,10 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             ftm->registers[register_index] = next;
             ftm->trigger_flag_read = false;
         } else {
+            const uint32_t protected_mask = ftm_write_protected_mask(register_index);
+            if ((ftm->registers[0] & 4u) == 0u)
+                value = (value & ~protected_mask) |
+                        (ftm->registers[register_index] & protected_mask);
             ftm->registers[register_index] = value;
         }
     } else

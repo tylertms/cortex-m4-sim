@@ -50,6 +50,7 @@ typedef struct {
     bool channel_filtered_input[8];
     bool channel_output[8];
     uint32_t channel_input_age[8];
+    bool write_protection_read;
     bool counting_down;
     uint8_t overflow_count;
 } K22FtmState;
