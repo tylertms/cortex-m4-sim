@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "cortex_m4_sim/kinetis_k22.h"
+#include "kinetis_k22.h"
 
 typedef KinetisK22Profile K22ProfileId;
 

@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "cortex_m4_sim/cortex_m4.h"
+#include "cortex_m4.h"
 
 typedef struct KinetisK22 KinetisK22;
 

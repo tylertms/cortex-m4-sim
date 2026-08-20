@@ -1,4 +1,4 @@
-#include "cortex_m4_sim/kinetis_k22.h"
+#include "kinetis_k22.h"
 
 #include <stdint.h>
 #include <string.h>

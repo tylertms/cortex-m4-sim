@@ -1,6 +1,3 @@
 /build/
 /.cache/
-*.gcda
-*.gcno
-*.gcov
 compile_commands.json

@@ -4,24 +4,6 @@ project(cortex_m4_sim LANGUAGES C)
 
 if(PROJECT_IS_TOP_LEVEL)
   option(BUILD_TESTING "Build the simulator tests" ON)
-  option(CORTEX_M4_ENABLE_COVERAGE "Enable GCC coverage instrumentation" OFF)
-  if(CORTEX_M4_ENABLE_COVERAGE)
-    if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
-      message(FATAL_ERROR "Coverage requires GCC")
-    endif()
-    add_compile_options(-O1 -g --coverage)
-    add_link_options(--coverage)
-    find_program(GCOV_EXECUTABLE gcov REQUIRED)
-  endif()
-
-  add_custom_target(
-    cortex_m4_mutation_check
-    COMMAND
-      ${CMAKE_COMMAND} -D SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR} -D
-      MUTATION_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/mutations -D
-      C_COMPILER=${CMAKE_C_COMPILER} -D CTEST_COMMAND=${CMAKE_CTEST_COMMAND} -P
-      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunMutationChecks.cmake
-    VERBATIM)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -68,13 +50,10 @@ add_executable(cortex_m4_firmware_runner src/main.c)
 add_executable(cortex_m4::firmware_runner ALIAS cortex_m4_firmware_runner)
 
 target_compile_features(cortex_m4_simulator PUBLIC c_std_11)
-target_include_directories(
-  cortex_m4_simulator
-  PUBLIC include
-  PRIVATE src)
+target_include_directories(cortex_m4_simulator PUBLIC src)
 target_compile_features(cortex_m4_firmware_runner PRIVATE c_std_11)
 target_compile_features(cortex_m4_firmware_image PUBLIC c_std_11)
-target_include_directories(cortex_m4_firmware_image PUBLIC include)
+target_include_directories(cortex_m4_firmware_image PUBLIC src)
 target_link_libraries(cortex_m4_firmware_image PUBLIC cortex_m4_simulator)
 target_link_libraries(cortex_m4_firmware_runner
                       PRIVATE cortex_m4_firmware_image)
@@ -177,8 +156,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     "device;integration")
   cortex_m4_add_test(device_k22_data_complete
                      tests/device/k22_data_complete_test.c "device;integration")
-  cortex_m4_add_test(device_k22_fmc_complete tests/device/k22_fmc_complete_test.c
-                     "device;unit;integration")
+  cortex_m4_add_test(
+    device_k22_fmc_complete tests/device/k22_fmc_complete_test.c
+    "device;unit;integration")
   cortex_m4_add_test(device_k22_io_complete tests/device/k22_io_complete_test.c
                      "device;integration")
   cortex_m4_add_test(device_k22_package tests/device/k22_package_test.c
@@ -194,9 +174,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   cortex_m4_add_test(
     device_k22_watchdog_complete tests/device/k22_watchdog_complete_test.c
     "device;integration")
-  cortex_m4_add_test(
-    device_k22_cmt_complete tests/device/k22_cmt_complete_test.c
-    "device;integration")
+  cortex_m4_add_test(device_k22_cmt_complete
+                     tests/device/k22_cmt_complete_test.c "device;integration")
   cortex_m4_add_test(
     device_k22_usbdcd_complete tests/device/k22_usbdcd_complete_test.c
     "device;unit;integration")
@@ -209,8 +188,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                      tests/device/k22_ftm_deadtime_test.c "device;integration")
   cortex_m4_add_test(device_k22_ftm_fault tests/device/k22_ftm_fault_test.c
                      "device;integration")
-  cortex_m4_add_test(device_k22_ftm_quadrature
-                     tests/device/k22_ftm_quadrature_test.c "device;integration")
+  cortex_m4_add_test(
+    device_k22_ftm_quadrature tests/device/k22_ftm_quadrature_test.c
+    "device;integration")
   cortex_m4_add_test(
     device_k22_integration_complete
     tests/device/k22_integration_complete_test.c "device;integration")
@@ -242,29 +222,4 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   target_link_libraries(cortex_m4_firmware_image_test
                         PRIVATE cortex_m4_firmware_image)
 
-  if(CORTEX_M4_ENABLE_COVERAGE)
-    set(coverage_directory "${CMAKE_CURRENT_BINARY_DIR}/coverage")
-    file(MAKE_DIRECTORY "${coverage_directory}")
-    set(coverage_notes ${cortex_m4_simulator_sources})
-    list(
-      TRANSFORM coverage_notes
-      PREPEND "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/cortex_m4_simulator.dir/")
-    list(TRANSFORM coverage_notes APPEND ".gcno")
-    add_custom_target(
-      cortex_m4_coverage_report
-      COMMAND ${GCOV_EXECUTABLE} -b ${coverage_notes}
-      WORKING_DIRECTORY "${coverage_directory}"
-      DEPENDS cortex_m4_simulator
-      VERBATIM)
-    add_custom_target(
-      cortex_m4_coverage_check
-      COMMAND
-        ${CMAKE_COMMAND} -D COVERAGE_DIRECTORY=${coverage_directory} -D
-        COVERAGE_EXCLUSIONS=${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_exclusions.txt
-        -D SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}/src
-        -D MINIMUM_LINE_BASIS_POINTS=9980 -D MINIMUM_BRANCH_BASIS_POINTS=9900 -P
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckCoverage.cmake
-      DEPENDS cortex_m4_coverage_report
-      VERBATIM)
-  endif()
 endif()

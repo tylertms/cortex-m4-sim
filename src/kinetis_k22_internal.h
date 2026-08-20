@@ -2,7 +2,6 @@
 #define CORTEX_M4_KINETIS_K22_INTERNAL_H
 
 #include "cortex_m4_internal.h"
-#include "cortex_m4_sim/kinetis_k22.h"
 #include "k22_data.h"
 #include "k22_io.h"
 #include "k22_package.h"
@@ -12,6 +11,7 @@
 #include "k22_serial.h"
 #include "k22_timing.h"
 #include "k22_usbdcd.h"
+#include "kinetis_k22.h"
 
 enum {
     K22_FLASH_BASE = 0x00000000u,

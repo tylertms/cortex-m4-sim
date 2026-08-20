@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "cortex_m4_sim/kinetis_k22.h"
+#include "kinetis_k22.h"
 
 typedef enum {
     K22_USBDCD_IDLE,

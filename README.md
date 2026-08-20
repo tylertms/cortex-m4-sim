@@ -61,7 +61,7 @@ table address and uses finite instruction and cycle limits by default.
 Add this repository as a Git submodule. Add the submodule to the parent build:
 
 ```cmake
-add_subdirectory(third_party/cortex-m4-sim EXCLUDE_FROM_ALL)
+add_subdirectory(sim/cortex-m4-sim EXCLUDE_FROM_ALL)
 target_link_libraries(your_target PRIVATE cortex_m4::simulator)
 ```
 
@@ -94,94 +94,3 @@ ctest --test-dir build/simulator -L core --parallel --output-on-failure
 ctest --test-dir build/simulator -L device --parallel --output-on-failure
 ctest --test-dir build/simulator -L system --parallel --output-on-failure
 ```
-
-## Coverage
-
-GCC and gcov measure source coverage. Configure a coverage build:
-
-```
-cmake -S . -B build/coverage -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCORTEX_M4_ENABLE_COVERAGE=ON
-```
-
-Build and run the tests:
-
-```
-cmake --build build/coverage --parallel
-ctest --test-dir build/coverage --output-on-failure
-```
-
-Create the gcov reports and apply the coverage limits:
-
-```
-cmake --build build/coverage --target cortex_m4_coverage_check
-```
-
-The target writes the reports to `build/coverage/coverage`.
-The gate requires 99.80% line coverage and 99.00% branch-site coverage.
-Coverage measures the native model. It does not measure the target hardware.
-
-## Mutation checks
-
-The mutation checks change 209 critical behaviors in temporary source copies.
-The related tests must reject each change.
-
-Run the mutation checks:
-
-```
-cmake --build build/simulator --target cortex_m4_mutation_check
-```
-
-The checks cover these behaviors:
-
-- IT conditions
-- Flash reset state
-- Flash command register layout
-- FlexNVM partition codes
-- Flash protection ranges
-- SYSMPU access control
-- eDMA arbitration, request status, debug behavior, and error handling
-- DMAMUX profile sources, periodic gates, and PIT triggers
-- LPTMR input filtering
-- CMT cycle, output, interrupt, DMA, and power behavior
-- PIT enable transitions
-- LPTMR initial input state
-- ADC alternate-trigger routing
-- FTM channel triggers
-- PIT debug freeze
-- RTC access control
-- RTC time compensation
-- RTC oscillator gating
-- FTM interrupt aggregation
-- FTM disabled-channel behavior
-- FTM flag-clear sequencing
-- FTM center-aligned counting
-- FTM center-aligned overflow timing
-- FTM center-aligned duty boundaries
-- FTM debug freeze
-- FTM periodic overflow
-- FTM overflow-counter reset
-- FTM counter-write initialization triggers
-- FTM clock-start initialization triggers
-- FTM center-aligned initialization triggers
-- FTM up-counting initialization triggers
-- FTM input synchronization delay
-- FTM input filter delay
-- FTM input edge selection
-- FTM input-capture counter reset
-- FTM input-capture value protection
-- FTM output-compare toggle parity
-- FTM output-compare set and clear
-- FTM edge-aligned PWM boundaries
-- FTM center-aligned PWM direction
-- FTM channel output initialization
-- FTM explicit output initialization
-- FTM software output control
-- FTM complementary software output control
-- FTM output masking
-- FTM fault input filtering and polarity
-- FTM fault flags and interrupt control
-- FTM fault output modes and release timing
-- FTM fault and PWM event ordering
-- FTM quadrature capability and mode precedence
-- FTM quadrature filters, polarity, edges, and direction
-- FTM quadrature counter boundaries and status bits

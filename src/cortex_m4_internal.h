@@ -1,7 +1,7 @@
 #ifndef CORTEX_M4_INTERNAL_H
 #define CORTEX_M4_INTERNAL_H
 
-#include "cortex_m4_sim/cortex_m4.h"
+#include "cortex_m4.h"
 
 enum {
     CORTEX_M4_REGISTER_COUNT = 16,

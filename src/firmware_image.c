@@ -1,4 +1,4 @@
-#include "cortex_m4_sim/firmware_image.h"
+#include "firmware_image.h"
 
 #include <stdio.h>
 #include <stdlib.h>

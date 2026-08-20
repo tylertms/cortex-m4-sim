@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "cortex_m4_sim/kinetis_k22.h"
+#include "kinetis_k22.h"
 
 static inline uint32_t k22_test_core_cycles_for_bus_cycles(const KinetisK22* device,
                                                            uint32_t bus_cycles) {

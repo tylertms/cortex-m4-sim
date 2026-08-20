@@ -1,4 +1,4 @@
-#include "cortex_m4_sim/cortex_m4.h"
+#include "cortex_m4.h"
 
 #include <stdbool.h>
 #include <stdint.h>
