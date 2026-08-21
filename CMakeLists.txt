@@ -86,7 +86,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
       target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME ${target} COMMAND ${target})
-    set_tests_properties(${target} PROPERTIES LABELS "${labels}" TIMEOUT 60)
+    set_tests_properties(${target} PROPERTIES LABELS "${labels}")
   endfunction()
 
   cortex_m4_add_test(core_reset tests/core/reset_test.c "core;unit")

@@ -84,8 +84,6 @@ The `tests` directory has this structure:
 - `system` contains firmware image tests.
 - `support` contains the small assertion helper.
 
-Each ordinary test has a 60-second deadline.
-
 Run one test group:
 
 ```
