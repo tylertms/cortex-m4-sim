@@ -30,18 +30,21 @@ static void record_irq(void* context, uint8_t irq, bool asserted) {
 
 static void write_register(TestState* state, K22Timing* timing, uint32_t address,
                            uint32_t value) {
-    TEST_EXPECT(state, k22_timing_write(timing, address, 4u, value));
+    expect(state, k22_timing_write(timing, address, 4u, value),
+           "k22_timing_write(timing, address, 4u, value)");
 }
 
 static uint32_t read_register(TestState* state, K22Timing* timing, uint32_t address) {
     uint32_t value = 0u;
-    TEST_EXPECT(state, k22_timing_read(timing, address, 4u, &value));
+    expect(state, k22_timing_read(timing, address, 4u, &value),
+           "k22_timing_read(timing, address, 4u, &value)");
     return value;
 }
 
 static bool output(TestState* state, K22Timing* timing, uint8_t channel) {
     bool high = false;
-    TEST_EXPECT(state, k22_timing_get_ftm_output(timing, 0u, channel, &high));
+    expect(state, k22_timing_get_ftm_output(timing, 0u, channel, &high),
+           "k22_timing_get_ftm_output(timing, 0u, channel, &high)");
     return high;
 }
 
@@ -52,7 +55,8 @@ static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorde
         .context = recorder,
         .irq = record_irq,
     };
-    TEST_EXPECT(state, k22_timing_init(timing, profile, 8000000u, 32768u, signals));
+    expect(state, k22_timing_init(timing, profile, 8000000u, 32768u, signals),
+           "k22_timing_init(timing, profile, 8000000u, 32768u, signals)");
     write_register(state, timing, SIM_SCGC6, timing->sim_scgc6 | (1u << 24u));
     write_register(state, timing, FTM0_MODE, mode | 5u);
     write_register(state, timing, FTM0_MOD, 3u);
@@ -63,8 +67,9 @@ static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorde
 }
 
 static void expect_outputs(TestState* state, K22Timing* timing, bool first, bool second) {
-    TEST_EXPECT(state, output(state, timing, 0u) == first);
-    TEST_EXPECT(state, output(state, timing, 1u) == second);
+    expect(state, output(state, timing, 0u) == first, "output(state, timing, 0u) == first");
+    expect(state, output(state, timing, 1u) == second,
+           "output(state, timing, 1u) == second");
 }
 
 static void test_manual_fault_lifecycle(TestState* state) {
@@ -72,21 +77,27 @@ static void test_manual_fault_lifecycle(TestState* state) {
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0xc0u, 0x40u, 1u);
     expect_outputs(state, &timing, true, true);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0xa1u);
-    TEST_EXPECT(state, recorder.level[IRQ_FTM0]);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0xa1u,
+           "read_register(state, &timing, FTM0_FMS) == 0xa1u");
+    expect(state, recorder.level[IRQ_FTM0], "recorder.level[IRQ_FTM0]");
     expect_outputs(state, &timing, false, false);
 
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 3u);
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u);
-    TEST_EXPECT(state, !recorder.level[IRQ_FTM0]);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u");
+    expect(state, !recorder.level[IRQ_FTM0], "!recorder.level[IRQ_FTM0]");
     expect_outputs(state, &timing, false, false);
 
     write_register(state, &timing, FTM0_SC, 8u);
@@ -100,23 +111,29 @@ static void test_automatic_fault_lifecycle(TestState* state) {
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0xe0u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0xa1u) == 0xa1u);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0xa1u) == 0xa1u,
+           "(read_register(state, &timing, FTM0_FMS) & 0xa1u) == 0xa1u");
     expect_outputs(state, &timing, false, false);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u);
-    TEST_EXPECT(state, !recorder.level[IRQ_FTM0]);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u");
+    expect(state, !recorder.level[IRQ_FTM0], "!recorder.level[IRQ_FTM0]");
     expect_outputs(state, &timing, false, false);
     write_register(state, &timing, FTM0_SC, 8u);
     k22_timing_advance(&timing, 3u);
     expect_outputs(state, &timing, false, false);
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u);
-    TEST_EXPECT(state, !recorder.level[IRQ_FTM0]);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0u");
+    expect(state, !recorder.level[IRQ_FTM0], "!recorder.level[IRQ_FTM0]");
     expect_outputs(state, &timing, true, true);
 }
 
@@ -124,33 +141,41 @@ static void test_fault_modes_and_safe_polarity(TestState* state) {
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x20u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
     expect_outputs(state, &timing, false, true);
 
     initialize(state, &timing, &recorder, 0x40u, 0u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
     expect_outputs(state, &timing, true, true);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
 
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
     write_register(state, &timing, FTM0_POL, 1u);
     k22_timing_advance(&timing, 1u);
     expect_outputs(state, &timing, false, true);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
     expect_outputs(state, &timing, true, false);
 
     initialize(state, &timing, &recorder, 0u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 16u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
 
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 0u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 16u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
 }
 
 static void test_fault_inputs_and_filter(TestState* state) {
@@ -158,41 +183,54 @@ static void test_fault_inputs_and_filter(TestState* state) {
         K22Timing timing;
         IrqRecorder recorder = {0};
         initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u << input);
-        TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, input, true));
+        expect(state, k22_timing_set_ftm_fault(&timing, 0u, input, true),
+               "k22_timing_set_ftm_fault(&timing, 0u, input, true)");
         k22_timing_advance(&timing, 3u);
         const uint32_t expected = 0xa0u | (1u << input);
-        TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == expected);
+        expect(state, read_register(state, &timing, FTM0_FMS) == expected,
+               "read_register(state, &timing, FTM0_FMS) == expected");
     }
 
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 0x211u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 5u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0xa1u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0xa1u,
+           "read_register(state, &timing, FTM0_FMS) == 0xa1u");
 
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 0x11u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0xa1u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0xa1u,
+           "read_register(state, &timing, FTM0_FMS) == 0xa1u");
 
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 0x211u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 5u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 8u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
 
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
     write_register(state, &timing, FTM0_FLTPOL, 1u);
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0u,
+           "read_register(state, &timing, FTM0_FMS) == 0u");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0xa1u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0xa1u,
+           "read_register(state, &timing, FTM0_FMS) == 0xa1u");
 }
 
 static void test_flag_clearing_and_irq_control(TestState* state) {
@@ -200,50 +238,67 @@ static void test_flag_clearing_and_irq_control(TestState* state) {
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0xc0u, 0x40u, 0x0fu);
     for (uint8_t input = 0u; input < 4u; input++)
-        TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, input, true));
+        expect(state, k22_timing_set_ftm_fault(&timing, 0u, input, true),
+               "k22_timing_set_ftm_fault(&timing, 0u, input, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0xafu);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0xafu,
+           "read_register(state, &timing, FTM0_FMS) == 0xafu");
     for (uint8_t input = 0u; input < 4u; input++)
-        TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, input, false));
+        expect(state, k22_timing_set_ftm_fault(&timing, 0u, input, false),
+               "k22_timing_set_ftm_fault(&timing, 0u, input, false)");
     k22_timing_advance(&timing, 3u);
     write_register(state, &timing, FTM0_FMS, 0x8eu);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0x8eu);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0x8eu,
+           "(read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0x8eu");
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0u);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x8fu) == 0u");
 
     initialize(state, &timing, &recorder, 0xc0u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, recorder.level[IRQ_FTM0]);
+    expect(state, recorder.level[IRQ_FTM0], "recorder.level[IRQ_FTM0]");
     write_register(state, &timing, FTM0_MODE, 0x45u);
-    TEST_EXPECT(state, !recorder.level[IRQ_FTM0]);
+    expect(state, !recorder.level[IRQ_FTM0], "!recorder.level[IRQ_FTM0]");
     write_register(state, &timing, FTM0_MODE, 0xc5u);
-    TEST_EXPECT(state, recorder.level[IRQ_FTM0]);
-    TEST_EXPECT(state, recorder.transitions[IRQ_FTM0] >= 3u);
+    expect(state, recorder.level[IRQ_FTM0], "recorder.level[IRQ_FTM0]");
+    expect(state, recorder.transitions[IRQ_FTM0] >= 3u,
+           "recorder.transitions[IRQ_FTM0] >= 3u");
 }
 
 static void test_clear_sequence_and_retrigger(TestState* state) {
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u,
+           "(timing.ftm[0].registers[8] & 0x81u) == 0x81u");
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 3u);
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
+    expect(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u,
+           "(timing.ftm[0].registers[8] & 0x81u) == 0x81u");
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
 
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 3u);
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
+    expect(state, (timing.ftm[0].registers[8] & 0x81u) == 0x81u,
+           "(timing.ftm[0].registers[8] & 0x81u) == 0x81u");
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
     write_register(state, &timing, FTM0_FMS, 0u);
-    TEST_EXPECT(state, (timing.ftm[0].registers[8] & 0x81u) == 0u);
+    expect(state, (timing.ftm[0].registers[8] & 0x81u) == 0u,
+           "(timing.ftm[0].registers[8] & 0x81u) == 0u");
 }
 
 static void test_all_pairs_and_mode_disable(TestState* state) {
@@ -255,23 +310,28 @@ static void test_all_pairs_and_mode_disable(TestState* state) {
         const uint32_t software = (3u << first) | (3u << (first + 8u));
         write_register(state, &timing, FTM0_SWOCTRL, software);
         k22_timing_advance(&timing, 1u);
-        TEST_EXPECT(state, output(state, &timing, first));
-        TEST_EXPECT(state, output(state, &timing, (uint8_t)(first + 1u)));
-        TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+        expect(state, output(state, &timing, first), "output(state, &timing, first)");
+        expect(state, output(state, &timing, (uint8_t)(first + 1u)),
+               "output(state, &timing, (uint8_t)(first + 1u))");
+        expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+               "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
         k22_timing_advance(&timing, 3u);
-        TEST_EXPECT(state, !output(state, &timing, first));
-        TEST_EXPECT(state, !output(state, &timing, (uint8_t)(first + 1u)));
+        expect(state, !output(state, &timing, first), "!output(state, &timing, first)");
+        expect(state, !output(state, &timing, (uint8_t)(first + 1u)),
+               "!output(state, &timing, (uint8_t)(first + 1u))");
     }
 
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
     expect_outputs(state, &timing, false, false);
     write_register(state, &timing, FTM0_MODE, 5u);
     expect_outputs(state, &timing, true, true);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u);
+    expect(state, (read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u,
+           "(read_register(state, &timing, FTM0_FMS) & 0x81u) == 0x81u");
 }
 
 static void test_center_aligned_release(TestState* state) {
@@ -279,11 +339,14 @@ static void test_center_aligned_release(TestState* state) {
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
     write_register(state, &timing, FTM0_MOD, 2u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_FMS) == 0x81u);
+    expect(state, read_register(state, &timing, FTM0_FMS) == 0x81u,
+           "read_register(state, &timing, FTM0_FMS) == 0x81u");
     write_register(state, &timing, FTM0_FMS, 0u);
     write_register(state, &timing, FTM0_SC, 0x28u);
     k22_timing_advance(&timing, 3u);
@@ -297,11 +360,13 @@ static void test_bulk_advance_fault_order(TestState* state) {
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x60u, 0x40u, 1u);
     write_register(state, &timing, FTM0_MOD, 5u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, true),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, true)");
     k22_timing_advance(&timing, 3u);
     write_register(state, &timing, FTM0_SC, 8u);
     k22_timing_advance(&timing, 4u);
-    TEST_EXPECT(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false));
+    expect(state, k22_timing_set_ftm_fault(&timing, 0u, 0u, false),
+           "k22_timing_set_ftm_fault(&timing, 0u, 0u, false)");
     k22_timing_advance(&timing, 4u);
     expect_outputs(state, &timing, false, false);
     k22_timing_advance(&timing, 4u);
@@ -312,9 +377,12 @@ static void test_invalid_fault_inputs(TestState* state) {
     K22Timing timing;
     IrqRecorder recorder = {0};
     initialize(state, &timing, &recorder, 0x40u, 0x40u, 1u);
-    TEST_EXPECT(state, !k22_timing_set_ftm_fault(NULL, 0u, 0u, true));
-    TEST_EXPECT(state, !k22_timing_set_ftm_fault(&timing, 4u, 0u, true));
-    TEST_EXPECT(state, !k22_timing_set_ftm_fault(&timing, 0u, 4u, true));
+    expect(state, !k22_timing_set_ftm_fault(NULL, 0u, 0u, true),
+           "!k22_timing_set_ftm_fault(NULL, 0u, 0u, true)");
+    expect(state, !k22_timing_set_ftm_fault(&timing, 4u, 0u, true),
+           "!k22_timing_set_ftm_fault(&timing, 4u, 0u, true)");
+    expect(state, !k22_timing_set_ftm_fault(&timing, 0u, 4u, true),
+           "!k22_timing_set_ftm_fault(&timing, 0u, 4u, true)");
 }
 
 int main(void) {

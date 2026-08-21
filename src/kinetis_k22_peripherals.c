@@ -1067,18 +1067,29 @@ void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed) {
     }
 }
 
-void kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high) {
-    if (device != NULL) {
-        (void)k22_io_drive_pin(&device->io, port, pin, high);
+bool kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high) {
+    if (device != NULL && k22_io_drive_pin(&device->io, port, pin, high)) {
         kinetis_k22_refresh_signals(device);
+        return true;
     }
+    return false;
 }
 
-void kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin) {
-    if (device != NULL) {
-        (void)k22_io_release_pin(&device->io, port, pin);
+bool kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin) {
+    if (device != NULL && k22_io_release_pin(&device->io, port, pin)) {
         kinetis_k22_refresh_signals(device);
+        return true;
     }
+    return false;
+}
+
+bool kinetis_k22_gpio_pin(const KinetisK22* device, uint8_t port, uint8_t pin, bool* high) {
+    if (device == NULL || high == NULL ||
+        !k22_package_pin_exists(device->package, port, pin)) {
+        return false;
+    }
+    *high = (k22_io_pin_input(&device->io, port) & (1u << pin)) != 0u;
+    return true;
 }
 
 bool kinetis_k22_serial_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,

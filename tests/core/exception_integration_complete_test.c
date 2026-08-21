@@ -35,7 +35,7 @@ static bool bus_write(void* context, uint32_t address, uint8_t size, CortexM4Acc
 
 static CortexM4* create_cpu(TestState* state, ExceptionBus* bus) {
     CortexM4* cpu = cortex_m4_create((CortexM4Bus){bus, bus_read, bus_write, NULL, NULL});
-    TEST_EXPECT(state, cpu != NULL);
+    expect(state, cpu != NULL, "cpu != NULL");
     cortex_m4_system_reset(cpu);
     cpu->xpsr = CORTEX_M4_XPSR_T;
     cpu->msp = 0x800u;
@@ -65,7 +65,7 @@ static void test_fault_lockup(TestState* state) {
     CortexM4* cpu = create_cpu(state, &bus);
     cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
     cortex_m4_raise_fault(cpu, 4u);
-    TEST_EXPECT(state, cpu->stop == CORTEX_M4_STOP_LOCKUP);
+    expect(state, cpu->stop == CORTEX_M4_STOP_LOCKUP, "cpu->stop == CORTEX_M4_STOP_LOCKUP");
     cortex_m4_destroy(cpu);
 }
 
@@ -76,12 +76,14 @@ static void test_psp_lifecycle(TestState* state) {
     cpu->irq_enabled[0] = 1u;
     cpu->irq_pending[0] = 1u;
     write_vector(&bus, 16u, 0x301u);
-    TEST_EXPECT(state, cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, cpu->psp == 0x8e0u);
-    TEST_EXPECT(state, cpu->registers[14] == 0xfffffffdu);
-    TEST_EXPECT(state, cortex_m4_exception_return(cpu, cpu->registers[14]));
-    TEST_EXPECT(state, cpu->psp == 0x900u);
-    TEST_EXPECT(state, (cpu->xpsr & 0x1ffu) == 0u);
+    expect(state, cortex_m4_take_pending_exception(cpu),
+           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cpu->psp == 0x8e0u, "cpu->psp == 0x8e0u");
+    expect(state, cpu->registers[14] == 0xfffffffdu, "cpu->registers[14] == 0xfffffffdu");
+    expect(state, cortex_m4_exception_return(cpu, cpu->registers[14]),
+           "cortex_m4_exception_return(cpu, cpu->registers[14])");
+    expect(state, cpu->psp == 0x900u, "cpu->psp == 0x900u");
+    expect(state, (cpu->xpsr & 0x1ffu) == 0u, "(cpu->xpsr & 0x1ffu) == 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -92,8 +94,9 @@ static void test_entry_failures(TestState* state) {
     cpu->irq_pending[0] = 1u;
     write_vector(&bus, 16u, 0x301u);
     bus.reject_writes = true;
-    TEST_EXPECT(state, !cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 12)) != 0u);
+    expect(state, !cortex_m4_take_pending_exception(cpu),
+           "!cortex_m4_take_pending_exception(cpu)");
+    expect(state, (cpu->cfsr & (1u << 12)) != 0u, "(cpu->cfsr & (1u << 12)) != 0u");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
@@ -101,8 +104,9 @@ static void test_entry_failures(TestState* state) {
     cpu->irq_enabled[0] = 1u;
     cpu->irq_pending[0] = 1u;
     bus.reject_reads = true;
-    TEST_EXPECT(state, !cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, (cpu->hfsr & (1u << 1)) != 0u);
+    expect(state, !cortex_m4_take_pending_exception(cpu),
+           "!cortex_m4_take_pending_exception(cpu)");
+    expect(state, (cpu->hfsr & (1u << 1)) != 0u, "(cpu->hfsr & (1u << 1)) != 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -114,8 +118,9 @@ static void test_exception_selection(TestState* state) {
     cpu->system_priority[11] = 0x10u;
     write_vector(&bus, 14u, 0x301u);
     write_vector(&bus, 15u, 0x321u);
-    TEST_EXPECT(state, cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, (cpu->xpsr & 0x1ffu) == 15u);
+    expect(state, cortex_m4_take_pending_exception(cpu),
+           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, (cpu->xpsr & 0x1ffu) == 15u, "(cpu->xpsr & 0x1ffu) == 15u");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
@@ -126,8 +131,9 @@ static void test_exception_selection(TestState* state) {
     cpu->irq_priority[1] = 0x10u;
     write_vector(&bus, 16u, 0x301u);
     write_vector(&bus, 17u, 0x321u);
-    TEST_EXPECT(state, cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, (cpu->xpsr & 0x1ffu) == 17u);
+    expect(state, cortex_m4_take_pending_exception(cpu),
+           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, (cpu->xpsr & 0x1ffu) == 17u, "(cpu->xpsr & 0x1ffu) == 17u");
     cortex_m4_destroy(cpu);
 }
 
@@ -135,8 +141,9 @@ static void test_invalid_return(TestState* state) {
     ExceptionBus bus = {0};
     CortexM4* cpu = create_cpu(state, &bus);
     prepare_active(cpu, 16u, 0xfffffff9u, 0x400u);
-    TEST_EXPECT(state, !cortex_m4_exception_return(cpu, 0xfffffff8u));
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 18)) != 0u);
+    expect(state, !cortex_m4_exception_return(cpu, 0xfffffff8u),
+           "!cortex_m4_exception_return(cpu, 0xfffffff8u)");
+    expect(state, (cpu->cfsr & (1u << 18)) != 0u, "(cpu->cfsr & (1u << 18)) != 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -147,25 +154,30 @@ static void test_return_failures(TestState* state) {
     cpu->irq_enabled[0] = 3u;
     cpu->irq_pending[0] |= 2u;
     bus.reject_reads = true;
-    TEST_EXPECT(state, cortex_m4_exception_return(cpu, 0xfffffff9u));
-    TEST_EXPECT(state, (cpu->hfsr & (1u << 1)) != 0u);
+    expect(state, cortex_m4_exception_return(cpu, 0xfffffff9u),
+           "cortex_m4_exception_return(cpu, 0xfffffff9u)");
+    expect(state, (cpu->hfsr & (1u << 1)) != 0u, "(cpu->hfsr & (1u << 1)) != 0u");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
     cpu = create_cpu(state, &bus);
     prepare_active(cpu, 16u, 0xfffffff9u, 0x400u);
     bus.reject_reads = true;
-    TEST_EXPECT(state, cortex_m4_exception_return(cpu, 0xfffffff9u));
-    TEST_EXPECT(state, cpu->exception_unstack_memory_fault);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 11)) != 0u);
+    expect(state, cortex_m4_exception_return(cpu, 0xfffffff9u),
+           "cortex_m4_exception_return(cpu, 0xfffffff9u)");
+    expect(state, cpu->exception_unstack_memory_fault,
+           "cpu->exception_unstack_memory_fault");
+    expect(state, (cpu->cfsr & (1u << 11)) != 0u, "(cpu->cfsr & (1u << 11)) != 0u");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
     cpu = create_cpu(state, &bus);
     prepare_active(cpu, 16u, 0xfffffff9u, 0x400u);
-    TEST_EXPECT(state, cortex_m4_exception_return(cpu, 0xfffffff9u));
-    TEST_EXPECT(state, !cpu->exception_unstack_memory_fault);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 17)) != 0u);
+    expect(state, cortex_m4_exception_return(cpu, 0xfffffff9u),
+           "cortex_m4_exception_return(cpu, 0xfffffff9u)");
+    expect(state, !cpu->exception_unstack_memory_fault,
+           "!cpu->exception_unstack_memory_fault");
+    expect(state, (cpu->cfsr & (1u << 17)) != 0u, "(cpu->cfsr & (1u << 17)) != 0u");
     cortex_m4_destroy(cpu);
 }
 

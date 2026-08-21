@@ -50,32 +50,39 @@ static K22Timing make_timing(TestState* state, Observations* observations) {
         .irq = irq_signal,
         .reset = reset_signal,
     };
-    TEST_EXPECT(state, k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212),
-                                       8000000u, 32768u, signals));
+    expect(state,
+           k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212), 8000000u,
+                           32768u, signals),
+           "k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212), 8000000u, "
+           "32768u, signals)");
     return timing;
 }
 
 static void write_register(TestState* state, K22Timing* timing, uint32_t address,
                            uint32_t value) {
     const uint8_t size = address >= EWM_CTRL ? 1u : 2u;
-    TEST_EXPECT(state, k22_timing_write(timing, address, size, value));
+    expect(state, k22_timing_write(timing, address, size, value),
+           "k22_timing_write(timing, address, size, value)");
 }
 
 static uint32_t read_register(TestState* state, K22Timing* timing, uint32_t address) {
     uint32_t value = UINT32_MAX;
     const uint8_t size = address >= EWM_CTRL ? 1u : 2u;
-    TEST_EXPECT(state, k22_timing_read(timing, address, size, &value));
+    expect(state, k22_timing_read(timing, address, size, &value),
+           "k22_timing_read(timing, address, size, &value)");
     return value;
 }
 
 static void write_byte(TestState* state, K22Timing* timing, uint32_t address,
                        uint8_t value) {
-    TEST_EXPECT(state, k22_timing_write(timing, address, 1u, value));
+    expect(state, k22_timing_write(timing, address, 1u, value),
+           "k22_timing_write(timing, address, 1u, value)");
 }
 
 static uint8_t read_byte(TestState* state, K22Timing* timing, uint32_t address) {
     uint32_t value = UINT32_MAX;
-    TEST_EXPECT(state, k22_timing_read(timing, address, 1u, &value));
+    expect(state, k22_timing_read(timing, address, 1u, &value),
+           "k22_timing_read(timing, address, 1u, &value)");
     return (uint8_t)value;
 }
 
@@ -123,10 +130,10 @@ static void test_configuration_windows(TestState* state) {
     Observations observations = {0};
     K22Timing timing = make_timing(state, &observations);
     advance_bus(&timing, 256u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     advance_bus(&timing, 1u);
-    TEST_EXPECT(state, observations.resets == 1u);
-    TEST_EXPECT(state, observations.srs0 == 0x20u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
+    expect(state, observations.srs0 == 0x20u, "observations.srs0 == 0x20u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
@@ -136,23 +143,25 @@ static void test_configuration_windows(TestState* state) {
     write_register(state, &timing, WDOG_TOVALH, 0u);
     write_register(state, &timing, WDOG_TOVALL, 10u);
     write_register(state, &timing, WDOG_STCTRLH, 0x11u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TOVALL) == 0x4b4cu);
+    expect(state, read_register(state, &timing, WDOG_TOVALL) == 0x4b4cu,
+           "read_register(state, &timing, WDOG_TOVALL) == 0x4b4cu");
     advance_bus(&timing, 260u);
-    TEST_EXPECT(state, observations.resets == 0u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TOVALL) == 10u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
+    expect(state, read_register(state, &timing, WDOG_TOVALL) == 10u,
+           "read_register(state, &timing, WDOG_TOVALL) == 10u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     write_register(state, &timing, WDOG_UNLOCK, 0xc520u);
     advance_bus(&timing, 20u);
     write_register(state, &timing, WDOG_UNLOCK, 0xd928u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     unlock(state, &timing);
     advance_bus(&timing, 257u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 }
 
 static void test_refresh_and_interrupt(TestState* state) {
@@ -163,44 +172,47 @@ static void test_refresh_and_interrupt(TestState* state) {
     write_register(state, &timing, WDOG_REFRESH, 0xa602u);
     advance_bus(&timing, 19u);
     write_register(state, &timing, WDOG_REFRESH, 0xb480u);
-    TEST_EXPECT(state, timing.wdog_counter == 0u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, timing.wdog_counter == 0u, "timing.wdog_counter == 0u");
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_watchdog_advance(&timing, 19u);
     write_register(state, &timing, WDOG_REFRESH, 0xa602u);
     write_register(state, &timing, WDOG_REFRESH, 0xb480u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 100u, 0u, 4u);
     write_register(state, &timing, WDOG_REFRESH, 0u);
-    TEST_EXPECT(state, observations.irq);
-    TEST_EXPECT(state, (read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) != 0u);
+    expect(state, observations.irq, "observations.irq");
+    expect(state, (read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) != 0u,
+           "(read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) != 0u");
     write_register(state, &timing, WDOG_STCTRLL, 0x8000u);
-    TEST_EXPECT(state, !observations.irq);
+    expect(state, !observations.irq, "!observations.irq");
     const uint32_t before_reset =
         (uint32_t)(timing.wdog_reset_deadline - timing.wdog_bus_cycles);
     advance_bus(&timing, before_reset - 1u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     advance_bus(&timing, 1u);
-    TEST_EXPECT(state, observations.resets == 1u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_RSTCNT) == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
+    expect(state, read_register(state, &timing, WDOG_RSTCNT) == 1u,
+           "read_register(state, &timing, WDOG_RSTCNT) == 1u");
     write_register(state, &timing, WDOG_RSTCNT, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_RSTCNT) == 0u);
+    expect(state, read_register(state, &timing, WDOG_RSTCNT) == 0u,
+           "read_register(state, &timing, WDOG_RSTCNT) == 0u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 100u, 0u, 4u);
     write_register(state, &timing, WDOG_REFRESH, 0u);
     write_register(state, &timing, WDOG_REFRESH, 0u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 100u, 0u, 1u);
     write_register(state, &timing, WDOG_REFRESH, 0xa602u);
     advance_bus(&timing, 21u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 }
 
 static void test_pause_and_byte_modes(TestState* state) {
@@ -209,32 +221,32 @@ static void test_pause_and_byte_modes(TestState* state) {
     configure(state, &timing, 2u, 0u, 1u);
     k22_timing_set_cpu_sleeping(&timing, true, false);
     k22_timing_watchdog_advance(&timing, 2u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_set_cpu_sleeping(&timing, true, true);
     k22_timing_watchdog_advance(&timing, 2u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_set_cpu_sleeping(&timing, false, false);
     k22_timing_set_debug_halted(&timing, true);
     k22_timing_watchdog_advance(&timing, 2u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_set_debug_halted(&timing, false);
     k22_timing_watchdog_advance(&timing, 2u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 2u, 0u, 0x41u);
     k22_timing_set_cpu_sleeping(&timing, true, true);
     k22_timing_watchdog_advance(&timing, 2u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 0x11223344u, 0u, 0x0c01u);
     k22_timing_watchdog_advance(&timing, 0x43u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_watchdog_advance(&timing, 1u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 }
 
 static void test_byte_access_and_control(TestState* state) {
@@ -247,32 +259,38 @@ static void test_byte_access_and_control(TestState* state) {
     write_byte(state, &timing, WDOG_TOVALL, 0x34u);
     write_byte(state, &timing, WDOG_TOVALL + 1u, 0x12u);
     advance_bus(&timing, 260u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TOVALL) == 0x1234u);
+    expect(state, read_register(state, &timing, WDOG_TOVALL) == 0x1234u,
+           "read_register(state, &timing, WDOG_TOVALL) == 0x1234u");
     k22_timing_watchdog_advance(&timing, 20u);
     write_byte(state, &timing, WDOG_REFRESH, 0x02u);
     write_byte(state, &timing, WDOG_REFRESH + 1u, 0xa6u);
     write_byte(state, &timing, WDOG_REFRESH, 0x80u);
     write_byte(state, &timing, WDOG_REFRESH + 1u, 0xb4u);
-    TEST_EXPECT(state, timing.wdog_counter == 0u);
+    expect(state, timing.wdog_counter == 0u, "timing.wdog_counter == 0u");
 
     k22_timing_watchdog_advance(&timing, 0x123u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TMROUTH) == 0u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TMROUTL) == 0x123u);
-    TEST_EXPECT(state, read_byte(state, &timing, WDOG_TMROUTL) == 0x23u);
-    TEST_EXPECT(state, read_byte(state, &timing, WDOG_TMROUTL + 1u) == 1u);
+    expect(state, read_register(state, &timing, WDOG_TMROUTH) == 0u,
+           "read_register(state, &timing, WDOG_TMROUTH) == 0u");
+    expect(state, read_register(state, &timing, WDOG_TMROUTL) == 0x123u,
+           "read_register(state, &timing, WDOG_TMROUTL) == 0x123u");
+    expect(state, read_byte(state, &timing, WDOG_TMROUTL) == 0x23u,
+           "read_byte(state, &timing, WDOG_TMROUTL) == 0x23u");
+    expect(state, read_byte(state, &timing, WDOG_TMROUTL + 1u) == 1u,
+           "read_byte(state, &timing, WDOG_TMROUTL + 1u) == 1u");
     write_register(state, &timing, WDOG_TMROUTL, 0u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_TMROUTL) == 0x123u);
+    expect(state, read_register(state, &timing, WDOG_TMROUTL) == 0x123u,
+           "read_register(state, &timing, WDOG_TMROUTL) == 0x123u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     k22_timing_set_debug_halted(&timing, true);
     advance_bus(&timing, 1000u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     k22_timing_set_debug_halted(&timing, false);
     advance_bus(&timing, 256u);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
     advance_bus(&timing, 1u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
@@ -282,26 +300,31 @@ static void test_byte_access_and_control(TestState* state) {
     write_register(state, &timing, WDOG_PRESC, UINT16_MAX);
     write_register(state, &timing, WDOG_STCTRLH, UINT16_MAX);
     advance_bus(&timing, 260u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_STCTRLH) == 0x7cffu);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_PRESC) == 0x0700u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_STCTRLL) == 1u);
+    expect(state, read_register(state, &timing, WDOG_STCTRLH) == 0x7cffu,
+           "read_register(state, &timing, WDOG_STCTRLH) == 0x7cffu");
+    expect(state, read_register(state, &timing, WDOG_PRESC) == 0x0700u,
+           "read_register(state, &timing, WDOG_PRESC) == 0x0700u");
+    expect(state, read_register(state, &timing, WDOG_STCTRLL) == 1u,
+           "read_register(state, &timing, WDOG_STCTRLL) == 1u");
     write_byte(state, &timing, WDOG_STCTRLL + 1u, 0x80u);
-    TEST_EXPECT(state, (read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) == 0u);
+    expect(state, (read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) == 0u,
+           "(read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) == 0u");
     write_byte(state, &timing, WDOG_RSTCNT, 1u);
-    TEST_EXPECT(state, read_register(state, &timing, WDOG_RSTCNT) == 0u);
+    expect(state, read_register(state, &timing, WDOG_RSTCNT) == 0u,
+           "read_register(state, &timing, WDOG_RSTCNT) == 0u");
     k22_timing_watchdog_advance(&timing, 0x44u);
-    TEST_EXPECT(state, !observations.irq);
+    expect(state, !observations.irq, "!observations.irq");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure(state, &timing, 100u, 0u, 1u);
     write_byte(state, &timing, WDOG_REFRESH, 0u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     write_byte(state, &timing, WDOG_UNLOCK, 0u);
-    TEST_EXPECT(state, observations.resets == 1u);
+    expect(state, observations.resets == 1u, "observations.resets == 1u");
 }
 
 static void configure_ewm(TestState* state, K22Timing* timing, uint8_t low, uint8_t high,
@@ -321,41 +344,45 @@ static void service_ewm(TestState* state, K22Timing* timing) {
 static void test_external_watchdog(TestState* state) {
     Observations observations = {0};
     K22Timing timing = make_timing(state, &observations);
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, k22_timing_set_ewm_input(&timing, true));
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
+    expect(state, k22_timing_set_ewm_input(&timing, true),
+           "k22_timing_set_ewm_input(&timing, true)");
     configure_ewm(state, &timing, 1u, 4u, 0x0du);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, !k22_timing_write(&timing, EWM_CMPL, 1u, 2u));
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, !k22_timing_write(&timing, EWM_CMPL, 1u, 2u),
+           "!k22_timing_write(&timing, EWM_CMPL, 1u, 2u)");
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 2u));
-    TEST_EXPECT(state, timing.ewm_counter == 2u);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
+    expect(state, timing.ewm_counter == 2u, "timing.ewm_counter == 2u");
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
     service_ewm(state, &timing);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, timing.ewm_counter == 0u);
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, timing.ewm_counter == 0u, "timing.ewm_counter == 0u");
     write_register(state, &timing, EWM_SERV, 0u);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 4u));
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, observations.irq);
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
+    expect(state, observations.irq, "observations.irq");
     write_register(state, &timing, EWM_CTRL, 5u);
-    TEST_EXPECT(state, !observations.irq);
-    TEST_EXPECT(state, observations.resets == 0u);
+    expect(state, !observations.irq, "!observations.irq");
+    expect(state, observations.resets == 0u, "observations.resets == 0u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
-    TEST_EXPECT(state, k22_timing_set_ewm_input(&timing, true));
+    expect(state, k22_timing_set_ewm_input(&timing, true),
+           "k22_timing_set_ewm_input(&timing, true)");
     configure_ewm(state, &timing, 1u, 4u, 0x0du);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 1u));
     service_ewm(state, &timing);
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
-    TEST_EXPECT(state, k22_timing_set_ewm_input(&timing, true));
+    expect(state, k22_timing_set_ewm_input(&timing, true),
+           "k22_timing_set_ewm_input(&timing, true)");
     configure_ewm(state, &timing, 1u, 4u, 0x0fu);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 2u));
     service_ewm(state, &timing);
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
@@ -364,8 +391,8 @@ static void test_external_watchdog(TestState* state) {
     write_register(state, &timing, EWM_SERV, 0xb4u);
     advance_bus(&timing, 15u);
     write_register(state, &timing, EWM_SERV, 0x2cu);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, timing.ewm_counter == 0u);
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, timing.ewm_counter == 0u, "timing.ewm_counter == 0u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
@@ -374,19 +401,19 @@ static void test_external_watchdog(TestState* state) {
     write_register(state, &timing, EWM_SERV, 0xb4u);
     advance_bus(&timing, 16u);
     write_register(state, &timing, EWM_SERV, 0x2cu);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, timing.ewm_counter == 2u);
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, timing.ewm_counter == 2u, "timing.ewm_counter == 2u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure_ewm(state, &timing, 1u, 4u, 1u);
     k22_timing_set_cpu_sleeping(&timing, true, false);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 4u));
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, timing.ewm_counter == 0u);
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, timing.ewm_counter == 0u, "timing.ewm_counter == 0u");
     k22_timing_set_cpu_sleeping(&timing, false, false);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 4u));
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
@@ -399,17 +426,18 @@ static void test_external_watchdog(TestState* state) {
     k22_timing_set_cpu_sleeping(&timing, false, false);
     advance_bus(&timing, 10u);
     write_register(state, &timing, EWM_SERV, 0x2cu);
-    TEST_EXPECT(state, !k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, timing.ewm_counter == 0u);
+    expect(state, !k22_timing_ewm_output(&timing), "!k22_timing_ewm_output(&timing)");
+    expect(state, timing.ewm_counter == 0u, "timing.ewm_counter == 0u");
 
     observations = (Observations){0};
     k22_timing_reset(&timing, 0x82u, 0u);
     configure_ewm(state, &timing, 1u, 4u, 1u);
     k22_timing_set_debug_halted(&timing, true);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 4u));
-    TEST_EXPECT(state, k22_timing_ewm_output(&timing));
-    TEST_EXPECT(state, !k22_timing_set_ewm_input(NULL, false));
-    TEST_EXPECT(state, !k22_timing_ewm_output(NULL));
+    expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
+    expect(state, !k22_timing_set_ewm_input(NULL, false),
+           "!k22_timing_set_ewm_input(NULL, false)");
+    expect(state, !k22_timing_ewm_output(NULL), "!k22_timing_ewm_output(NULL)");
 }
 
 int main(void) {

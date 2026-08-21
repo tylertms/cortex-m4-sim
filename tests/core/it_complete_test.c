@@ -44,8 +44,11 @@ static CortexM4FlagWrite expected_wide_write(uint16_t first, uint16_t second) {
 
 static void test_narrow_classification(TestState* state) {
     for (uint32_t opcode = 0; opcode <= UINT16_MAX; opcode++) {
-        TEST_EXPECT(state, cortex_m4_it_flag_write((uint16_t)opcode, 0, false) ==
-                               expected_narrow_write((uint16_t)opcode));
+        expect(state,
+               cortex_m4_it_flag_write((uint16_t)opcode, 0, false) ==
+                   expected_narrow_write((uint16_t)opcode),
+               "cortex_m4_it_flag_write((uint16_t)opcode, 0, false) == "
+               "expected_narrow_write((uint16_t)opcode)");
     }
 }
 
@@ -56,20 +59,28 @@ static void test_wide_classification(TestState* state) {
     };
     for (uint32_t first = 0; first <= UINT16_MAX; first++) {
         for (size_t index = 0; index < sizeof(seconds) / sizeof(seconds[0]); index++) {
-            TEST_EXPECT(state,
-                        cortex_m4_it_flag_write((uint16_t)first, seconds[index], true) ==
-                            expected_wide_write((uint16_t)first, seconds[index]));
+            expect(state,
+                   cortex_m4_it_flag_write((uint16_t)first, seconds[index], true) ==
+                       expected_wide_write((uint16_t)first, seconds[index]),
+                   "cortex_m4_it_flag_write((uint16_t)first, seconds[index], true) == "
+                   "expected_wide_write((uint16_t)first, seconds[index])");
         }
     }
     for (uint32_t selector = 0; selector <= UINT8_MAX; selector++) {
         const uint16_t second = (uint16_t)(0x8800u | selector);
-        TEST_EXPECT(state, cortex_m4_it_flag_write(0xf380u, second, true) ==
-                               expected_wide_write(0xf380u, second));
+        expect(state,
+               cortex_m4_it_flag_write(0xf380u, second, true) ==
+                   expected_wide_write(0xf380u, second),
+               "cortex_m4_it_flag_write(0xf380u, second, true) == "
+               "expected_wide_write(0xf380u, second)");
     }
     for (uint32_t core = 0; core < 16; core++) {
         const uint16_t second = (uint16_t)((core << 12) | 0x0a10u);
-        TEST_EXPECT(state, cortex_m4_it_flag_write(0xeef1u, second, true) ==
-                               expected_wide_write(0xeef1u, second));
+        expect(state,
+               cortex_m4_it_flag_write(0xeef1u, second, true) ==
+                   expected_wide_write(0xeef1u, second),
+               "cortex_m4_it_flag_write(0xeef1u, second, true) == "
+               "expected_wide_write(0xeef1u, second)");
     }
 }
 
@@ -86,11 +97,11 @@ static void test_state_advance(TestState* state) {
         cpu.it_state = (uint8_t)initial;
         uint8_t expected = (uint8_t)initial;
         for (uint8_t step = 0; step < 5; step++) {
-            TEST_EXPECT(state, cpu.it_state == expected);
+            expect(state, cpu.it_state == expected, "cpu.it_state == expected");
             cortex_m4_it_advance(&cpu);
             expected = expected_advance(expected);
         }
-        TEST_EXPECT(state, cpu.it_state == 0);
+        expect(state, cpu.it_state == 0, "cpu.it_state == 0");
     }
     cortex_m4_it_advance(NULL);
 }
@@ -103,16 +114,21 @@ static void test_condition_sequence(TestState* state) {
             for (uint8_t mask = 1; mask < 16; mask++) {
                 cpu.it_state = (uint8_t)((condition << 4) | mask);
                 while (cpu.it_state != 0) {
-                    TEST_EXPECT(state, cortex_m4_it_condition_passed(&cpu) ==
-                                           cortex_m4_condition_passed(
-                                               &cpu, (uint8_t)(cpu.it_state >> 4)));
+                    expect(
+                        state,
+                        cortex_m4_it_condition_passed(&cpu) ==
+                            cortex_m4_condition_passed(&cpu, (uint8_t)(cpu.it_state >> 4)),
+                        "cortex_m4_it_condition_passed(&cpu) == "
+                        "cortex_m4_condition_passed( &cpu, (uint8_t)(cpu.it_state >> 4))");
                     cortex_m4_it_advance(&cpu);
                 }
-                TEST_EXPECT(state, cortex_m4_it_condition_passed(&cpu));
+                expect(state, cortex_m4_it_condition_passed(&cpu),
+                       "cortex_m4_it_condition_passed(&cpu)");
             }
         }
     }
-    TEST_EXPECT(state, !cortex_m4_it_condition_passed(NULL));
+    expect(state, !cortex_m4_it_condition_passed(NULL),
+           "!cortex_m4_it_condition_passed(NULL)");
 }
 
 static void test_flag_preservation(TestState* state) {
@@ -121,21 +137,23 @@ static void test_flag_preservation(TestState* state) {
     cpu.xpsr = CORTEX_M4_XPSR_T | CORTEX_M4_XPSR_Q | 0x000f0000u | CORTEX_M4_XPSR_Z |
                CORTEX_M4_XPSR_V;
     cortex_m4_it_preserve_flags(&cpu, 0x1800u, 0, false, true, previous);
-    TEST_EXPECT(state, (cpu.xpsr & xpsr_nzcv) == (previous & xpsr_nzcv));
-    TEST_EXPECT(state, (cpu.xpsr & CORTEX_M4_XPSR_Q) != 0);
-    TEST_EXPECT(state, (cpu.xpsr & 0x000f0000u) == 0x000f0000u);
+    expect(state, (cpu.xpsr & xpsr_nzcv) == (previous & xpsr_nzcv),
+           "(cpu.xpsr & xpsr_nzcv) == (previous & xpsr_nzcv)");
+    expect(state, (cpu.xpsr & CORTEX_M4_XPSR_Q) != 0, "(cpu.xpsr & CORTEX_M4_XPSR_Q) != 0");
+    expect(state, (cpu.xpsr & 0x000f0000u) == 0x000f0000u,
+           "(cpu.xpsr & 0x000f0000u) == 0x000f0000u");
 
     cpu.xpsr = CORTEX_M4_XPSR_Z;
     cortex_m4_it_preserve_flags(&cpu, 0x1800u, 0, false, false, previous);
-    TEST_EXPECT(state, cpu.xpsr == CORTEX_M4_XPSR_Z);
+    expect(state, cpu.xpsr == CORTEX_M4_XPSR_Z, "cpu.xpsr == CORTEX_M4_XPSR_Z");
 
     cpu.xpsr = CORTEX_M4_XPSR_V;
     cortex_m4_it_preserve_flags(&cpu, 0x2800u, 0, false, true, previous);
-    TEST_EXPECT(state, cpu.xpsr == CORTEX_M4_XPSR_V);
+    expect(state, cpu.xpsr == CORTEX_M4_XPSR_V, "cpu.xpsr == CORTEX_M4_XPSR_V");
 
     cpu.xpsr = CORTEX_M4_XPSR_C;
     cortex_m4_it_preserve_flags(&cpu, 0xf110u, 0x0000u, true, true, previous);
-    TEST_EXPECT(state, cpu.xpsr == CORTEX_M4_XPSR_C);
+    expect(state, cpu.xpsr == CORTEX_M4_XPSR_C, "cpu.xpsr == CORTEX_M4_XPSR_C");
     cortex_m4_it_preserve_flags(NULL, 0, 0, false, true, previous);
 }
 
@@ -194,26 +212,41 @@ static void test_exception_round_trip(TestState* state) {
             cpu->xpsr |= CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C;
             uint32_t stack_pointer = cpu->msp;
             uint32_t return_value = 0;
-            TEST_EXPECT(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer,
-                                                                      &return_value));
-            TEST_EXPECT(state, cpu->exception_frame_depth == 1);
-            TEST_EXPECT(state, cpu->exception_frames[0].it_state == it_state);
-            TEST_EXPECT(state, (cpu->exception_frames[0].stacked_xpsr & 0x0600fc00u) ==
-                                   packed_it_state(it_state));
+            expect(
+                state,
+                cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
+                "cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, "
+                "&return_value)");
+            expect(state, cpu->exception_frame_depth == 1,
+                   "cpu->exception_frame_depth == 1");
+            expect(state, cpu->exception_frames[0].it_state == it_state,
+                   "cpu->exception_frames[0].it_state == it_state");
+            expect(state,
+                   (cpu->exception_frames[0].stacked_xpsr & 0x0600fc00u) ==
+                       packed_it_state(it_state),
+                   "(cpu->exception_frames[0].stacked_xpsr & 0x0600fc00u) == "
+                   "packed_it_state(it_state)");
             cpu->it_state = 0;
             cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
             cpu->exception_depth = 1;
             cpu->active_exceptions[0] = 16u;
             cpu->irq_active[0] = 1u;
-            TEST_EXPECT(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer,
-                                                                        return_value, 16u));
+            expect(state,
+                   cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer,
+                                                            return_value, 16u),
+                   "cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, "
+                   "return_value, 16u)");
             cortex_m4_exception_advanced_commit_return(cpu, 16u, true);
-            TEST_EXPECT(state, cpu->it_state == it_state);
-            TEST_EXPECT(state, (cpu->xpsr & (CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C)) ==
-                                   (CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C));
-            TEST_EXPECT(state, cpu->exception_depth == 0);
-            TEST_EXPECT(state, cpu->exception_frame_depth == 0);
-            TEST_EXPECT(state, cpu->irq_active[0] == 0);
+            expect(state, cpu->it_state == it_state, "cpu->it_state == it_state");
+            expect(state,
+                   (cpu->xpsr & (CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C)) ==
+                       (CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C),
+                   "(cpu->xpsr & (CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C)) == "
+                   "(CORTEX_M4_XPSR_N | CORTEX_M4_XPSR_C)");
+            expect(state, cpu->exception_depth == 0, "cpu->exception_depth == 0");
+            expect(state, cpu->exception_frame_depth == 0,
+                   "cpu->exception_frame_depth == 0");
+            expect(state, cpu->irq_active[0] == 0, "cpu->irq_active[0] == 0");
         }
     }
 }
@@ -227,12 +260,17 @@ static void test_invalid_it_constraints(TestState* state) {
             const CortexM4InstructionDisposition expected =
                 condition < 14 ? CORTEX_M4_INSTRUCTION_EXECUTE
                                : CORTEX_M4_INSTRUCTION_UNDEFINED;
-            TEST_EXPECT(state, cortex_m4_check_instruction_constraints(&cpu, opcode, 0,
-                                                                       false) == expected);
+            expect(state,
+                   cortex_m4_check_instruction_constraints(&cpu, opcode, 0, false) ==
+                       expected,
+                   "cortex_m4_check_instruction_constraints(&cpu, opcode, 0, false) == "
+                   "expected");
             cpu.it_state = 0x08u;
-            TEST_EXPECT(state,
-                        cortex_m4_check_instruction_constraints(&cpu, opcode, 0, false) ==
-                            CORTEX_M4_INSTRUCTION_UNDEFINED);
+            expect(state,
+                   cortex_m4_check_instruction_constraints(&cpu, opcode, 0, false) ==
+                       CORTEX_M4_INSTRUCTION_UNDEFINED,
+                   "cortex_m4_check_instruction_constraints(&cpu, opcode, 0, false) == "
+                   "CORTEX_M4_INSTRUCTION_UNDEFINED");
         }
     }
 }
@@ -242,20 +280,25 @@ static void test_wide_comparison_in_it(TestState* state) {
     configuration.flash_size = 4096;
     configuration.sram_size = 65536;
     KinetisK22* device = kinetis_k22_create(configuration);
-    TEST_EXPECT(state, device != NULL);
+    expect(state, device != NULL, "device != NULL");
     const uint32_t vectors[2] = {0x20001000u, 0x00000101u};
     const uint16_t program[] = {0xf093u, 0x4f7fu, 0xbe00u};
-    TEST_EXPECT(state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)));
-    TEST_EXPECT(state, kinetis_k22_load(device, 0x100, program, sizeof(program)));
-    TEST_EXPECT(state, kinetis_k22_reset(device));
+    expect(state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)),
+           "kinetis_k22_load(device, 0, vectors, sizeof(vectors))");
+    expect(state, kinetis_k22_load(device, 0x100, program, sizeof(program)),
+           "kinetis_k22_load(device, 0x100, program, sizeof(program))");
+    expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     CortexM4* cpu = kinetis_k22_cpu(device);
     cpu->it_state = 0x0cu;
     cpu->xpsr |= CORTEX_M4_XPSR_Z;
     cortex_m4_set_register(cpu, 3, 0);
-    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 15) == 0x104u);
-    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & 0x00010000u) == 0);
-    TEST_EXPECT(state, cpu->it_state == 0x18u);
+    expect(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
+           "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, cortex_m4_get_register(cpu, 15) == 0x104u,
+           "cortex_m4_get_register(cpu, 15) == 0x104u");
+    expect(state, (cortex_m4_get_fault_status(cpu) & 0x00010000u) == 0,
+           "(cortex_m4_get_fault_status(cpu) & 0x00010000u) == 0");
+    expect(state, cpu->it_state == 0x18u, "cpu->it_state == 0x18u");
     kinetis_k22_destroy(device);
 }
 

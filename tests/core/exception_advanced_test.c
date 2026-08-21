@@ -46,7 +46,7 @@ static bool bus_write(void* context, uint32_t address, uint8_t size, CortexM4Acc
 static CortexM4* create_cpu(TestState* state, TestBus* bus) {
     CortexM4Bus interface = {bus, bus_read, bus_write, NULL, NULL};
     CortexM4* cpu = cortex_m4_create(interface);
-    TEST_EXPECT(state, cpu != NULL);
+    expect(state, cpu != NULL, "cpu != NULL");
     if (cpu != NULL) {
         cortex_m4_system_reset(cpu);
         cpu->xpsr = CORTEX_M4_XPSR_T;
@@ -72,29 +72,34 @@ static void test_active_stack(TestState* state) {
     TestBus bus = {0};
     CortexM4* cpu = create_cpu(state, &bus);
     cortex_m4_exception_advanced_reset(cpu);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 16u));
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 16u),
+           "!cortex_m4_exception_advanced_active(cpu, 16u)");
     cortex_m4_exception_advanced_commit_entry(cpu, 16u);
     cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
     cortex_m4_exception_advanced_commit_entry(cpu, 17u);
     cpu->xpsr = CORTEX_M4_XPSR_T | 17u;
-    TEST_EXPECT(state, cpu->exception_depth == 2u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 17u));
-    TEST_EXPECT(state, (cpu->irq_active[0] & 3u) == 3u);
+    expect(state, cpu->exception_depth == 2u, "cpu->exception_depth == 2u");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 16u),
+           "cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 17u),
+           "cortex_m4_exception_advanced_active(cpu, 17u)");
+    expect(state, (cpu->irq_active[0] & 3u) == 3u, "(cpu->irq_active[0] & 3u) == 3u");
     cpu->faultmask = 1u;
     cortex_m4_exception_advanced_commit_return(cpu, 17u, false);
-    TEST_EXPECT(state, cpu->exception_depth == 1u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 17u));
-    TEST_EXPECT(state, (cpu->irq_active[0] & 2u) == 0u);
-    TEST_EXPECT(state, cpu->faultmask == 0u);
+    expect(state, cpu->exception_depth == 1u, "cpu->exception_depth == 1u");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 16u),
+           "cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 17u),
+           "!cortex_m4_exception_advanced_active(cpu, 17u)");
+    expect(state, (cpu->irq_active[0] & 2u) == 0u, "(cpu->irq_active[0] & 2u) == 0u");
+    expect(state, cpu->faultmask == 0u, "cpu->faultmask == 0u");
     cpu->irq_level[0] |= 1u;
     cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
     cortex_m4_exception_advanced_commit_return(cpu, 16u, true);
-    TEST_EXPECT(state, (cpu->irq_pending[0] & 1u) != 0u);
+    expect(state, (cpu->irq_pending[0] & 1u) != 0u, "(cpu->irq_pending[0] & 1u) != 0u");
     cpu->cfsr = 0;
     cortex_m4_exception_advanced_commit_return(cpu, 17u, false);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 18)) != 0u);
+    expect(state, (cpu->cfsr & (1u << 18)) != 0u, "(cpu->cfsr & (1u << 18)) != 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -106,18 +111,23 @@ static void test_late_arrival(TestState* state) {
     cpu->irq_priority[0] = 0x80u;
     cpu->irq_priority[1] = 0x10u;
     cpu->irq_priority[2] = 0xc0u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 17u);
-    TEST_EXPECT(state, cpu->cycles == 0u);
+    expect(state, cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 17u,
+           "cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 17u");
+    expect(state, cpu->cycles == 0u, "cpu->cycles == 0u");
     cpu->primask = 1u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 16u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_late_arrival(NULL, 16u) == 16u);
+    expect(state, cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 16u,
+           "cortex_m4_exception_advanced_late_arrival(cpu, 16u) == 16u");
+    expect(state, cortex_m4_exception_advanced_late_arrival(NULL, 16u) == 16u,
+           "cortex_m4_exception_advanced_late_arrival(NULL, 16u) == 16u");
     cpu->primask = 0u;
     cpu->system_pending = 1u << 15;
     cpu->system_priority[11] = 0xe0u;
     cpu->irq_pending[0] = 2u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_late_arrival(cpu, 15u) == 17u);
+    expect(state, cortex_m4_exception_advanced_late_arrival(cpu, 15u) == 17u,
+           "cortex_m4_exception_advanced_late_arrival(cpu, 15u) == 17u");
     cpu->irq_priority[3] = 0xf0u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_late_arrival(cpu, 19u) == 17u);
+    expect(state, cortex_m4_exception_advanced_late_arrival(cpu, 19u) == 17u,
+           "cortex_m4_exception_advanced_late_arrival(cpu, 19u) == 17u");
     cortex_m4_destroy(cpu);
 }
 
@@ -135,18 +145,26 @@ static void test_tail_chain(TestState* state) {
     cpu->irq_pending[0] |= 2u;
     cpu->faultmask = 1u;
     cpu->faultmask = 0u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_TAKEN);
-    TEST_EXPECT(state, cpu->exception_depth == 1u);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 17u));
-    TEST_EXPECT(state, cpu->registers[15] == 0x300u);
-    TEST_EXPECT(state, cpu->registers[14] == 0xfffffff9u);
-    TEST_EXPECT(state, (cpu->xpsr & 0x1ffu) == 17u);
-    TEST_EXPECT(state, (cpu->irq_active[0] & 2u) != 0u);
-    TEST_EXPECT(state, (cpu->irq_pending[0] & 2u) == 0u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_NONE);
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_TAKEN,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_TAKEN");
+    expect(state, cpu->exception_depth == 1u, "cpu->exception_depth == 1u");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 16u),
+           "!cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 17u),
+           "cortex_m4_exception_advanced_active(cpu, 17u)");
+    expect(state, cpu->registers[15] == 0x300u, "cpu->registers[15] == 0x300u");
+    expect(state, cpu->registers[14] == 0xfffffff9u, "cpu->registers[14] == 0xfffffff9u");
+    expect(state, (cpu->xpsr & 0x1ffu) == 17u, "(cpu->xpsr & 0x1ffu) == 17u");
+    expect(state, (cpu->irq_active[0] & 2u) != 0u, "(cpu->irq_active[0] & 2u) != 0u");
+    expect(state, (cpu->irq_pending[0] & 2u) == 0u, "(cpu->irq_pending[0] & 2u) == 0u");
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_NONE,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_NONE");
     cortex_m4_destroy(cpu);
 }
 
@@ -161,13 +179,19 @@ static void test_tail_chain_vector_fault(TestState* state) {
     cpu->irq_pending[0] |= 2u;
     write_vector(&bus, 17u, 0x300u);
     write_vector(&bus, 3u, 0x701u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_TAKEN);
-    TEST_EXPECT(state, (cpu->hfsr & (1u << 1)) != 0u);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 3)) == 0u);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 3u));
-    TEST_EXPECT(state, cpu->registers[15] == 0x700u);
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_TAKEN,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_TAKEN");
+    expect(state, (cpu->hfsr & (1u << 1)) != 0u, "(cpu->hfsr & (1u << 1)) != 0u");
+    expect(state, (cpu->system_pending & (1u << 3)) == 0u,
+           "(cpu->system_pending & (1u << 3)) == 0u");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 16u),
+           "!cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 3u),
+           "cortex_m4_exception_advanced_active(cpu, 3u)");
+    expect(state, cpu->registers[15] == 0x700u, "cpu->registers[15] == 0x700u");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
@@ -179,12 +203,15 @@ static void test_tail_chain_vector_fault(TestState* state) {
     prepare_frame(cpu, 0xfffffff9u);
     cpu->irq_pending[0] |= 2u;
     bus.reject_reads = true;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_FAULT);
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_FAULT,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 16u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_FAULT");
     bus.reject_reads = false;
     cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
     cortex_m4_exception_advanced_vector_fault(cpu);
-    TEST_EXPECT(state, cpu->stop == CORTEX_M4_STOP_LOCKUP);
+    expect(state, cpu->stop == CORTEX_M4_STOP_LOCKUP, "cpu->stop == CORTEX_M4_STOP_LOCKUP");
     cortex_m4_destroy(cpu);
 }
 
@@ -195,36 +222,63 @@ static void test_return_validation(TestState* state) {
     cortex_m4_exception_advanced_commit_entry(cpu, 16u);
     cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
     prepare_frame(cpu, 0xfffffff9u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffffdu));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff8u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_valid_stacked_xpsr(
-                           cpu, CORTEX_M4_XPSR_T, 0xfffffff9u));
-    TEST_EXPECT(state,
-                !cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, 0u, 0xfffffff9u));
+    expect(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u),
+           "cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u)");
+    expect(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffffdu),
+           "!cortex_m4_exception_advanced_valid_return(cpu, 0xfffffffdu)");
+    expect(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff8u),
+           "!cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff8u)");
+    expect(
+        state,
+        cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, CORTEX_M4_XPSR_T, 0xfffffff9u),
+        "cortex_m4_exception_advanced_valid_stacked_xpsr( cpu, CORTEX_M4_XPSR_T, "
+        "0xfffffff9u)");
+    expect(state, !cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, 0u, 0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, 0u, 0xfffffff9u)");
     cpu->exception_frame_depth = 0u;
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_stacked_xpsr(
-                           cpu, CORTEX_M4_XPSR_T | 0x4000u, 0xfffffff9u));
+    expect(state,
+           !cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, CORTEX_M4_XPSR_T | 0x4000u,
+                                                            0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_stacked_xpsr( cpu, CORTEX_M4_XPSR_T | "
+           "0x4000u, 0xfffffff9u)");
     cpu->exception_frame_depth = 1u;
     cpu->exception_frames[0].ici_valid = false;
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_stacked_xpsr(
-                           cpu, CORTEX_M4_XPSR_T | 0x4000u, 0xfffffff9u));
+    expect(state,
+           !cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, CORTEX_M4_XPSR_T | 0x4000u,
+                                                            0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_stacked_xpsr( cpu, CORTEX_M4_XPSR_T | "
+           "0x4000u, 0xfffffff9u)");
     cpu->irq_pending[0] = 2u;
     cortex_m4_exception_advanced_commit_entry(cpu, 17u);
     cpu->xpsr = CORTEX_M4_XPSR_T | 17u;
     prepare_frame(cpu, 0xfffffff1u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff1u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff1u, 17u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_NONE);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u));
+    expect(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff1u),
+           "cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff1u)");
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff1u, 17u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_NONE,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff1u, 17u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_NONE");
+    expect(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u)");
     cpu->ccr |= 1u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_valid_stacked_xpsr(
-                           cpu, CORTEX_M4_XPSR_T | 16u, 0xfffffff1u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_stacked_xpsr(
-                           cpu, CORTEX_M4_XPSR_T | 18u, 0xfffffff1u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffffdu, 17u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_FAULT);
+    expect(state, cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u),
+           "cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u)");
+    expect(state,
+           cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, CORTEX_M4_XPSR_T | 16u,
+                                                           0xfffffff1u),
+           "cortex_m4_exception_advanced_valid_stacked_xpsr( cpu, CORTEX_M4_XPSR_T | 16u, "
+           "0xfffffff1u)");
+    expect(state,
+           !cortex_m4_exception_advanced_valid_stacked_xpsr(cpu, CORTEX_M4_XPSR_T | 18u,
+                                                            0xfffffff1u),
+           "!cortex_m4_exception_advanced_valid_stacked_xpsr( cpu, CORTEX_M4_XPSR_T | 18u, "
+           "0xfffffff1u)");
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffffdu, 17u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_FAULT,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffffdu, 17u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_FAULT");
     cortex_m4_destroy(cpu);
 }
 
@@ -246,13 +300,19 @@ static void test_nested_tail_chain(TestState* state) {
     cpu->irq_pending[0] = 5u;
     cpu->ccr |= 1u;
     write_vector(&bus, 18u, 0x501u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) ==
-                           CORTEX_M4_EXCEPTION_CHAIN_TAKEN);
-    TEST_EXPECT(state, cpu->exception_depth == 2u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 17u));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 18u));
-    TEST_EXPECT(state, cpu->registers[15] == 0x500u);
+    expect(state,
+           cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) ==
+               CORTEX_M4_EXCEPTION_CHAIN_TAKEN,
+           "cortex_m4_exception_advanced_tail_chain(cpu, 0xfffffff9u, 17u) == "
+           "CORTEX_M4_EXCEPTION_CHAIN_TAKEN");
+    expect(state, cpu->exception_depth == 2u, "cpu->exception_depth == 2u");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 16u),
+           "cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 17u),
+           "!cortex_m4_exception_advanced_active(cpu, 17u)");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 18u),
+           "cortex_m4_exception_advanced_active(cpu, 18u)");
+    expect(state, cpu->registers[15] == 0x500u, "cpu->registers[15] == 0x500u");
     cortex_m4_destroy(cpu);
 }
 
@@ -265,14 +325,17 @@ static void test_entry_vector_fault_reuses_frame(TestState* state) {
     cpu->irq_pending[0] = 1u;
     write_vector(&bus, 3u, 0x701u);
     write_vector(&bus, 16u, 0x300u);
-    TEST_EXPECT(state, cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, cpu->msp == 0x7e0u);
-    TEST_EXPECT(state, cpu->exception_frame_depth == 1u);
-    TEST_EXPECT(state, cpu->exception_depth == 1u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 3u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 16u));
-    TEST_EXPECT(state, cpu->registers[15] == 0x700u);
-    TEST_EXPECT(state, (cpu->hfsr & (1u << 1)) != 0u);
+    expect(state, cortex_m4_take_pending_exception(cpu),
+           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cpu->msp == 0x7e0u, "cpu->msp == 0x7e0u");
+    expect(state, cpu->exception_frame_depth == 1u, "cpu->exception_frame_depth == 1u");
+    expect(state, cpu->exception_depth == 1u, "cpu->exception_depth == 1u");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 3u),
+           "cortex_m4_exception_advanced_active(cpu, 3u)");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 16u),
+           "!cortex_m4_exception_advanced_active(cpu, 16u)");
+    expect(state, cpu->registers[15] == 0x700u, "cpu->registers[15] == 0x700u");
+    expect(state, (cpu->hfsr & (1u << 1)) != 0u, "(cpu->hfsr & (1u << 1)) != 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -281,35 +344,40 @@ static void test_fault_metadata(TestState* state) {
     CortexM4* cpu = create_cpu(state, &bus);
     cpu->shcsr = (1u << 16) | (1u << 17);
     cortex_m4_exception_advanced_fault(cpu, CORTEX_M4_FAULT_STACKING, true);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 4)) != 0u);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 4)) != 0u);
+    expect(state, (cpu->cfsr & (1u << 4)) != 0u, "(cpu->cfsr & (1u << 4)) != 0u");
+    expect(state, (cpu->system_pending & (1u << 4)) != 0u,
+           "(cpu->system_pending & (1u << 4)) != 0u");
     cortex_m4_exception_advanced_fault(cpu, CORTEX_M4_FAULT_UNSTACKING, false);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 11)) != 0u);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 5)) != 0u);
+    expect(state, (cpu->cfsr & (1u << 11)) != 0u, "(cpu->cfsr & (1u << 11)) != 0u");
+    expect(state, (cpu->system_pending & (1u << 5)) != 0u,
+           "(cpu->system_pending & (1u << 5)) != 0u");
     cortex_m4_exception_advanced_fault(cpu, CORTEX_M4_FAULT_LAZY_FP, true);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 5)) != 0u);
+    expect(state, (cpu->cfsr & (1u << 5)) != 0u, "(cpu->cfsr & (1u << 5)) != 0u");
     cortex_m4_exception_advanced_fault(cpu, CORTEX_M4_FAULT_LAZY_FP, false);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 13)) != 0u);
+    expect(state, (cpu->cfsr & (1u << 13)) != 0u, "(cpu->cfsr & (1u << 13)) != 0u");
     cpu->bfar = 0x12345678u;
     cortex_m4_exception_advanced_imprecise_fault(cpu);
-    TEST_EXPECT(state, (cpu->cfsr & (1u << 10)) != 0u);
-    TEST_EXPECT(state, cpu->bfar == 0x12345678u);
+    expect(state, (cpu->cfsr & (1u << 10)) != 0u, "(cpu->cfsr & (1u << 10)) != 0u");
+    expect(state, cpu->bfar == 0x12345678u, "cpu->bfar == 0x12345678u");
     const uint32_t status = cpu->cfsr;
     cortex_m4_exception_advanced_fault(cpu, (CortexM4ExceptionFaultStage)3, true);
-    TEST_EXPECT(state, cpu->cfsr == status);
+    expect(state, cpu->cfsr == status, "cpu->cfsr == status");
     cpu->system_pending = 0u;
     cpu->hfsr = 0u;
     cortex_m4_exception_advanced_entry_fault(cpu, 4u, CORTEX_M4_FAULT_STACKING, true);
-    TEST_EXPECT(state, (cpu->hfsr & (1u << 30)) != 0u);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 3)) != 0u);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 4)) == 0u);
+    expect(state, (cpu->hfsr & (1u << 30)) != 0u, "(cpu->hfsr & (1u << 30)) != 0u");
+    expect(state, (cpu->system_pending & (1u << 3)) != 0u,
+           "(cpu->system_pending & (1u << 3)) != 0u");
+    expect(state, (cpu->system_pending & (1u << 4)) == 0u,
+           "(cpu->system_pending & (1u << 4)) == 0u");
     cpu->system_pending = 0u;
     cpu->hfsr = 0u;
     cortex_m4_exception_advanced_entry_fault(cpu, 16u, CORTEX_M4_FAULT_STACKING, true);
-    TEST_EXPECT(state, (cpu->system_pending & (1u << 4)) != 0u);
+    expect(state, (cpu->system_pending & (1u << 4)) != 0u,
+           "(cpu->system_pending & (1u << 4)) != 0u");
     cpu->stop = CORTEX_M4_STOP_RUNNING;
     cortex_m4_exception_advanced_entry_fault(cpu, 3u, CORTEX_M4_FAULT_STACKING, false);
-    TEST_EXPECT(state, cpu->stop == CORTEX_M4_STOP_LOCKUP);
+    expect(state, cpu->stop == CORTEX_M4_STOP_LOCKUP, "cpu->stop == CORTEX_M4_STOP_LOCKUP");
     cortex_m4_destroy(cpu);
 }
 
@@ -321,15 +389,21 @@ static void test_unstack_failure_classification(TestState* state) {
     cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
     prepare_frame(cpu, 0xfffffff9u);
     uint32_t stack_pointer = 0x200u;
-    TEST_EXPECT(state, !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer,
-                                                                 0xfffffff9u, 16u));
-    TEST_EXPECT(state, !cpu->exception_unstack_memory_fault);
+    expect(
+        state,
+        !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff9u, 16u),
+        "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff9u, 16u)");
+    expect(state, !cpu->exception_unstack_memory_fault,
+           "!cpu->exception_unstack_memory_fault");
     bus.reject_reads = true;
     cpu->cfsr = 0u;
-    TEST_EXPECT(state, !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer,
-                                                                 0xfffffff9u, 16u));
-    TEST_EXPECT(state, cpu->exception_unstack_memory_fault);
-    TEST_EXPECT(state, cpu->cfsr == 0u);
+    expect(
+        state,
+        !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff9u, 16u),
+        "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff9u, 16u)");
+    expect(state, cpu->exception_unstack_memory_fault,
+           "cpu->exception_unstack_memory_fault");
+    expect(state, cpu->cfsr == 0u, "cpu->cfsr == 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -337,34 +411,47 @@ static void test_ici_state(TestState* state) {
     TestBus bus = {0};
     CortexM4* cpu = create_cpu(state, &bus);
     cpu->registers[15] = 0x102u;
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u));
+    expect(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u),
+           "!cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u)");
     cpu->irq_enabled[0] = 1u;
     cpu->irq_pending[0] = 1u;
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u));
-    TEST_EXPECT(state, cpu->registers[15] == 0x100u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 4u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u);
+    expect(state, cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u),
+           "cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 2u, 0x204u)");
+    expect(state, cpu->registers[15] == 0x100u, "cpu->registers[15] == 0x100u");
+    expect(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 4u,
+           "cortex_m4_exception_advanced_multiple_resume(cpu) == 4u");
+    expect(state, cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u,
+           "cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u");
     const uint32_t encoded =
         cortex_m4_exception_advanced_xpsr(cpu, CORTEX_M4_XPSR_T | 0x0600fc00u);
-    TEST_EXPECT(state, (encoded & 0x06000c00u) == 0u);
-    TEST_EXPECT(state, (encoded & 0x0000f000u) == 0x00004000u);
+    expect(state, (encoded & 0x06000c00u) == 0u, "(encoded & 0x06000c00u) == 0u");
+    expect(state, (encoded & 0x0000f000u) == 0x00004000u,
+           "(encoded & 0x0000f000u) == 0x00004000u");
     cpu->exception_frame_depth = 1u;
     cpu->exception_frames[0].ici_address = 0x204u;
     cpu->exception_frames[0].ici_register = 4u;
     cpu->exception_frames[0].ici_valid = true;
     cortex_m4_exception_advanced_commit_entry(cpu, 16u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_xpsr(cpu, 0x12345678u) == 0x12345678u);
+    expect(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u,
+           "cortex_m4_exception_advanced_multiple_resume(cpu) == 0u");
+    expect(state, cortex_m4_exception_advanced_xpsr(cpu, 0x12345678u) == 0x12345678u,
+           "cortex_m4_exception_advanced_xpsr(cpu, 0x12345678u) == 0x12345678u");
     cortex_m4_exception_advanced_load_xpsr(cpu, encoded);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 4u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u);
-    TEST_EXPECT(state, cpu->it_state == 0u);
+    expect(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 4u,
+           "cortex_m4_exception_advanced_multiple_resume(cpu) == 4u");
+    expect(state, cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u,
+           "cortex_m4_exception_advanced_multiple_address(cpu, 0u) == 0x204u");
+    expect(state, cpu->it_state == 0u, "cpu->it_state == 0u");
     cortex_m4_exception_advanced_multiple_complete(cpu);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 0u, 2u, 0u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 3u, 0u));
+    expect(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u,
+           "cortex_m4_exception_advanced_multiple_resume(cpu) == 0u");
+    expect(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 0u, 2u, 0u),
+           "!cortex_m4_exception_advanced_multiple_suspend(cpu, 0u, 2u, 0u)");
+    expect(state, !cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 3u, 0u),
+           "!cortex_m4_exception_advanced_multiple_suspend(cpu, 4u, 3u, 0u)");
     cortex_m4_exception_advanced_load_xpsr(cpu, 0x02000800u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u);
+    expect(state, cortex_m4_exception_advanced_multiple_resume(cpu) == 0u,
+           "cortex_m4_exception_advanced_multiple_resume(cpu) == 0u");
     cortex_m4_destroy(cpu);
 }
 
@@ -387,46 +474,53 @@ static void test_ici_execution_address(TestState* state) {
     bus.interrupt_address = 0x400u;
     bus.inject_interrupt = true;
     cortex_m4_step(cpu);
-    TEST_EXPECT(state, cpu->registers[0] == 0x900u);
-    TEST_EXPECT(state, cpu->registers[15] == 0x100u);
-    TEST_EXPECT(state, cpu->ici_valid);
-    TEST_EXPECT(state, cpu->ici_address == 0x404u);
+    expect(state, cpu->registers[0] == 0x900u, "cpu->registers[0] == 0x900u");
+    expect(state, cpu->registers[15] == 0x100u, "cpu->registers[15] == 0x100u");
+    expect(state, cpu->ici_valid, "cpu->ici_valid");
+    expect(state, cpu->ici_address == 0x404u, "cpu->ici_address == 0x404u");
     cortex_m4_step(cpu);
-    TEST_EXPECT(state, cpu->registers[15] == 0x100u);
-    TEST_EXPECT(state, cpu->ici_valid);
-    TEST_EXPECT(state, cpu->ici_address == 0x404u);
+    expect(state, cpu->registers[15] == 0x100u, "cpu->registers[15] == 0x100u");
+    expect(state, cpu->ici_valid, "cpu->ici_valid");
+    expect(state, cpu->ici_address == 0x404u, "cpu->ici_address == 0x404u");
     cortex_m4_step(cpu);
-    TEST_EXPECT(state, cpu->registers[0] == 0x900u);
-    TEST_EXPECT(state, cpu->registers[1] == 0xaabbu);
-    TEST_EXPECT(state, cpu->registers[15] == 0x102u);
-    TEST_EXPECT(state, !cpu->ici_valid);
+    expect(state, cpu->registers[0] == 0x900u, "cpu->registers[0] == 0x900u");
+    expect(state, cpu->registers[1] == 0xaabbu, "cpu->registers[1] == 0xaabbu");
+    expect(state, cpu->registers[15] == 0x102u, "cpu->registers[15] == 0x102u");
+    expect(state, !cpu->ici_valid, "!cpu->ici_valid");
     cortex_m4_destroy(cpu);
 }
 
 static void test_boundaries(TestState* state) {
     TestBus bus = {0};
     CortexM4* cpu = create_cpu(state, &bus);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(NULL, 16u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_active(cpu, 1u));
+    expect(state, !cortex_m4_exception_advanced_active(NULL, 16u),
+           "!cortex_m4_exception_advanced_active(NULL, 16u)");
+    expect(state, !cortex_m4_exception_advanced_active(cpu, 1u),
+           "!cortex_m4_exception_advanced_active(cpu, 1u)");
     cortex_m4_exception_advanced_reset(NULL);
     cortex_m4_exception_advanced_commit_entry(NULL, 16u);
     cortex_m4_exception_advanced_commit_entry(cpu, 1u);
-    TEST_EXPECT(state, cpu->exception_depth == 0u);
+    expect(state, cpu->exception_depth == 0u, "cpu->exception_depth == 0u");
     cpu->exception_depth = CORTEX_M4_EXCEPTION_FRAME_LIMIT;
     cortex_m4_exception_advanced_commit_entry(cpu, 16u);
-    TEST_EXPECT(state, cpu->stop == CORTEX_M4_STOP_LOCKUP);
+    expect(state, cpu->stop == CORTEX_M4_STOP_LOCKUP, "cpu->stop == CORTEX_M4_STOP_LOCKUP");
     cortex_m4_exception_advanced_reset(cpu);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_return(NULL, 0xfffffff9u));
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u));
+    expect(state, !cortex_m4_exception_advanced_valid_return(NULL, 0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_return(NULL, 0xfffffff9u)");
+    expect(state, !cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u),
+           "!cortex_m4_exception_advanced_valid_return(cpu, 0xfffffff9u)");
     cortex_m4_exception_advanced_fault(NULL, CORTEX_M4_FAULT_STACKING, true);
     cortex_m4_exception_advanced_entry_fault(NULL, 16u, CORTEX_M4_FAULT_STACKING, true);
     cortex_m4_exception_advanced_vector_fault(NULL);
-    TEST_EXPECT(state, !cortex_m4_exception_advanced_hardfault_vector(NULL, NULL));
+    expect(state, !cortex_m4_exception_advanced_hardfault_vector(NULL, NULL),
+           "!cortex_m4_exception_advanced_hardfault_vector(NULL, NULL)");
     cortex_m4_exception_advanced_imprecise_fault(NULL);
     cortex_m4_exception_advanced_multiple_complete(NULL);
     cortex_m4_exception_advanced_load_xpsr(NULL, 0u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_multiple_resume(NULL) == 0u);
-    TEST_EXPECT(state, cortex_m4_exception_advanced_xpsr(NULL, 0x55u) == 0x55u);
+    expect(state, cortex_m4_exception_advanced_multiple_resume(NULL) == 0u,
+           "cortex_m4_exception_advanced_multiple_resume(NULL) == 0u");
+    expect(state, cortex_m4_exception_advanced_xpsr(NULL, 0x55u) == 0x55u,
+           "cortex_m4_exception_advanced_xpsr(NULL, 0x55u) == 0x55u");
     cortex_m4_destroy(cpu);
 }
 
@@ -438,15 +532,15 @@ static void test_faultmask_and_sleep(TestState* state) {
     cpu->faultmask = 1u;
     cpu->xpsr = CORTEX_M4_XPSR_T | 2u;
     cortex_m4_exception_advanced_commit_return(cpu, 2u, true);
-    TEST_EXPECT(state, cpu->faultmask == 1u);
+    expect(state, cpu->faultmask == 1u, "cpu->faultmask == 1u");
     cpu->irq_pending[0] = 1u;
     cortex_m4_exception_advanced_commit_entry(cpu, 16u);
     cpu->xpsr = CORTEX_M4_XPSR_T | 16u;
     cpu->scr = 1u << 1;
     cpu->faultmask = 1u;
     cortex_m4_exception_advanced_commit_return(cpu, 16u, true);
-    TEST_EXPECT(state, cpu->faultmask == 0u);
-    TEST_EXPECT(state, cpu->sleeping);
+    expect(state, cpu->faultmask == 0u, "cpu->faultmask == 0u");
+    expect(state, cpu->sleeping, "cpu->sleeping");
     cortex_m4_destroy(cpu);
 
     memset(&bus, 0, sizeof(bus));
@@ -456,10 +550,13 @@ static void test_faultmask_and_sleep(TestState* state) {
     cpu->system_pending = 1u << 3;
     write_vector(&bus, 2u, 0x301u);
     write_vector(&bus, 3u, 0x301u);
-    TEST_EXPECT(state, !cortex_m4_take_pending_exception(cpu));
+    expect(state, !cortex_m4_take_pending_exception(cpu),
+           "!cortex_m4_take_pending_exception(cpu)");
     cpu->system_pending |= 1u << 2;
-    TEST_EXPECT(state, cortex_m4_take_pending_exception(cpu));
-    TEST_EXPECT(state, cortex_m4_exception_advanced_active(cpu, 2u));
+    expect(state, cortex_m4_take_pending_exception(cpu),
+           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cortex_m4_exception_advanced_active(cpu, 2u),
+           "cortex_m4_exception_advanced_active(cpu, 2u)");
     cortex_m4_destroy(cpu);
 }
 

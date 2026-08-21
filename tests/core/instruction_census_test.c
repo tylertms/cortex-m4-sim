@@ -76,75 +76,102 @@ static CortexM4* create_cpu(TestState* state, TestMemory* memory) {
     store_word(&memory->flash[4], 0x00000101u);
     const CortexM4Bus bus = {memory, memory_read, memory_write, NULL, NULL};
     CortexM4* cpu = cortex_m4_create(bus);
-    TEST_EXPECT(state, cpu != NULL);
+    expect(state, cpu != NULL, "cpu != NULL");
     return cpu;
 }
 
 static void reset_cpu(TestState* state, CortexM4* cpu, TestMemory* memory) {
     memory->flash[0x100] = 0x00u;
     memory->flash[0x101] = 0xbfu;
-    TEST_EXPECT(state, cortex_m4_reset(cpu, 0));
+    expect(state, cortex_m4_reset(cpu, 0), "cortex_m4_reset(cpu, 0)");
 }
 
 static void expect_reverse_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 1, 0x11223344u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf081u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0x44332211u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf081u),
+           "cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf081u)");
+    expect(state, cortex_m4_get_register(cpu, 0) == 0x44332211u,
+           "cortex_m4_get_register(cpu, 0) == 0x44332211u");
 
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 1, 0x11223344u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf091u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0x22114433u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf091u),
+           "cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf091u)");
+    expect(state, cortex_m4_get_register(cpu, 0) == 0x22114433u,
+           "cortex_m4_get_register(cpu, 0) == 0x22114433u");
 
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 1, 0x00000180u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0b1u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == 0xffff8001u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0b1u),
+           "cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0b1u)");
+    expect(state, cortex_m4_get_register(cpu, 0) == 0xffff8001u,
+           "cortex_m4_get_register(cpu, 0) == 0xffff8001u");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0a1u));
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0a1u),
+           "!cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0a1u)");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xfa9du, 0xf08du));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xff81u));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0c1u));
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xfa9du, 0xf08du),
+           "!cortex_m4_execute_remaining(cpu, 0xfa9du, 0xf08du)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xff81u),
+           "!cortex_m4_execute_remaining(cpu, 0xfa91u, 0xff81u)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0c1u),
+           "!cortex_m4_execute_remaining(cpu, 0xfa91u, 0xf0c1u)");
 }
 
 static void expect_hint_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8000u));
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8001u));
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x80f9u));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8005u));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8100u));
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8000u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8000u)");
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8001u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8001u)");
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x80f9u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x80f9u)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8005u),
+           "!cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8005u)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8100u),
+           "!cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8100u)");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u));
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u)");
     const CortexM4Result sleeping_result = cortex_m4_step(cpu);
-    TEST_EXPECT(state, sleeping_result.stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, sleeping_result.instructions == 0);
+    expect(state, sleeping_result.stop == CORTEX_M4_STOP_RUNNING,
+           "sleeping_result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, sleeping_result.instructions == 0, "sleeping_result.instructions == 0");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u));
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u));
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u)");
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u)");
     const CortexM4Result event_result = cortex_m4_step(cpu);
-    TEST_EXPECT(state, event_result.stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, event_result.instructions == 1);
+    expect(state, event_result.stop == CORTEX_M4_STOP_RUNNING,
+           "event_result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, event_result.instructions == 1, "event_result.instructions == 1");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u));
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u));
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u));
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8004u)");
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u)");
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8002u)");
     const CortexM4Result consumed_event_result = cortex_m4_step(cpu);
-    TEST_EXPECT(state, consumed_event_result.stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, consumed_event_result.instructions == 0);
+    expect(state, consumed_event_result.stop == CORTEX_M4_STOP_RUNNING,
+           "consumed_event_result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, consumed_event_result.instructions == 0,
+           "consumed_event_result.instructions == 0");
 
     reset_cpu(state, cpu, memory);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8003u));
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8003u),
+           "cortex_m4_execute_remaining(cpu, 0xf3afu, 0x8003u)");
     const CortexM4Result interrupt_result = cortex_m4_step(cpu);
-    TEST_EXPECT(state, interrupt_result.stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, interrupt_result.instructions == 0);
+    expect(state, interrupt_result.stop == CORTEX_M4_STOP_RUNNING,
+           "interrupt_result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, interrupt_result.instructions == 0, "interrupt_result.instructions == 0");
 }
 
 static void expect_preload_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
@@ -157,18 +184,23 @@ static void expect_preload_forms(TestState* state, CortexM4* cpu, TestMemory* me
     cortex_m4_set_register(cpu, 1, 1u);
     const uint32_t status = cortex_m4_get_fault_status(cpu);
     for (uint8_t index = 0; index < sizeof(forms) / sizeof(forms[0]); index++) {
-        TEST_EXPECT(state,
-                    cortex_m4_execute_remaining(cpu, forms[index][0], forms[index][1]));
-        TEST_EXPECT(state, cortex_m4_get_fault_status(cpu) == status);
-        TEST_EXPECT(state, cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_RUNNING);
+        expect(state, cortex_m4_execute_remaining(cpu, forms[index][0], forms[index][1]),
+               "cortex_m4_execute_remaining(cpu, forms[index][0], forms[index][1])");
+        expect(state, cortex_m4_get_fault_status(cpu) == status,
+               "cortex_m4_get_fault_status(cpu) == status");
+        expect(state, cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_RUNNING,
+               "cortex_m4_get_stop(cpu) == CORTEX_M4_STOP_RUNNING");
     }
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf810u, 0xfd04u));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf800u, 0xf004u));
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf810u, 0xfd04u),
+           "!cortex_m4_execute_remaining(cpu, 0xf810u, 0xfd04u)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf800u, 0xf004u),
+           "!cortex_m4_execute_remaining(cpu, 0xf800u, 0xf004u)");
 }
 
 static void write_value(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size,
                         uint32_t value) {
-    TEST_EXPECT(state, cortex_m4_write_memory(cpu, address, size, value));
+    expect(state, cortex_m4_write_memory(cpu, address, size, value),
+           "cortex_m4_write_memory(cpu, address, size, value)");
 }
 
 static void expect_negative_literal_forms(TestState* state, CortexM4* cpu,
@@ -179,54 +211,72 @@ static void expect_negative_literal_forms(TestState* state, CortexM4* cpu,
     const uint32_t word = 0x89abcdefu;
     write_value(state, cpu, address, 4, word);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 0) == word);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u),
+           "cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u)");
+    expect(state, cortex_m4_get_register(cpu, 0) == word,
+           "cortex_m4_get_register(cpu, 0) == word");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 1, 0x80u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf91fu, 0x1004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 1) == 0xffffff80u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf91fu, 0x1004u),
+           "cortex_m4_execute_remaining(cpu, 0xf91fu, 0x1004u)");
+    expect(state, cortex_m4_get_register(cpu, 1) == 0xffffff80u,
+           "cortex_m4_get_register(cpu, 1) == 0xffffff80u");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 2, 0x8001u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf93fu, 0x2004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 2) == 0xffff8001u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf93fu, 0x2004u),
+           "cortex_m4_execute_remaining(cpu, 0xf93fu, 0x2004u)");
+    expect(state, cortex_m4_get_register(cpu, 2) == 0xffff8001u,
+           "cortex_m4_get_register(cpu, 2) == 0xffff8001u");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 1, 0x80u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf81fu, 0x3004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 3) == 0x80u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf81fu, 0x3004u),
+           "cortex_m4_execute_remaining(cpu, 0xf81fu, 0x3004u)");
+    expect(state, cortex_m4_get_register(cpu, 3) == 0x80u,
+           "cortex_m4_get_register(cpu, 3) == 0x80u");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 2, 0x8001u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf83fu, 0x4004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 4) == 0x8001u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf83fu, 0x4004u),
+           "cortex_m4_execute_remaining(cpu, 0xf83fu, 0x4004u)");
+    expect(state, cortex_m4_get_register(cpu, 4) == 0x8001u,
+           "cortex_m4_get_register(cpu, 4) == 0x8001u");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 4, 0x00000101u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u));
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 15) == 0x100u);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u),
+           "cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u)");
+    expect(state, cortex_m4_get_register(cpu, 15) == 0x100u,
+           "cortex_m4_get_register(cpu, 15) == 0x100u");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 4, 0x00000100u);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u));
-    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 17)) != 0);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u),
+           "cortex_m4_execute_remaining(cpu, 0xf85fu, 0xf004u)");
+    expect(state, (cortex_m4_get_fault_status(cpu) & (1u << 17)) != 0,
+           "(cortex_m4_get_fault_status(cpu) & (1u << 17)) != 0");
 
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 15, address + 6u);
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf93fu, 0xf004u));
-    TEST_EXPECT(state, !cortex_m4_execute_remaining(cpu, 0xf80fu, 0x0004u));
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf93fu, 0xf004u),
+           "!cortex_m4_execute_remaining(cpu, 0xf93fu, 0xf004u)");
+    expect(state, !cortex_m4_execute_remaining(cpu, 0xf80fu, 0x0004u),
+           "!cortex_m4_execute_remaining(cpu, 0xf80fu, 0x0004u)");
 
     reset_cpu(state, cpu, memory);
     cortex_m4_set_register(cpu, 15, 0x60000006u);
-    TEST_EXPECT(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u));
-    TEST_EXPECT(state, cortex_m4_get_fault_status(cpu) != 0);
+    expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u),
+           "cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u)");
+    expect(state, cortex_m4_get_fault_status(cpu) != 0,
+           "cortex_m4_get_fault_status(cpu) != 0");
 }
 
 int main(void) {

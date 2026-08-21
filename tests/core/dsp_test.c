@@ -13,7 +13,8 @@ static void reset_cpu(CortexM4* cpu) {
 }
 
 static void execute(TestState* state, CortexM4* cpu, uint16_t first, uint16_t second) {
-    TEST_EXPECT(state, cortex_m4_execute_dsp(cpu, first, second));
+    expect(state, cortex_m4_execute_dsp(cpu, first, second),
+           "cortex_m4_execute_dsp(cpu, first, second)");
 }
 
 static void test_pack_and_extend(TestState* state, CortexM4* cpu) {
@@ -21,53 +22,53 @@ static void test_pack_and_extend(TestState* state, CortexM4* cpu) {
     cpu->registers[1] = 0xa5a51234u;
     cpu->registers[2] = 0x89abcdefu;
     execute(state, cpu, 0xeac1u, 0x2002u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xabcd1234u);
+    expect(state, cpu->registers[0] == 0xabcd1234u, "cpu->registers[0] == 0xabcd1234u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0xa5a51234u;
     cpu->registers[2] = 0x89abcdefu;
     execute(state, cpu, 0xeac1u, 0x2022u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xa5a5abcdu);
+    expect(state, cpu->registers[0] == 0xa5a5abcdu, "cpu->registers[0] == 0xa5a5abcdu");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x100u;
     cpu->registers[2] = 0x00008000u;
     execute(state, cpu, 0xfa41u, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x80u);
+    expect(state, cpu->registers[0] == 0x80u, "cpu->registers[0] == 0x80u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x00010002u;
     cpu->registers[2] = 0x7f008000u;
     execute(state, cpu, 0xfa21u, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x0080ff82u);
+    expect(state, cpu->registers[0] == 0x0080ff82u, "cpu->registers[0] == 0x0080ff82u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 3u;
     cpu->registers[2] = 0xfffe0000u;
     execute(state, cpu, 0xfa01u, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xfffffe03u);
+    expect(state, cpu->registers[0] == 0xfffffe03u, "cpu->registers[0] == 0xfffffe03u");
 
     reset_cpu(cpu);
     cpu->registers[2] = 0x807f01ffu;
     execute(state, cpu, 0xfa2fu, 0xf0b2u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x0001ff80u);
+    expect(state, cpu->registers[0] == 0x0001ff80u, "cpu->registers[0] == 0x0001ff80u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x100u;
     cpu->registers[2] = 0x0000fe00u;
     execute(state, cpu, 0xfa51u, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x1feu);
+    expect(state, cpu->registers[0] == 0x1feu, "cpu->registers[0] == 0x1feu");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x10002000u;
     cpu->registers[2] = 0x34001200u;
     execute(state, cpu, 0xfa31u, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x10342012u);
+    expect(state, cpu->registers[0] == 0x10342012u, "cpu->registers[0] == 0x10342012u");
 
     reset_cpu(cpu);
     cpu->registers[2] = 0x89abcdefu;
     execute(state, cpu, 0xfa1fu, 0xf092u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xabcdu);
+    expect(state, cpu->registers[0] == 0xabcdu, "cpu->registers[0] == 0xabcdu");
 }
 
 typedef struct {
@@ -99,8 +100,10 @@ static void test_parallel_normal(TestState* state, CortexM4* cpu) {
         cpu->registers[1] = cases[index].left;
         cpu->registers[2] = cases[index].right;
         execute(state, cpu, cases[index].first, cases[index].second);
-        TEST_EXPECT(state, cpu->registers[0] == cases[index].result);
-        TEST_EXPECT(state, (cpu->xpsr & XPSR_GE_MASK) == cases[index].ge << 16);
+        expect(state, cpu->registers[0] == cases[index].result,
+               "cpu->registers[0] == cases[index].result");
+        expect(state, (cpu->xpsr & XPSR_GE_MASK) == cases[index].ge << 16,
+               "(cpu->xpsr & XPSR_GE_MASK) == cases[index].ge << 16");
     }
 }
 
@@ -125,9 +128,10 @@ static void test_parallel_saturating_and_halving(TestState* state, CortexM4* cpu
         cpu->registers[1] = cases[index].left;
         cpu->registers[2] = cases[index].right;
         execute(state, cpu, cases[index].first, cases[index].second);
-        TEST_EXPECT(state, cpu->registers[0] == cases[index].result);
-        TEST_EXPECT(state,
-                    (cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == (XPSR_Q | XPSR_GE_MASK));
+        expect(state, cpu->registers[0] == cases[index].result,
+               "cpu->registers[0] == cases[index].result");
+        expect(state, (cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == (XPSR_Q | XPSR_GE_MASK),
+               "(cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == (XPSR_Q | XPSR_GE_MASK)");
     }
 }
 
@@ -164,8 +168,10 @@ static void test_parallel_family_census(TestState* state, CortexM4* cpu) {
         cpu->registers[1] = cases[index].left;
         cpu->registers[2] = cases[index].right;
         execute(state, cpu, cases[index].first, cases[index].second);
-        TEST_EXPECT(state, cpu->registers[0] == cases[index].result);
-        TEST_EXPECT(state, (cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == XPSR_GE_MASK);
+        expect(state, cpu->registers[0] == cases[index].result,
+               "cpu->registers[0] == cases[index].result");
+        expect(state, (cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == XPSR_GE_MASK,
+               "(cpu->xpsr & (XPSR_Q | XPSR_GE_MASK)) == XPSR_GE_MASK");
     }
 }
 
@@ -173,79 +179,79 @@ static void test_saturation_select_and_difference(TestState* state, CortexM4* cp
     reset_cpu(cpu);
     cpu->registers[1] = 0x1000u;
     execute(state, cpu, 0xf301u, 0x0007u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x7fu);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x7fu, "cpu->registers[0] == 0x7fu");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0xffffffffu;
     execute(state, cpu, 0xf381u, 0x0008u);
-    TEST_EXPECT(state, cpu->registers[0] == 0u);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0u, "cpu->registers[0] == 0u");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0xffff0000u;
     execute(state, cpu, 0xf321u, 0x100fu);
-    TEST_EXPECT(state, cpu->registers[0] == 0xfffff000u);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) == 0);
+    expect(state, cpu->registers[0] == 0xfffff000u, "cpu->registers[0] == 0xfffff000u");
+    expect(state, (cpu->xpsr & XPSR_Q) == 0, "(cpu->xpsr & XPSR_Q) == 0");
 
     reset_cpu(cpu);
     cpu->registers[2] = 0x0080ff80u;
     execute(state, cpu, 0xf322u, 0x0007u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x007fff80u);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x007fff80u, "cpu->registers[0] == 0x007fff80u");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[2] = 0x0080ff80u;
     execute(state, cpu, 0xf3a2u, 0x0008u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x00800000u);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x00800000u, "cpu->registers[0] == 0x00800000u");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x7fffffffu;
     cpu->registers[2] = 1u;
     execute(state, cpu, 0xfa82u, 0xf081u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x7fffffffu);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x7fffffffu, "cpu->registers[0] == 0x7fffffffu");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x80000000u;
     cpu->registers[2] = 1u;
     execute(state, cpu, 0xfa82u, 0xf0a1u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x80000000u);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x80000000u, "cpu->registers[0] == 0x80000000u");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 1u;
     cpu->registers[2] = 0x40000000u;
     execute(state, cpu, 0xfa82u, 0xf091u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x7fffffffu);
-    TEST_EXPECT(state, (cpu->xpsr & XPSR_Q) != 0);
+    expect(state, cpu->registers[0] == 0x7fffffffu, "cpu->registers[0] == 0x7fffffffu");
+    expect(state, (cpu->xpsr & XPSR_Q) != 0, "(cpu->xpsr & XPSR_Q) != 0");
 
     reset_cpu(cpu);
     cpu->registers[1] = 4u;
     cpu->registers[2] = 3u;
     execute(state, cpu, 0xfa82u, 0xf0b1u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xfffffffeu);
+    expect(state, cpu->registers[0] == 0xfffffffeu, "cpu->registers[0] == 0xfffffffeu");
 
     reset_cpu(cpu);
     cpu->xpsr |= 0xau << 16;
     cpu->registers[1] = 0x11223344u;
     cpu->registers[2] = 0xaabbccddu;
     execute(state, cpu, 0xfaa1u, 0xf082u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x11bb33ddu);
+    expect(state, cpu->registers[0] == 0x11bb33ddu, "cpu->registers[0] == 0x11bb33ddu");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x001020ffu;
     cpu->registers[2] = 0x10200001u;
     execute(state, cpu, 0xfb71u, 0xf002u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x13eu);
+    expect(state, cpu->registers[0] == 0x13eu, "cpu->registers[0] == 0x13eu");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x001020ffu;
     cpu->registers[2] = 0x10200001u;
     cpu->registers[3] = 7u;
     execute(state, cpu, 0xfb71u, 0x3002u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x145u);
+    expect(state, cpu->registers[0] == 0x145u, "cpu->registers[0] == 0x145u");
 }
 
 typedef struct {
@@ -282,8 +288,10 @@ static void test_short_multiply(TestState* state, CortexM4* cpu) {
         cpu->registers[2] = cases[index].r2;
         cpu->registers[3] = cases[index].r3;
         execute(state, cpu, cases[index].first, cases[index].second);
-        TEST_EXPECT(state, cpu->registers[0] == cases[index].result);
-        TEST_EXPECT(state, ((cpu->xpsr & XPSR_Q) != 0) == cases[index].q);
+        expect(state, cpu->registers[0] == cases[index].result,
+               "cpu->registers[0] == cases[index].result");
+        expect(state, ((cpu->xpsr & XPSR_Q) != 0) == cases[index].q,
+               "((cpu->xpsr & XPSR_Q) != 0) == cases[index].q");
     }
 }
 
@@ -294,8 +302,8 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
     cpu->registers[1] = 0x0000fffdu;
     cpu->registers[2] = 7u;
     execute(state, cpu, 0xfbc1u, 0x0382u);
-    TEST_EXPECT(state, cpu->registers[0] == 0xfffffff5u);
-    TEST_EXPECT(state, cpu->registers[3] == 0u);
+    expect(state, cpu->registers[0] == 0xfffffff5u, "cpu->registers[0] == 0xfffffff5u");
+    expect(state, cpu->registers[3] == 0u, "cpu->registers[3] == 0u");
 
     reset_cpu(cpu);
     cpu->registers[0] = 10u;
@@ -303,8 +311,8 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
     cpu->registers[1] = 0x00020003u;
     cpu->registers[2] = 0x00040005u;
     execute(state, cpu, 0xfbc1u, 0x03c2u);
-    TEST_EXPECT(state, cpu->registers[0] == 33u);
-    TEST_EXPECT(state, cpu->registers[3] == 1u);
+    expect(state, cpu->registers[0] == 33u, "cpu->registers[0] == 33u");
+    expect(state, cpu->registers[3] == 1u, "cpu->registers[3] == 1u");
 
     reset_cpu(cpu);
     cpu->registers[0] = 10u;
@@ -312,8 +320,8 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
     cpu->registers[1] = 0x00020003u;
     cpu->registers[2] = 0x00040005u;
     execute(state, cpu, 0xfbd1u, 0x03d2u);
-    TEST_EXPECT(state, cpu->registers[0] == 12u);
-    TEST_EXPECT(state, cpu->registers[3] == 1u);
+    expect(state, cpu->registers[0] == 12u, "cpu->registers[0] == 12u");
+    expect(state, cpu->registers[3] == 1u, "cpu->registers[3] == 1u");
 
     reset_cpu(cpu);
     cpu->registers[0] = 0xffffffffu;
@@ -321,28 +329,28 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
     cpu->registers[1] = 2u;
     cpu->registers[2] = 3u;
     execute(state, cpu, 0xfbe1u, 0x0362u);
-    TEST_EXPECT(state, cpu->registers[0] == 4u);
-    TEST_EXPECT(state, cpu->registers[3] == 2u);
+    expect(state, cpu->registers[0] == 4u, "cpu->registers[0] == 4u");
+    expect(state, cpu->registers[3] == 2u, "cpu->registers[3] == 2u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x40000000u;
     cpu->registers[2] = 0x40000000u;
     cpu->registers[3] = 1u;
     execute(state, cpu, 0xfb51u, 0x3002u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x10000001u);
+    expect(state, cpu->registers[0] == 0x10000001u, "cpu->registers[0] == 0x10000001u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x40000000u;
     cpu->registers[2] = 0x40000000u;
     execute(state, cpu, 0xfb51u, 0xf012u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x10000000u);
+    expect(state, cpu->registers[0] == 0x10000000u, "cpu->registers[0] == 0x10000000u");
 
     reset_cpu(cpu);
     cpu->registers[1] = 0x40000000u;
     cpu->registers[2] = 0x40000000u;
     cpu->registers[3] = 0x20000000u;
     execute(state, cpu, 0xfb61u, 0x3002u);
-    TEST_EXPECT(state, cpu->registers[0] == 0x10000000u);
+    expect(state, cpu->registers[0] == 0x10000000u, "cpu->registers[0] == 0x10000000u");
 
     static const uint16_t half_long_opcodes[] = {0x0382u, 0x0392u, 0x03a2u, 0x03b2u};
     static const uint32_t half_long_results[] = {15u, 12u, 10u, 8u};
@@ -352,8 +360,9 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
         cpu->registers[1] = 0x00020003u;
         cpu->registers[2] = 0x00040005u;
         execute(state, cpu, 0xfbc1u, half_long_opcodes[index]);
-        TEST_EXPECT(state, cpu->registers[0] == half_long_results[index]);
-        TEST_EXPECT(state, cpu->registers[3] == 0u);
+        expect(state, cpu->registers[0] == half_long_results[index],
+               "cpu->registers[0] == half_long_results[index]");
+        expect(state, cpu->registers[3] == 0u, "cpu->registers[3] == 0u");
     }
 
     static const uint16_t dual_long_first[] = {0xfbc1u, 0xfbc1u, 0xfbd1u, 0xfbd1u};
@@ -365,8 +374,9 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
         cpu->registers[1] = 0x00020003u;
         cpu->registers[2] = 0x00040005u;
         execute(state, cpu, dual_long_first[index], dual_long_second[index]);
-        TEST_EXPECT(state, cpu->registers[0] == dual_long_results[index]);
-        TEST_EXPECT(state, cpu->registers[3] == 0u);
+        expect(state, cpu->registers[0] == dual_long_results[index],
+               "cpu->registers[0] == dual_long_results[index]");
+        expect(state, cpu->registers[3] == 0u, "cpu->registers[3] == 0u");
     }
 
     static const uint16_t most_significant_first[] = {0xfb51u, 0xfb51u, 0xfb51u,
@@ -382,7 +392,8 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
         cpu->registers[2] = 0x80000000u;
         cpu->registers[3] = 1u;
         execute(state, cpu, most_significant_first[index], most_significant_second[index]);
-        TEST_EXPECT(state, cpu->registers[0] == most_significant_results[index]);
+        expect(state, cpu->registers[0] == most_significant_results[index],
+               "cpu->registers[0] == most_significant_results[index]");
     }
 }
 
@@ -398,7 +409,8 @@ static void test_invalid_encodings(TestState* state, CortexM4* cpu) {
     };
     for (uint32_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
         reset_cpu(cpu);
-        TEST_EXPECT(state, !cortex_m4_execute_dsp(cpu, cases[index][0], cases[index][1]));
+        expect(state, !cortex_m4_execute_dsp(cpu, cases[index][0], cases[index][1]),
+               "!cortex_m4_execute_dsp(cpu, cases[index][0], cases[index][1])");
     }
 }
 

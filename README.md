@@ -53,8 +53,14 @@ The build provides these targets:
 - `cortex_m4::firmware_image` loads ELF and raw binary images.
 - `cortex_m4::firmware_runner` loads and runs a firmware image.
 
-The runner accepts an Arm ELF file or a raw binary file. It requires a vector
-table address and uses finite instruction and cycle limits by default.
+The runner accepts an Arm ELF file or a raw binary file. It requires a reset
+address and uses finite instruction and cycle limits by default:
+
+```
+cortex_m4_firmware_runner IMAGE --reset-address ADDRESS \
+  [--binary-address ADDRESS] [--max-instructions COUNT] \
+  [--max-cycles COUNT] [--stop-address ADDRESS]
+```
 
 ## Use from CMake
 
@@ -82,11 +88,12 @@ The `tests` directory has this structure:
 - `core` contains instruction, exception, fault, power, and trace tests.
 - `device` contains memory, register, interrupt, and peripheral tests.
 - `system` contains firmware image tests.
-- `support` contains the small assertion helper.
+- `support` contains shared test data and the small assertion helper.
 
 Run one test group:
 
 ```
+ctest --test-dir build/simulator -L unit --parallel --output-on-failure
 ctest --test-dir build/simulator -L core --parallel --output-on-failure
 ctest --test-dir build/simulator -L device --parallel --output-on-failure
 ctest --test-dir build/simulator -L system --parallel --output-on-failure

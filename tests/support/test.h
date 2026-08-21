@@ -1,33 +1,39 @@
 #ifndef CORTEX_M4_TEST_H
 #define CORTEX_M4_TEST_H
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+#include "cortex_m4.h"
 
 typedef struct {
-    uint64_t assertions;
+    uint32_t cases;
+    uint32_t passed;
+    uint32_t failed;
 } TestState;
 
-static void test_fail(const char* expression, const char* file, int line) {
-    fprintf(stderr, "failed: %s at %s:%d\n", expression, file, line);
-    exit(EXIT_FAILURE);
+static inline void expect(TestState* state, bool condition, const char* name) {
+    state->cases++;
+    if (condition) {
+        state->passed++;
+        return;
+    }
+    state->failed++;
+    printf("[failed] %s\n", name);
 }
 
-#define TEST_EXPECT(state, expression)                                                     \
-    do {                                                                                   \
-        (state)->assertions++;                                                             \
-        if (!(expression))                                                                 \
-            test_fail(#expression, __FILE__, __LINE__);                                    \
-    } while (0)
+static inline void test_connect_debugger(TestState* state, CortexM4* cpu) {
+    expect(state,
+           cortex_m4_write_memory(cpu, UINT32_C(0xe000edf0), 4, UINT32_C(0xa05f0001)),
+           "connect debugger");
+}
 
-#define TEST_CONNECT_DEBUGGER(state, cpu)                                                  \
-    TEST_EXPECT((state), cortex_m4_write_memory((cpu), UINT32_C(0xe000edf0), 4,            \
-                                                UINT32_C(0xa05f0001)))
-
-static int test_finish(const TestState* state) {
-    printf("passed: %llu assertions\n", (unsigned long long)state->assertions);
-    return EXIT_SUCCESS;
+static inline int test_finish(const TestState* state) {
+    printf("[summary] cases=%" PRIu32 " passed=%" PRIu32 " failed=%" PRIu32 "\n",
+           state->cases, state->passed, state->failed);
+    return state->failed == 0u ? 0 : 1;
 }
 
 #endif

@@ -19,29 +19,31 @@ enum {
 
 static void write_register(TestState* state, K22Timing* timing, uint32_t address,
                            uint32_t value) {
-    TEST_EXPECT(state, k22_timing_write(timing, address, 4u, value));
+    expect(state, k22_timing_write(timing, address, 4u, value),
+           "k22_timing_write(timing, address, 4u, value)");
 }
 
 static void initialize(TestState* state, K22Timing* timing) {
     const K22Profile* profile = k22_profile_get(K22_PROFILE_MK22FN51212);
-    TEST_EXPECT(state,
-                k22_timing_init(timing, profile, 8000000u, 32768u, (K22TimingSignals){0}));
+    expect(state, k22_timing_init(timing, profile, 8000000u, 32768u, (K22TimingSignals){0}),
+           "k22_timing_init(timing, profile, 8000000u, 32768u, (K22TimingSignals){0})");
     write_register(state, timing, SIM_SCGC6, timing->sim_scgc6 | (1u << 24u));
     write_register(state, timing, FTM0_MODE, 5u);
 }
 
 static bool output(TestState* state, K22Timing* timing, uint8_t channel) {
     bool high = false;
-    TEST_EXPECT(state, k22_timing_get_ftm_output(timing, 0u, channel, &high));
+    expect(state, k22_timing_get_ftm_output(timing, 0u, channel, &high),
+           "k22_timing_get_ftm_output(timing, 0u, channel, &high)");
     return high;
 }
 
 static void expect_pair(TestState* state, K22Timing* timing, bool first, bool second) {
     const bool first_output = output(state, timing, 0u);
     const bool second_output = output(state, timing, 1u);
-    TEST_EXPECT(state, first_output == first);
-    TEST_EXPECT(state, second_output == second);
-    TEST_EXPECT(state, !(first_output && second_output));
+    expect(state, first_output == first, "first_output == first");
+    expect(state, second_output == second, "second_output == second");
+    expect(state, !(first_output && second_output), "!(first_output && second_output)");
 }
 
 static void configure_pwm(TestState* state, K22Timing* timing, uint32_t combine,
@@ -67,29 +69,43 @@ static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cyc
 static void test_pair_transitions(TestState* state) {
     K22Timing timing;
     configure_pwm(state, &timing, 0x13u, 2u, 4u, 7u);
-    TEST_EXPECT(state, timing.ftm[0].registers[4] == 0x13u);
-    TEST_EXPECT(state, timing.ftm[0].registers[5] == 2u);
-    TEST_EXPECT(state, timing.ftm[0].channel_sc[0] == 0x28u);
+    expect(state, timing.ftm[0].registers[4] == 0x13u,
+           "timing.ftm[0].registers[4] == 0x13u");
+    expect(state, timing.ftm[0].registers[5] == 2u, "timing.ftm[0].registers[5] == 2u");
+    expect(state, timing.ftm[0].channel_sc[0] == 0x28u,
+           "timing.ftm[0].channel_sc[0] == 0x28u");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_remaining[0] == 2u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 2u,
+           "timing.ftm[0].channel_deadtime_remaining[0] == 2u");
+    expect(state, !output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && !output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_remaining[0] == 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 1u,
+           "timing.ftm[0].channel_deadtime_remaining[0] == 1u");
+    expect(state, !output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && !output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u);
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_output[0]);
-    TEST_EXPECT(state, output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u,
+           "timing.ftm[0].channel_deadtime_remaining[0] == 0u");
+    expect(state, timing.ftm[0].channel_deadtime_output[0],
+           "timing.ftm[0].channel_deadtime_output[0]");
+    expect(state, output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "output(state, &timing, 0u) && !output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, !output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && !output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, !output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && !output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && output(state, &timing, 1u));
+    expect(state, !output(state, &timing, 0u) && output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && output(state, &timing, 1u));
+    expect(state, !output(state, &timing, 0u) && output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && output(state, &timing, 1u)");
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, !output(state, &timing, 0u) && !output(state, &timing, 1u));
+    expect(state, !output(state, &timing, 0u) && !output(state, &timing, 1u),
+           "!output(state, &timing, 0u) && !output(state, &timing, 1u)");
 }
 
 static void test_deadtime_dividers(TestState* state) {
@@ -114,11 +130,11 @@ static void test_polarity_and_inversion(TestState* state) {
     write_register(state, &timing, FTM0_INVCTRL, 1u);
     write_register(state, &timing, FTM0_POL, 3u);
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, output(state, &timing, 0u));
-    TEST_EXPECT(state, output(state, &timing, 1u));
+    expect(state, output(state, &timing, 0u), "output(state, &timing, 0u)");
+    expect(state, output(state, &timing, 1u), "output(state, &timing, 1u)");
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, output(state, &timing, 0u));
-    TEST_EXPECT(state, !output(state, &timing, 1u));
+    expect(state, output(state, &timing, 0u), "output(state, &timing, 0u)");
+    expect(state, !output(state, &timing, 1u), "!output(state, &timing, 1u)");
 }
 
 static void test_disabled_modes(TestState* state) {
@@ -131,13 +147,15 @@ static void test_disabled_modes(TestState* state) {
 
     configure_pwm(state, &timing, 0x11u, 2u, 4u, 7u);
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, output(state, &timing, 0u));
-    TEST_EXPECT(state, output(state, &timing, 1u));
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u);
+    expect(state, output(state, &timing, 0u), "output(state, &timing, 0u)");
+    expect(state, output(state, &timing, 1u), "output(state, &timing, 1u)");
+    expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u,
+           "timing.ftm[0].channel_deadtime_remaining[0] == 0u");
 
     configure_pwm(state, &timing, 0x17u, 2u, 4u, 7u);
     k22_timing_advance(&timing, 1u);
-    TEST_EXPECT(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u);
+    expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 0u,
+           "timing.ftm[0].channel_deadtime_remaining[0] == 0u");
 
     initialize(state, &timing);
     write_register(state, &timing, FTM0_COMBINE, 0x12u);
@@ -147,7 +165,7 @@ static void test_disabled_modes(TestState* state) {
     write_register(state, &timing, FTM0_C0V, 2u);
     write_register(state, &timing, FTM0_SC, 8u);
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, output(state, &timing, 0u));
+    expect(state, output(state, &timing, 0u), "output(state, &timing, 0u)");
 }
 
 static void test_stopped_counter_and_all_pairs(TestState* state) {
@@ -163,11 +181,13 @@ static void test_stopped_counter_and_all_pairs(TestState* state) {
         const uint32_t control = (3u << first) | (1u << (first + 8u));
         write_register(state, &timing, FTM0_SWOCTRL, control);
         k22_timing_advance(&timing, 1u);
-        TEST_EXPECT(state, !output(state, &timing, first));
-        TEST_EXPECT(state, !output(state, &timing, (uint8_t)(first + 1u)));
+        expect(state, !output(state, &timing, first), "!output(state, &timing, first)");
+        expect(state, !output(state, &timing, (uint8_t)(first + 1u)),
+               "!output(state, &timing, (uint8_t)(first + 1u))");
         k22_timing_advance(&timing, 1u);
-        TEST_EXPECT(state, output(state, &timing, first));
-        TEST_EXPECT(state, !output(state, &timing, (uint8_t)(first + 1u)));
+        expect(state, output(state, &timing, first), "output(state, &timing, first)");
+        expect(state, !output(state, &timing, (uint8_t)(first + 1u)),
+               "!output(state, &timing, (uint8_t)(first + 1u))");
     }
 }
 
@@ -180,22 +200,30 @@ static void test_duty_suppression_and_aggregate_steps(TestState* state) {
     for (uint8_t cycle = 0u; cycle < 64u; cycle++)
         k22_timing_advance(&stepped, 1u);
     for (uint8_t channel = 0u; channel < 2u; channel++)
-        TEST_EXPECT(state,
-                    output(state, &aggregate, channel) == output(state, &stepped, channel));
-    TEST_EXPECT(state, aggregate.ftm[0].channel_deadtime_remaining[0] ==
-                           stepped.ftm[0].channel_deadtime_remaining[0]);
-    TEST_EXPECT(state, aggregate.ftm[0].channel_deadtime_remaining[1] ==
-                           stepped.ftm[0].channel_deadtime_remaining[1]);
+        expect(state,
+               output(state, &aggregate, channel) == output(state, &stepped, channel),
+               "output(state, &aggregate, channel) == output(state, &stepped, channel)");
+    expect(state,
+           aggregate.ftm[0].channel_deadtime_remaining[0] ==
+               stepped.ftm[0].channel_deadtime_remaining[0],
+           "aggregate.ftm[0].channel_deadtime_remaining[0] == "
+           "stepped.ftm[0].channel_deadtime_remaining[0]");
+    expect(state,
+           aggregate.ftm[0].channel_deadtime_remaining[1] ==
+               stepped.ftm[0].channel_deadtime_remaining[1],
+           "aggregate.ftm[0].channel_deadtime_remaining[1] == "
+           "stepped.ftm[0].channel_deadtime_remaining[1]");
     for (uint8_t cycle = 0u; cycle < 32u; cycle++) {
         k22_timing_advance(&aggregate, 1u);
-        TEST_EXPECT(state, !output(state, &aggregate, 0u));
+        expect(state, !output(state, &aggregate, 0u), "!output(state, &aggregate, 0u)");
     }
 
     K22Timing short_second;
     configure_pwm(state, &short_second, 0x13u, 4u, 6u, 7u);
     for (uint8_t cycle = 0u; cycle < 32u; cycle++) {
         k22_timing_advance(&short_second, 1u);
-        TEST_EXPECT(state, !output(state, &short_second, 1u));
+        expect(state, !output(state, &short_second, 1u),
+               "!output(state, &short_second, 1u)");
     }
 }
 

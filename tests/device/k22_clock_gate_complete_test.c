@@ -68,7 +68,7 @@ static KinetisK22* create_device(TestState* state, KinetisK22Profile profile,
     configuration.flash_size = 4096u;
     configuration.sram_size = 65536u;
     KinetisK22* device = kinetis_k22_create(configuration);
-    TEST_EXPECT(state, device != NULL);
+    expect(state, device != NULL, "device != NULL");
     return device;
 }
 
@@ -102,8 +102,11 @@ static void clear_gates(TestState* state, KinetisK22* device) {
     for (size_t index = 0u; index < sizeof(registers) / sizeof(registers[0]); index++) {
         if (k22_register_manifest_lookup(device->profile->id, registers[index], 32u) !=
             NULL) {
-            TEST_EXPECT(state, kinetis_k22_peripheral_write(device, registers[index], 4u,
-                                                            CORTEX_M4_ACCESS_DEBUG, 0u));
+            expect(state,
+                   kinetis_k22_peripheral_write(device, registers[index], 4u,
+                                                CORTEX_M4_ACCESS_DEBUG, 0u),
+                   "kinetis_k22_peripheral_write(device, registers[index], 4u, "
+                   "CORTEX_M4_ACCESS_DEBUG, 0u)");
         }
     }
 }
@@ -113,22 +116,30 @@ static void test_cases(TestState* state, KinetisK22* device, const GateCase* val
     clear_gates(state, device);
     for (size_t index = 0u; index < count; index++) {
         const RegisterAccess access = readable_register(device, values[index].peripheral);
-        TEST_EXPECT(state, access.size != 0u);
+        expect(state, access.size != 0u, "access.size != 0u");
         if (access.size == 0u) {
             continue;
         }
         uint32_t value = 0u;
-        TEST_EXPECT(state, !kinetis_k22_peripheral_read(device, access.address, access.size,
-                                                        CORTEX_M4_ACCESS_DATA, &value));
-        TEST_EXPECT(state, kinetis_k22_peripheral_write(
-                               device, values[index].register_address, 4u,
-                               CORTEX_M4_ACCESS_DEBUG, 1u << values[index].bit));
+        expect(state,
+               !kinetis_k22_peripheral_read(device, access.address, access.size,
+                                            CORTEX_M4_ACCESS_DATA, &value),
+               "!kinetis_k22_peripheral_read(device, access.address, access.size, "
+               "CORTEX_M4_ACCESS_DATA, &value)");
+        expect(state,
+               kinetis_k22_peripheral_write(device, values[index].register_address, 4u,
+                                            CORTEX_M4_ACCESS_DEBUG,
+                                            1u << values[index].bit),
+               "kinetis_k22_peripheral_write( device, values[index].register_address, 4u, "
+               "CORTEX_M4_ACCESS_DEBUG, 1u << values[index].bit)");
         const bool enabled = kinetis_k22_peripheral_read(
             device, access.address, access.size, CORTEX_M4_ACCESS_DATA, &value);
-        TEST_EXPECT(state, enabled);
-        TEST_EXPECT(state,
-                    kinetis_k22_peripheral_write(device, values[index].register_address, 4u,
-                                                 CORTEX_M4_ACCESS_DEBUG, 0u));
+        expect(state, enabled, "enabled");
+        expect(state,
+               kinetis_k22_peripheral_write(device, values[index].register_address, 4u,
+                                            CORTEX_M4_ACCESS_DEBUG, 0u),
+               "kinetis_k22_peripheral_write(device, values[index].register_address, 4u, "
+               "CORTEX_M4_ACCESS_DEBUG, 0u)");
     }
 }
 

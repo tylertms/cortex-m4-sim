@@ -19,26 +19,29 @@ enum {
 
 static void write(TestState* state, KinetisK22* device, uint32_t address, const void* value,
                   size_t size) {
-    TEST_EXPECT(state, kinetis_k22_write(device, address, value, size));
+    expect(state, kinetis_k22_write(device, address, value, size),
+           "kinetis_k22_write(device, address, value, size)");
 }
 
 static uint8_t read8(TestState* state, KinetisK22* device, uint32_t address) {
     uint8_t value = 0;
-    TEST_EXPECT(state, kinetis_k22_read(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_read(device, address, &value, sizeof(value)),
+           "kinetis_k22_read(device, address, &value, sizeof(value))");
     return value;
 }
 
 static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     uint32_t value = 0;
-    TEST_EXPECT(state, kinetis_k22_read(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_read(device, address, &value, sizeof(value)),
+           "kinetis_k22_read(device, address, &value, sizeof(value))");
     return value;
 }
 
 int main(void) {
     TestState state = {0};
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
-    TEST_EXPECT(&state, device != NULL);
-    TEST_EXPECT(&state, k22_test_disable_watchdog(device));
+    expect(&state, device != NULL, "device != NULL");
+    expect(&state, k22_test_disable_watchdog(device), "k22_test_disable_watchdog(device)");
     const uint32_t scgc7 = read32(&state, device, SIM_SCGC7) | (1u << 1);
     const uint32_t scgc6 = read32(&state, device, SIM_SCGC6) | (1u << 1);
     const uint32_t scgc4 = read32(&state, device, SIM_SCGC4) | (1u << 11);
@@ -68,18 +71,22 @@ int main(void) {
     write(&state, device, DMA_TCD0 + 0x16, &iterations, sizeof(iterations));
     write(&state, device, DMA_TCD0 + 0x1c, &control, sizeof(control));
     write(&state, device, DMAMUX_CHCFG0, &mux, sizeof(mux));
-    TEST_EXPECT(&state, cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ,
-                                               sizeof(channel), channel));
+    expect(
+        &state,
+        cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), channel),
+        "cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), "
+        "channel)");
     uint16_t output = 0;
-    TEST_EXPECT(&state,
-                !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
+    expect(&state, !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output),
+           "!kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output)");
     kinetis_k22_advance(device, UINT32_MAX);
-    TEST_EXPECT(&state,
-                kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
-    TEST_EXPECT(&state, output == payload);
-    TEST_EXPECT(&state,
-                !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output));
-    TEST_EXPECT(&state, read8(&state, device, DMA_TCD0 + 0x16) == 0);
+    expect(&state, kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output),
+           "kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output)");
+    expect(&state, output == payload, "output == payload");
+    expect(&state, !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output),
+           "!kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output)");
+    expect(&state, read8(&state, device, DMA_TCD0 + 0x16) == 0,
+           "read8(&state, device, DMA_TCD0 + 0x16) == 0");
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

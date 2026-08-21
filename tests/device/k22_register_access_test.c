@@ -35,14 +35,14 @@ static uint32_t width_mask(uint8_t width) {
 
 static KinetisK22* create_device(TestState* state, const ProfileFixture* fixture) {
     const K22Profile* profile = k22_profile_get(fixture->profile);
-    TEST_EXPECT(state, profile != NULL);
+    expect(state, profile != NULL, "profile != NULL");
     KinetisK22Configuration configuration = kinetis_k22_default_configuration();
     configuration.profile = fixture->profile;
     configuration.package = (KinetisK22Package)fixture->package;
     configuration.flash_size = profile->program_flash_size;
     configuration.sram_size = (size_t)profile->sram_lower_size + profile->sram_upper_size;
     KinetisK22* device = kinetis_k22_create(configuration);
-    TEST_EXPECT(state, device != NULL);
+    expect(state, device != NULL, "device != NULL");
     if (device == NULL) {
         return NULL;
     }
@@ -51,11 +51,16 @@ static KinetisK22* create_device(TestState* state, const ProfileFixture* fixture
         0x00000101u,
     };
     const uint16_t program = 0xbf00u;
-    TEST_EXPECT(state, kinetis_k22_load(device, 0u, vectors, sizeof(vectors)));
-    TEST_EXPECT(state, kinetis_k22_load(device, 0x100u, &program, sizeof(program)));
-    TEST_EXPECT(state, kinetis_k22_load(device, 0x400u, flash_configuration,
-                                        sizeof(flash_configuration)));
-    TEST_EXPECT(state, kinetis_k22_reset(device));
+    expect(state, kinetis_k22_load(device, 0u, vectors, sizeof(vectors)),
+           "kinetis_k22_load(device, 0u, vectors, sizeof(vectors))");
+    expect(state, kinetis_k22_load(device, 0x100u, &program, sizeof(program)),
+           "kinetis_k22_load(device, 0x100u, &program, sizeof(program))");
+    expect(
+        state,
+        kinetis_k22_load(device, 0x400u, flash_configuration, sizeof(flash_configuration)),
+        "kinetis_k22_load(device, 0x400u, flash_configuration, "
+        "sizeof(flash_configuration))");
+    expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     return device;
 }
 
@@ -114,7 +119,7 @@ static void expect_reset_read(TestState* state, KinetisK22* device,
     if (descriptor->address < K22_PERIPHERAL_BASE) {
         return;
     }
-    TEST_EXPECT(state, kinetis_k22_reset(device));
+    expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     for (uint8_t port = 0u; port < 5u; port++) {
         for (uint8_t pin = 0u; pin < 32u; pin++) {
             kinetis_k22_gpio_drive(device, port, pin, false);
@@ -127,7 +132,7 @@ static void expect_reset_read(TestState* state, KinetisK22* device,
     if (read != readable) {
         report_mismatch(descriptor, "read access", read, readable);
     }
-    TEST_EXPECT(state, read == readable);
+    expect(state, read == readable, "read == readable");
     if (!readable) {
         return;
     }
@@ -142,7 +147,7 @@ static void expect_reset_read(TestState* state, KinetisK22* device,
     if (actual != expected) {
         report_mismatch(descriptor, "reset value", actual, expected);
     }
-    TEST_EXPECT(state, actual == expected);
+    expect(state, actual == expected, "actual == expected");
 }
 
 static void expect_declared_write(TestState* state, KinetisK22* device,
@@ -153,7 +158,7 @@ static void expect_declared_write(TestState* state, KinetisK22* device,
     const uint8_t size = (uint8_t)(descriptor->width / 8u);
     const uint32_t value = UINT32_MAX;
     const bool wrote = kinetis_k22_write(device, descriptor->address, &value, size);
-    TEST_EXPECT(state, wrote);
+    expect(state, wrote, "wrote");
 }
 
 static bool descriptor_covers(const K22RegisterDescriptor* descriptor, uint32_t address) {
@@ -176,8 +181,10 @@ static void expect_reserved_gaps(TestState* state, KinetisK22* device,
             continue;
         }
         uint8_t value = 0u;
-        TEST_EXPECT(state, !kinetis_k22_read(device, address, &value, sizeof(value)));
-        TEST_EXPECT(state, !kinetis_k22_write(device, address, &value, sizeof(value)));
+        expect(state, !kinetis_k22_read(device, address, &value, sizeof(value)),
+               "!kinetis_k22_read(device, address, &value, sizeof(value))");
+        expect(state, !kinetis_k22_write(device, address, &value, sizeof(value)),
+               "!kinetis_k22_write(device, address, &value, sizeof(value))");
     }
 }
 
@@ -187,7 +194,7 @@ static void expect_profile(TestState* state, const ProfileFixture* fixture) {
         return;
     }
     const K22RegisterManifest* manifest = k22_register_manifest_get(fixture->profile);
-    TEST_EXPECT(state, manifest != NULL);
+    expect(state, manifest != NULL, "manifest != NULL");
     if (manifest != NULL) {
         for (size_t index = 0u; index < manifest->register_count; index++) {
             expect_reset_read(state, device, manifest, &manifest->registers[index]);

@@ -115,7 +115,7 @@ static void test_opcode_matrix(TestState* state, CortexM4* cpu) {
                     cases[index].first, cases[index].second,
                     (unsigned)cases[index].expected, (unsigned)actual);
         }
-        TEST_EXPECT(state, actual == cases[index].expected);
+        expect(state, actual == cases[index].expected, "actual == cases[index].expected");
     }
 }
 
@@ -123,7 +123,10 @@ int main(void) {
     TestState state = {0};
     CortexM4 cpu = {0};
     test_opcode_matrix(&state, &cpu);
-    TEST_EXPECT(&state, cortex_m4_check_instruction_constraints(NULL, 0, 0, false) ==
-                            CORTEX_M4_INSTRUCTION_UNDEFINED);
+    expect(&state,
+           cortex_m4_check_instruction_constraints(NULL, 0, 0, false) ==
+               CORTEX_M4_INSTRUCTION_UNDEFINED,
+           "cortex_m4_check_instruction_constraints(NULL, 0, 0, false) == "
+           "CORTEX_M4_INSTRUCTION_UNDEFINED");
     return test_finish(&state);
 }

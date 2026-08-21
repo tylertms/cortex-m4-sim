@@ -43,7 +43,7 @@ set(cortex_m4_simulator_sources
 add_library(cortex_m4_simulator STATIC ${cortex_m4_simulator_sources})
 add_library(cortex_m4::simulator ALIAS cortex_m4_simulator)
 
-add_library(cortex_m4_firmware_image STATIC src/firmware_image.c)
+add_library(cortex_m4_firmware_image STATIC src/cortex_m4_firmware_image.c)
 add_library(cortex_m4::firmware_image ALIAS cortex_m4_firmware_image)
 
 add_executable(cortex_m4_firmware_runner src/main.c)
@@ -90,8 +90,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   endfunction()
 
   cortex_m4_add_test(core_reset tests/core/reset_test.c "core;unit")
-  cortex_m4_add_test(core_api_complete tests/core/api_complete_test.c
-                     "core;unit;integration")
+  cortex_m4_add_test(core_api tests/core/api_test.c "core;unit;integration")
   cortex_m4_add_test(core_thumb tests/core/thumb_test.c "core;integration")
   cortex_m4_add_test(core_thumb16_arithmetic
                      tests/core/thumb16_arithmetic_test.c "core;unit")

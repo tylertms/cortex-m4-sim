@@ -23,26 +23,30 @@ static KinetisK22* create_device(TestState* state) {
     configuration.flash_size = 4096u;
     configuration.sram_size = 65536u;
     KinetisK22* device = kinetis_k22_create(configuration);
-    TEST_EXPECT(state, device != NULL);
+    expect(state, device != NULL, "device != NULL");
     const uint32_t vectors[2] = {0x20001000u, 0x101u};
-    TEST_EXPECT(state, kinetis_k22_load(device, 0u, vectors, sizeof(vectors)));
+    expect(state, kinetis_k22_load(device, 0u, vectors, sizeof(vectors)),
+           "kinetis_k22_load(device, 0u, vectors, sizeof(vectors))");
     return device;
 }
 
 static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first,
                          uint16_t second) {
     const uint16_t program[] = {first, second, 0xbe00u};
-    TEST_EXPECT(state, kinetis_k22_load(device, 0x100u, program, sizeof(program)));
-    TEST_EXPECT(state, kinetis_k22_reset(device));
+    expect(state, kinetis_k22_load(device, 0x100u, program, sizeof(program)),
+           "kinetis_k22_load(device, 0x100u, program, sizeof(program))");
+    expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     CortexM4* cpu = kinetis_k22_cpu(device);
-    TEST_CONNECT_DEBUGGER(state, cpu);
-    TEST_EXPECT(state, cortex_m4_write_memory(cpu, 0xe000ed88u, 4u, 0x00f00000u));
+    test_connect_debugger(state, cpu);
+    expect(state, cortex_m4_write_memory(cpu, 0xe000ed88u, 4u, 0x00f00000u),
+           "cortex_m4_write_memory(cpu, 0xe000ed88u, 4u, 0x00f00000u)");
     return cpu;
 }
 
 static void run(TestState* state, CortexM4* cpu) {
     const CortexM4Result result = cortex_m4_run(cpu, (CortexM4RunLimits){2u, 16u});
-    TEST_EXPECT(state, result.stop == CORTEX_M4_STOP_BREAKPOINT);
+    expect(state, result.stop == CORTEX_M4_STOP_BREAKPOINT,
+           "result.stop == CORTEX_M4_STOP_BREAKPOINT");
 }
 
 static void test_nan_selection(TestState* state, KinetisK22* device) {
@@ -50,20 +54,24 @@ static void test_nan_selection(TestState* state, KinetisK22* device) {
     cortex_m4_set_fp_register(cpu, 14u, 0x7fc00011u);
     cortex_m4_set_fp_register(cpu, 15u, 0x7f800022u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u);
-    TEST_EXPECT(state, (cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u,
+           "cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u");
+    expect(state, (cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u,
+           "(cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u");
 
     cpu = prepare(state, device, 0xee37u, 0x7a27u);
     cortex_m4_set_fp_register(cpu, 14u, 0x7fc00011u);
     cortex_m4_set_fp_register(cpu, 15u, 0x7fc00022u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00011u);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00011u,
+           "cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00011u");
 
     cpu = prepare(state, device, 0xee37u, 0x7a27u);
     cortex_m4_set_fp_register(cpu, 14u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 15u, 0x7fc00022u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u,
+           "cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00022u");
 }
 
 static uint32_t convert_rounded(TestState* state, KinetisK22* device, uint32_t source,
@@ -76,16 +84,23 @@ static uint32_t convert_rounded(TestState* state, KinetisK22* device, uint32_t s
 }
 
 static void test_integer_rounding(TestState* state, KinetisK22* device) {
-    TEST_EXPECT(state, convert_rounded(state, device, 0x3f99999au,
-                                       FPSCR_ROUND_PLUS_INFINITY) == 2u);
-    TEST_EXPECT(state, convert_rounded(state, device, 0x3fe66666u,
-                                       FPSCR_ROUND_MINUS_INFINITY) == 1u);
-    TEST_EXPECT(state, convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) ==
-                           0xffffffffu);
-    TEST_EXPECT(state, convert_rounded(state, device, 0x40100000u, 0u) == 2u);
-    TEST_EXPECT(state, convert_rounded(state, device, 0x40300000u, 0u) == 3u);
-    TEST_EXPECT(state, convert_rounded(state, device, 0x40200000u, 0u) == 2u);
-    TEST_EXPECT(state, convert_rounded(state, device, 0x40600000u, 0u) == 4u);
+    expect(state,
+           convert_rounded(state, device, 0x3f99999au, FPSCR_ROUND_PLUS_INFINITY) == 2u,
+           "convert_rounded(state, device, 0x3f99999au, FPSCR_ROUND_PLUS_INFINITY) == 2u");
+    expect(state,
+           convert_rounded(state, device, 0x3fe66666u, FPSCR_ROUND_MINUS_INFINITY) == 1u,
+           "convert_rounded(state, device, 0x3fe66666u, FPSCR_ROUND_MINUS_INFINITY) == 1u");
+    expect(state,
+           convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) == 0xffffffffu,
+           "convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) == 0xffffffffu");
+    expect(state, convert_rounded(state, device, 0x40100000u, 0u) == 2u,
+           "convert_rounded(state, device, 0x40100000u, 0u) == 2u");
+    expect(state, convert_rounded(state, device, 0x40300000u, 0u) == 3u,
+           "convert_rounded(state, device, 0x40300000u, 0u) == 3u");
+    expect(state, convert_rounded(state, device, 0x40200000u, 0u) == 2u,
+           "convert_rounded(state, device, 0x40200000u, 0u) == 2u");
+    expect(state, convert_rounded(state, device, 0x40600000u, 0u) == 4u,
+           "convert_rounded(state, device, 0x40600000u, 0u) == 4u");
 }
 
 static uint32_t half_to_single(TestState* state, KinetisK22* device, uint16_t half,
@@ -108,37 +123,63 @@ static uint16_t single_to_half(TestState* state, KinetisK22* device, uint32_t si
 }
 
 static void test_half_precision(TestState* state, KinetisK22* device) {
-    TEST_EXPECT(state, half_to_single(state, device, 0u, 0u) == 0u);
-    TEST_EXPECT(state, half_to_single(state, device, 1u, 0u) == 0x33800000u);
-    TEST_EXPECT(state, half_to_single(state, device, 1u, FPSCR_FZ) == 0u);
-    TEST_EXPECT(state, half_to_single(state, device, 0x7c00u, 0u) == 0x7f800000u);
-    TEST_EXPECT(state,
-                (half_to_single(state, device, 0x7c01u, 0u) & 0x7fc00000u) == 0x7fc00000u);
-    TEST_EXPECT(state, half_to_single(state, device, 0x7c00u, FPSCR_AHP) == 0x47800000u);
+    expect(state, half_to_single(state, device, 0u, 0u) == 0u,
+           "half_to_single(state, device, 0u, 0u) == 0u");
+    expect(state, half_to_single(state, device, 1u, 0u) == 0x33800000u,
+           "half_to_single(state, device, 1u, 0u) == 0x33800000u");
+    expect(state, half_to_single(state, device, 1u, FPSCR_FZ) == 0u,
+           "half_to_single(state, device, 1u, FPSCR_FZ) == 0u");
+    expect(state, half_to_single(state, device, 0x7c00u, 0u) == 0x7f800000u,
+           "half_to_single(state, device, 0x7c00u, 0u) == 0x7f800000u");
+    expect(state, (half_to_single(state, device, 0x7c01u, 0u) & 0x7fc00000u) == 0x7fc00000u,
+           "(half_to_single(state, device, 0x7c01u, 0u) & 0x7fc00000u) == 0x7fc00000u");
+    expect(state, half_to_single(state, device, 0x7c00u, FPSCR_AHP) == 0x47800000u,
+           "half_to_single(state, device, 0x7c00u, FPSCR_AHP) == 0x47800000u");
 
-    TEST_EXPECT(state,
-                (single_to_half(state, device, 0x7fc00011u, 0u) & 0x7c00u) == 0x7c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x7fc00011u, FPSCR_AHP) == 0x7fffu);
-    TEST_EXPECT(state, single_to_half(state, device, 0x7f800000u, 0u) == 0x7c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x7f800000u, FPSCR_AHP) == 0x7fffu);
-    TEST_EXPECT(state, single_to_half(state, device, 0x4788b800u, 0u) == 0x7c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x48000000u, FPSCR_AHP) == 0x7fffu);
-    TEST_EXPECT(state, single_to_half(state, device, 0x33800000u, 0u) == 1u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x33800000u, FPSCR_FZ) == 0u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x3fffffffu, 0u) == 0x4000u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x3f801000u, 0u) == 0x3c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x3f803000u, 0u) == 0x3c02u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x3f80068eu,
-                                      FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u);
-    TEST_EXPECT(state, single_to_half(state, device, 0xbf80068eu,
-                                      FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x3f80068eu,
-                                      FPSCR_ROUND_MINUS_INFINITY) == 0x3c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0xbf80068eu,
-                                      FPSCR_ROUND_MINUS_INFINITY) == 0xbc01u);
-    TEST_EXPECT(state,
-                single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_ZERO) == 0x3c00u);
-    TEST_EXPECT(state, single_to_half(state, device, 0x33000000u, 0u) == 0u);
+    expect(state, (single_to_half(state, device, 0x7fc00011u, 0u) & 0x7c00u) == 0x7c00u,
+           "(single_to_half(state, device, 0x7fc00011u, 0u) & 0x7c00u) == 0x7c00u");
+    expect(state, single_to_half(state, device, 0x7fc00011u, FPSCR_AHP) == 0x7fffu,
+           "single_to_half(state, device, 0x7fc00011u, FPSCR_AHP) == 0x7fffu");
+    expect(state, single_to_half(state, device, 0x7f800000u, 0u) == 0x7c00u,
+           "single_to_half(state, device, 0x7f800000u, 0u) == 0x7c00u");
+    expect(state, single_to_half(state, device, 0x7f800000u, FPSCR_AHP) == 0x7fffu,
+           "single_to_half(state, device, 0x7f800000u, FPSCR_AHP) == 0x7fffu");
+    expect(state, single_to_half(state, device, 0x4788b800u, 0u) == 0x7c00u,
+           "single_to_half(state, device, 0x4788b800u, 0u) == 0x7c00u");
+    expect(state, single_to_half(state, device, 0x48000000u, FPSCR_AHP) == 0x7fffu,
+           "single_to_half(state, device, 0x48000000u, FPSCR_AHP) == 0x7fffu");
+    expect(state, single_to_half(state, device, 0x33800000u, 0u) == 1u,
+           "single_to_half(state, device, 0x33800000u, 0u) == 1u");
+    expect(state, single_to_half(state, device, 0x33800000u, FPSCR_FZ) == 0u,
+           "single_to_half(state, device, 0x33800000u, FPSCR_FZ) == 0u");
+    expect(state, single_to_half(state, device, 0x3fffffffu, 0u) == 0x4000u,
+           "single_to_half(state, device, 0x3fffffffu, 0u) == 0x4000u");
+    expect(state, single_to_half(state, device, 0x3f801000u, 0u) == 0x3c00u,
+           "single_to_half(state, device, 0x3f801000u, 0u) == 0x3c00u");
+    expect(state, single_to_half(state, device, 0x3f803000u, 0u) == 0x3c02u,
+           "single_to_half(state, device, 0x3f803000u, 0u) == 0x3c02u");
+    expect(
+        state,
+        single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u,
+        "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u");
+    expect(
+        state,
+        single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u,
+        "single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u");
+    expect(state,
+           single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_MINUS_INFINITY) ==
+               0x3c00u,
+           "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_MINUS_INFINITY) == "
+           "0x3c00u");
+    expect(state,
+           single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_MINUS_INFINITY) ==
+               0xbc01u,
+           "single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_MINUS_INFINITY) == "
+           "0xbc01u");
+    expect(state, single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_ZERO) == 0x3c00u,
+           "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_ZERO) == 0x3c00u");
+    expect(state, single_to_half(state, device, 0x33000000u, 0u) == 0u,
+           "single_to_half(state, device, 0x33000000u, 0u) == 0u");
 }
 
 static void multiply(TestState* state, KinetisK22* device, uint32_t left, uint32_t right,
@@ -148,7 +189,8 @@ static void multiply(TestState* state, KinetisK22* device, uint32_t left, uint32
     cortex_m4_set_fp_register(cpu, 15u, right);
     cortex_m4_set_fpscr(cpu, fpscr);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == expected);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == expected,
+           "cortex_m4_get_fp_register(cpu, 14u) == expected");
 }
 
 static void add(TestState* state, KinetisK22* device, uint32_t left, uint32_t right,
@@ -158,7 +200,8 @@ static void add(TestState* state, KinetisK22* device, uint32_t left, uint32_t ri
     cortex_m4_set_fp_register(cpu, 15u, right);
     cortex_m4_set_fpscr(cpu, fpscr);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == expected);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == expected,
+           "cortex_m4_get_fp_register(cpu, 14u) == expected");
 }
 
 static void test_float_rounding(TestState* state, KinetisK22* device) {
@@ -177,60 +220,69 @@ static void test_invalid_arithmetic(TestState* state, KinetisK22* device) {
     cortex_m4_set_fp_register(cpu, 14u, 0x7f800000u);
     cortex_m4_set_fp_register(cpu, 15u, 0u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u,
+           "cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u");
 
     cpu = prepare(state, device, 0xee37u, 0x7a27u);
     cortex_m4_set_fp_register(cpu, 14u, 0x7f800000u);
     cortex_m4_set_fp_register(cpu, 15u, 0xff800000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u);
+    expect(state, cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u,
+           "cortex_m4_get_fp_register(cpu, 14u) == 0x7fc00000u");
 
     cpu = prepare(state, device, 0xee00u, 0x0a81u);
     cortex_m4_set_fp_register(cpu, 0u, 0x7fc00011u);
     cortex_m4_set_fp_register(cpu, 1u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 2u, 0x40000000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u);
+    expect(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u,
+           "cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u");
 
     cpu = prepare(state, device, 0xee00u, 0x0a81u);
     cortex_m4_set_fp_register(cpu, 0u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 1u, 0x7fc00011u);
     cortex_m4_set_fp_register(cpu, 2u, 0x40000000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u);
+    expect(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u,
+           "cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00011u");
 
     cpu = prepare(state, device, 0xee00u, 0x0a81u);
     cortex_m4_set_fp_register(cpu, 0u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 1u, 0x7f800000u);
     cortex_m4_set_fp_register(cpu, 2u, 0u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00000u);
+    expect(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00000u,
+           "cortex_m4_get_fp_register(cpu, 0u) == 0x7fc00000u");
 
     cpu = prepare(state, device, 0xeee8u, 0x7a28u);
     cortex_m4_set_fp_register(cpu, 15u, 0xff800000u);
     cortex_m4_set_fp_register(cpu, 16u, 0x7f800000u);
     cortex_m4_set_fp_register(cpu, 17u, 0x3f800000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 15u) == 0x7fc00000u);
+    expect(state, cortex_m4_get_fp_register(cpu, 15u) == 0x7fc00000u,
+           "cortex_m4_get_fp_register(cpu, 15u) == 0x7fc00000u");
 
     cpu = prepare(state, device, 0xee10u, 0x0a81u);
     cortex_m4_set_fp_register(cpu, 0u, 0x40400000u);
     cortex_m4_set_fp_register(cpu, 1u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 2u, 0x40000000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 0u) == 0xc0a00000u);
+    expect(state, cortex_m4_get_fp_register(cpu, 0u) == 0xc0a00000u,
+           "cortex_m4_get_fp_register(cpu, 0u) == 0xc0a00000u");
 }
 
 static void test_unary_nan(TestState* state, KinetisK22* device) {
     CortexM4* cpu = prepare(state, device, 0xeeb1u, 0x1a61u);
     cortex_m4_set_fp_register(cpu, 3u, 0x7f800011u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 2u) == 0xffc00011u);
+    expect(state, cortex_m4_get_fp_register(cpu, 2u) == 0xffc00011u,
+           "cortex_m4_get_fp_register(cpu, 2u) == 0xffc00011u");
 
     cpu = prepare(state, device, 0xeeb1u, 0x2ae2u);
     cortex_m4_set_fp_register(cpu, 5u, 0x7f800011u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 4u) == 0x7fc00011u);
+    expect(state, cortex_m4_get_fp_register(cpu, 4u) == 0x7fc00011u,
+           "cortex_m4_get_fp_register(cpu, 4u) == 0x7fc00011u");
 }
 
 static void test_compare_edges(TestState* state, KinetisK22* device) {
@@ -238,37 +290,45 @@ static void test_compare_edges(TestState* state, KinetisK22* device) {
     cortex_m4_set_fp_register(cpu, 0u, 0x3f800000u);
     cortex_m4_set_fp_register(cpu, 1u, 0x7f800001u);
     run(state, cpu);
-    TEST_EXPECT(state, (cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u);
+    expect(state, (cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u,
+           "(cortex_m4_get_fpscr(cpu) & FPSCR_IOC) != 0u");
 
     cpu = prepare(state, device, 0xeeb4u, 0x0a60u);
     cortex_m4_set_fp_register(cpu, 0u, 0x40000000u);
     cortex_m4_set_fp_register(cpu, 1u, 0x3f800000u);
     run(state, cpu);
-    TEST_EXPECT(state, (cortex_m4_get_fpscr(cpu) & CORTEX_M4_XPSR_C) != 0u);
+    expect(state, (cortex_m4_get_fpscr(cpu) & CORTEX_M4_XPSR_C) != 0u,
+           "(cortex_m4_get_fpscr(cpu) & CORTEX_M4_XPSR_C) != 0u");
 }
 
 static void test_conversion_limits(TestState* state, KinetisK22* device) {
     CortexM4* cpu = prepare(state, device, 0xeebdu, 0x0ae0u);
     cortex_m4_set_fp_register(cpu, 1u, 0x7f800000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fffffffu);
+    expect(state, cortex_m4_get_fp_register(cpu, 0u) == 0x7fffffffu,
+           "cortex_m4_get_fp_register(cpu, 0u) == 0x7fffffffu");
 }
 
 static void test_transfer_edges(TestState* state, KinetisK22* device) {
     CortexM4* cpu = prepare(state, device, 0xeef1u, 0x1a10u);
     cortex_m4_set_fpscr(cpu, 0xa0000000u);
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 1u) == 0xa0000000u);
+    expect(state, cortex_m4_get_register(cpu, 1u) == 0xa0000000u,
+           "cortex_m4_get_register(cpu, 1u) == 0xa0000000u");
 
     cpu = prepare(state, device, 0xed94u, 0x2b04u);
     cortex_m4_set_register(cpu, 4u, 0x60000000u);
-    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u);
+    expect(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
+           "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u,
+           "(cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u");
 
     cpu = prepare(state, device, 0xecb6u, 0x2a04u);
     cortex_m4_set_register(cpu, 6u, 0x60000000u);
-    TEST_EXPECT(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING);
-    TEST_EXPECT(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u);
+    expect(state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
+           "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, (cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u,
+           "(cortex_m4_get_fault_status(cpu) & (1u << 9)) != 0u");
 
     cpu = prepare(state, device, 0xeca4u, 0x0b04u);
     cortex_m4_set_register(cpu, 4u, 0x20000100u);
@@ -276,7 +336,8 @@ static void test_transfer_edges(TestState* state, KinetisK22* device) {
         cortex_m4_set_fp_register(cpu, index, 0x12340000u + index);
     }
     run(state, cpu);
-    TEST_EXPECT(state, cortex_m4_get_register(cpu, 4u) == 0x20000110u);
+    expect(state, cortex_m4_get_register(cpu, 4u) == 0x20000110u,
+           "cortex_m4_get_register(cpu, 4u) == 0x20000110u");
 }
 
 int main(void) {

@@ -129,6 +129,7 @@ CortexM4* kinetis_k22_cpu(KinetisK22* device);
 const CortexM4* kinetis_k22_cpu_const(const KinetisK22* device);
 bool kinetis_k22_reset(KinetisK22* device);
 bool kinetis_k22_load(KinetisK22* device, uint32_t address, const void* data, size_t size);
+bool kinetis_k22_seed(KinetisK22* device, uint32_t address, const void* data, size_t size);
 bool kinetis_k22_read(const KinetisK22* device, uint32_t address, void* data, size_t size);
 bool kinetis_k22_write(KinetisK22* device, uint32_t address, const void* data, size_t size);
 bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source);
@@ -161,8 +162,9 @@ bool kinetis_k22_get_ftm_output(const KinetisK22* device, uint8_t instance, uint
 bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
                                 uint16_t* value);
 void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed);
-void kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high);
-void kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin);
+bool kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high);
+bool kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin);
+bool kinetis_k22_gpio_pin(const KinetisK22* device, uint8_t port, uint8_t pin, bool* high);
 bool kinetis_k22_serial_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                                 uint16_t value, uint8_t status);
 bool kinetis_k22_serial_transmit(KinetisK22* device, KinetisK22SerialEndpoint endpoint,

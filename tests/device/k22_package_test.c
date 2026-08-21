@@ -122,30 +122,40 @@ static const ExpectedSelection* expected_selection(K22ProfileId profile,
 }
 
 static void expect_package_metadata(TestState* state) {
-    TEST_EXPECT(state, expected_package_count() == K22_PACKAGE_COUNT);
+    expect(state, expected_package_count() == K22_PACKAGE_COUNT,
+           "expected_package_count() == K22_PACKAGE_COUNT");
     for (size_t index = 0; index < expected_package_count(); index++) {
         const ExpectedPackage* expected = &expected_packages[index];
         const K22Package* package = k22_package_get(expected->id);
-        TEST_EXPECT(state, package != NULL);
-        TEST_EXPECT(state, package->id == expected->id);
-        TEST_EXPECT(state, strcmp(package->code, expected->code) == 0);
-        TEST_EXPECT(state, strcmp(package->name, expected->name) == 0);
-        TEST_EXPECT(state, package->terminal_count == expected->terminal_count);
-        TEST_EXPECT(state, k22_package_find(expected->code) == package);
+        expect(state, package != NULL, "package != NULL");
+        expect(state, package->id == expected->id, "package->id == expected->id");
+        expect(state, strcmp(package->code, expected->code) == 0,
+               "strcmp(package->code, expected->code) == 0");
+        expect(state, strcmp(package->name, expected->name) == 0,
+               "strcmp(package->name, expected->name) == 0");
+        expect(state, package->terminal_count == expected->terminal_count,
+               "package->terminal_count == expected->terminal_count");
+        expect(state, k22_package_find(expected->code) == package,
+               "k22_package_find(expected->code) == package");
     }
 }
 
 static void expect_selection_data(TestState* state, const ExpectedSelection* expected,
                                   const K22PackageSelection* selected) {
-    TEST_EXPECT(state, selected != NULL);
-    TEST_EXPECT(state, k22_package_selection_profile(selected) == expected->profile);
-    TEST_EXPECT(state, k22_package_selection_package(selected)->id == expected->package);
+    expect(state, selected != NULL, "selected != NULL");
+    expect(state, k22_package_selection_profile(selected) == expected->profile,
+           "k22_package_selection_profile(selected) == expected->profile");
+    expect(state, k22_package_selection_package(selected)->id == expected->package,
+           "k22_package_selection_package(selected)->id == expected->package");
     for (uint8_t port = 0; port < K22_PACKAGE_PORT_COUNT; port++) {
-        TEST_EXPECT(state, k22_package_port_pin_mask(selected, port) ==
-                               expected->port_pin_mask[port]);
+        expect(
+            state,
+            k22_package_port_pin_mask(selected, port) == expected->port_pin_mask[port],
+            "k22_package_port_pin_mask(selected, port) == expected->port_pin_mask[port]");
         for (uint8_t pin = 0; pin < K22_PACKAGE_PIN_COUNT; pin++) {
             const bool exists = (expected->port_pin_mask[port] & (UINT32_C(1) << pin)) != 0;
-            TEST_EXPECT(state, k22_package_pin_exists(selected, port, pin) == exists);
+            expect(state, k22_package_pin_exists(selected, port, pin) == exists,
+                   "k22_package_pin_exists(selected, port, pin) == exists");
         }
     }
     for (int peripheral = 0; peripheral < K22_PERIPHERAL_COUNT; peripheral++) {
@@ -173,21 +183,24 @@ static void expect_selection_data(TestState* state, const ExpectedSelection* exp
             if (peripheral == K22_PERIPHERAL_UART5 || peripheral == K22_PERIPHERAL_DAC1)
                 exists = at_least_121;
         }
-        TEST_EXPECT(state, k22_package_has_peripheral(
-                               selected, (K22PeripheralId)peripheral) == exists);
+        expect(
+            state,
+            k22_package_has_peripheral(selected, (K22PeripheralId)peripheral) == exists,
+            "k22_package_has_peripheral( selected, (K22PeripheralId)peripheral) == exists");
     }
 }
 
 static void expect_all_combinations(TestState* state) {
     for (int profile_id = 0; profile_id < K22_PROFILE_COUNT; profile_id++) {
         const K22Profile* profile = k22_profile_get((K22ProfileId)profile_id);
-        TEST_EXPECT(state, profile != NULL);
+        expect(state, profile != NULL, "profile != NULL");
         for (int package_id = 0; package_id < K22_PACKAGE_COUNT; package_id++) {
             const ExpectedSelection* expected =
                 expected_selection((K22ProfileId)profile_id, (K22PackageId)package_id);
             const K22PackageSelection* selected =
                 k22_package_select(profile, (K22PackageId)package_id);
-            TEST_EXPECT(state, (selected != NULL) == (expected != NULL));
+            expect(state, (selected != NULL) == (expected != NULL),
+                   "(selected != NULL) == (expected != NULL)");
             if (expected != NULL)
                 expect_selection_data(state, expected, selected);
         }
@@ -198,11 +211,12 @@ static void expect_defaults(TestState* state) {
     for (int profile_id = 0; profile_id < K22_PROFILE_COUNT; profile_id++) {
         const K22Profile* profile = k22_profile_get((K22ProfileId)profile_id);
         const K22PackageSelection* selected = k22_package_default(profile);
-        TEST_EXPECT(state, selected != NULL);
+        expect(state, selected != NULL, "selected != NULL");
         const K22PackageId expected = profile_id == K22_PROFILE_MK22FN12812
                                           ? K22_PACKAGE_AH_64_WLCSP
                                           : K22_PACKAGE_LH_64_LQFP;
-        TEST_EXPECT(state, k22_package_selection_package(selected)->id == expected);
+        expect(state, k22_package_selection_package(selected)->id == expected,
+               "k22_package_selection_package(selected)->id == expected");
     }
 }
 
@@ -212,28 +226,44 @@ static void expect_fail_closed(TestState* state) {
         k22_package_select(profile, K22_PACKAGE_LH_64_LQFP);
     K22Profile invalid_profile = *profile;
     invalid_profile.id = K22_PROFILE_COUNT;
-    TEST_EXPECT(state, k22_package_get((K22PackageId)-1) == NULL);
-    TEST_EXPECT(state, k22_package_get(K22_PACKAGE_COUNT) == NULL);
-    TEST_EXPECT(state, k22_package_find(NULL) == NULL);
-    TEST_EXPECT(state, k22_package_find("") == NULL);
-    TEST_EXPECT(state, k22_package_find("lh") == NULL);
-    TEST_EXPECT(state, k22_package_select(NULL, K22_PACKAGE_LH_64_LQFP) == NULL);
-    TEST_EXPECT(state,
-                k22_package_select(&invalid_profile, K22_PACKAGE_LH_64_LQFP) == NULL);
-    TEST_EXPECT(state, k22_package_select(profile, (K22PackageId)-1) == NULL);
-    TEST_EXPECT(state, k22_package_select(profile, K22_PACKAGE_COUNT) == NULL);
-    TEST_EXPECT(state, k22_package_default(NULL) == NULL);
-    TEST_EXPECT(state, k22_package_default(&invalid_profile) == NULL);
-    TEST_EXPECT(state, k22_package_selection_profile(NULL) == K22_PROFILE_COUNT);
-    TEST_EXPECT(state, k22_package_selection_package(NULL) == NULL);
-    TEST_EXPECT(state, k22_package_port_pin_mask(NULL, 0) == 0);
-    TEST_EXPECT(state, k22_package_port_pin_mask(selected, K22_PACKAGE_PORT_COUNT) == 0);
-    TEST_EXPECT(state, !k22_package_pin_exists(NULL, 0, 0));
-    TEST_EXPECT(state, !k22_package_pin_exists(selected, K22_PACKAGE_PORT_COUNT, 0));
-    TEST_EXPECT(state, !k22_package_pin_exists(selected, 0, K22_PACKAGE_PIN_COUNT));
-    TEST_EXPECT(state, !k22_package_has_peripheral(NULL, K22_PERIPHERAL_DMA));
-    TEST_EXPECT(state, !k22_package_has_peripheral(selected, (K22PeripheralId)-1));
-    TEST_EXPECT(state, !k22_package_has_peripheral(selected, K22_PERIPHERAL_COUNT));
+    expect(state, k22_package_get((K22PackageId)-1) == NULL,
+           "k22_package_get((K22PackageId)-1) == NULL");
+    expect(state, k22_package_get(K22_PACKAGE_COUNT) == NULL,
+           "k22_package_get(K22_PACKAGE_COUNT) == NULL");
+    expect(state, k22_package_find(NULL) == NULL, "k22_package_find(NULL) == NULL");
+    expect(state, k22_package_find("") == NULL, "k22_package_find(\"\") == NULL");
+    expect(state, k22_package_find("lh") == NULL, "k22_package_find(\"lh\") == NULL");
+    expect(state, k22_package_select(NULL, K22_PACKAGE_LH_64_LQFP) == NULL,
+           "k22_package_select(NULL, K22_PACKAGE_LH_64_LQFP) == NULL");
+    expect(state, k22_package_select(&invalid_profile, K22_PACKAGE_LH_64_LQFP) == NULL,
+           "k22_package_select(&invalid_profile, K22_PACKAGE_LH_64_LQFP) == NULL");
+    expect(state, k22_package_select(profile, (K22PackageId)-1) == NULL,
+           "k22_package_select(profile, (K22PackageId)-1) == NULL");
+    expect(state, k22_package_select(profile, K22_PACKAGE_COUNT) == NULL,
+           "k22_package_select(profile, K22_PACKAGE_COUNT) == NULL");
+    expect(state, k22_package_default(NULL) == NULL, "k22_package_default(NULL) == NULL");
+    expect(state, k22_package_default(&invalid_profile) == NULL,
+           "k22_package_default(&invalid_profile) == NULL");
+    expect(state, k22_package_selection_profile(NULL) == K22_PROFILE_COUNT,
+           "k22_package_selection_profile(NULL) == K22_PROFILE_COUNT");
+    expect(state, k22_package_selection_package(NULL) == NULL,
+           "k22_package_selection_package(NULL) == NULL");
+    expect(state, k22_package_port_pin_mask(NULL, 0) == 0,
+           "k22_package_port_pin_mask(NULL, 0) == 0");
+    expect(state, k22_package_port_pin_mask(selected, K22_PACKAGE_PORT_COUNT) == 0,
+           "k22_package_port_pin_mask(selected, K22_PACKAGE_PORT_COUNT) == 0");
+    expect(state, !k22_package_pin_exists(NULL, 0, 0),
+           "!k22_package_pin_exists(NULL, 0, 0)");
+    expect(state, !k22_package_pin_exists(selected, K22_PACKAGE_PORT_COUNT, 0),
+           "!k22_package_pin_exists(selected, K22_PACKAGE_PORT_COUNT, 0)");
+    expect(state, !k22_package_pin_exists(selected, 0, K22_PACKAGE_PIN_COUNT),
+           "!k22_package_pin_exists(selected, 0, K22_PACKAGE_PIN_COUNT)");
+    expect(state, !k22_package_has_peripheral(NULL, K22_PERIPHERAL_DMA),
+           "!k22_package_has_peripheral(NULL, K22_PERIPHERAL_DMA)");
+    expect(state, !k22_package_has_peripheral(selected, (K22PeripheralId)-1),
+           "!k22_package_has_peripheral(selected, (K22PeripheralId)-1)");
+    expect(state, !k22_package_has_peripheral(selected, K22_PERIPHERAL_COUNT),
+           "!k22_package_has_peripheral(selected, K22_PERIPHERAL_COUNT)");
 }
 
 int main(void) {

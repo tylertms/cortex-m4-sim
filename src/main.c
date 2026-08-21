@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "firmware_image.h"
+#include "cortex_m4_firmware_image.h"
 
 static bool parse_u64(const char* text, uint64_t* value) {
     char* end = NULL;
@@ -22,7 +22,7 @@ static bool parse_u64(const char* text, uint64_t* value) {
 
 static void print_usage(const char* program) {
     fprintf(stderr,
-            "usage: %s IMAGE --vector-address ADDRESS "
+            "usage: %s IMAGE --reset-address ADDRESS "
             "[--binary-address ADDRESS] [--max-instructions COUNT] "
             "[--max-cycles COUNT] [--stop-address ADDRESS]\n",
             program);
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
             fprintf(stderr, "invalid value: %s\n", argv[index + 1]);
             return EXIT_FAILURE;
         }
-        if (strcmp(argv[index], "--vector-address") == 0) {
+        if (strcmp(argv[index], "--reset-address") == 0) {
             vector_address = value;
         } else if (strcmp(argv[index], "--binary-address") == 0) {
             binary_address = value;

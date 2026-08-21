@@ -617,6 +617,10 @@ bool kinetis_k22_load(KinetisK22* device, uint32_t address, const void* data, si
     return false;
 }
 
+bool kinetis_k22_seed(KinetisK22* device, uint32_t address, const void* data, size_t size) {
+    return kinetis_k22_write(device, address, data, size);
+}
+
 bool kinetis_k22_read(const KinetisK22* device, uint32_t address, void* data, size_t size) {
     if (device == NULL || data == NULL) {
         return false;

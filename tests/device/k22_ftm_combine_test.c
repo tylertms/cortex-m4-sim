@@ -30,18 +30,21 @@ static void record_dma(void* context, uint8_t source) {
 
 static void write_register(TestState* state, K22Timing* timing, uint32_t address,
                            uint32_t value) {
-    TEST_EXPECT(state, k22_timing_write(timing, address, 4u, value));
+    expect(state, k22_timing_write(timing, address, 4u, value),
+           "k22_timing_write(timing, address, 4u, value)");
 }
 
 static uint32_t read_register(TestState* state, K22Timing* timing, uint32_t address) {
     uint32_t value = 0u;
-    TEST_EXPECT(state, k22_timing_read(timing, address, 4u, &value));
+    expect(state, k22_timing_read(timing, address, 4u, &value),
+           "k22_timing_read(timing, address, 4u, &value)");
     return value;
 }
 
 static bool output(TestState* state, K22Timing* timing, uint8_t channel) {
     bool high = false;
-    TEST_EXPECT(state, k22_timing_get_ftm_output(timing, 0u, channel, &high));
+    expect(state, k22_timing_get_ftm_output(timing, 0u, channel, &high),
+           "k22_timing_get_ftm_output(timing, 0u, channel, &high)");
     return high;
 }
 
@@ -51,7 +54,8 @@ static void initialize(TestState* state, K22Timing* timing, DmaRecorder* recorde
         .context = recorder,
         .dma = record_dma,
     };
-    TEST_EXPECT(state, k22_timing_init(timing, profile, 8000000u, 32768u, signals));
+    expect(state, k22_timing_init(timing, profile, 8000000u, 32768u, signals),
+           "k22_timing_init(timing, profile, 8000000u, 32768u, signals)");
     write_register(state, timing, SIM_SCGC6, timing->sim_scgc6 | (1u << 24u));
 }
 
@@ -72,8 +76,9 @@ static void configure(TestState* state, K22Timing* timing, DmaRecorder* recorder
 }
 
 static void expect_outputs(TestState* state, K22Timing* timing, bool first, bool second) {
-    TEST_EXPECT(state, output(state, timing, 0u) == first);
-    TEST_EXPECT(state, output(state, timing, 1u) == second);
+    expect(state, output(state, timing, 0u) == first, "output(state, timing, 0u) == first");
+    expect(state, output(state, timing, 1u) == second,
+           "output(state, timing, 1u) == second");
 }
 
 static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cycles,
@@ -167,11 +172,15 @@ static void test_buffered_values(TestState* state) {
     write_register(state, &timing, FTM0_MODE, 4u);
     write_register(state, &timing, FTM0_C0V, 3u);
     write_register(state, &timing, FTM0_C1V, 6u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_C0V) == 2u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_C1V) == 5u);
+    expect(state, read_register(state, &timing, FTM0_C0V) == 2u,
+           "read_register(state, &timing, FTM0_C0V) == 2u");
+    expect(state, read_register(state, &timing, FTM0_C1V) == 5u,
+           "read_register(state, &timing, FTM0_C1V) == 5u");
     k22_timing_advance(&timing, 8u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_C0V) == 3u);
-    TEST_EXPECT(state, read_register(state, &timing, FTM0_C1V) == 6u);
+    expect(state, read_register(state, &timing, FTM0_C0V) == 3u,
+           "read_register(state, &timing, FTM0_C0V) == 3u");
+    expect(state, read_register(state, &timing, FTM0_C1V) == 6u,
+           "read_register(state, &timing, FTM0_C1V) == 6u");
     advance_and_expect(state, &timing, 3u, true, true);
 }
 
@@ -180,15 +189,17 @@ static void test_channel_events(TestState* state) {
     DmaRecorder recorder = {0};
     configure(state, &timing, &recorder, 0x69u, 0x49u, 2u, 5u, 7u, 1u);
     k22_timing_advance(&timing, 2u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_STATUS) & 1u) != 0u);
-    TEST_EXPECT(state, recorder.requests[20u] == 1u);
-    TEST_EXPECT(state, recorder.requests[21u] == 0u);
+    expect(state, (read_register(state, &timing, FTM0_STATUS) & 1u) != 0u,
+           "(read_register(state, &timing, FTM0_STATUS) & 1u) != 0u");
+    expect(state, recorder.requests[20u] == 1u, "recorder.requests[20u] == 1u");
+    expect(state, recorder.requests[21u] == 0u, "recorder.requests[21u] == 0u");
     k22_timing_advance(&timing, 3u);
-    TEST_EXPECT(state, (read_register(state, &timing, FTM0_STATUS) & 3u) == 3u);
-    TEST_EXPECT(state, recorder.requests[21u] == 1u);
+    expect(state, (read_register(state, &timing, FTM0_STATUS) & 3u) == 3u,
+           "(read_register(state, &timing, FTM0_STATUS) & 3u) == 3u");
+    expect(state, recorder.requests[21u] == 1u, "recorder.requests[21u] == 1u");
     k22_timing_advance(&timing, 8u);
-    TEST_EXPECT(state, recorder.requests[20u] == 2u);
-    TEST_EXPECT(state, recorder.requests[21u] == 2u);
+    expect(state, recorder.requests[20u] == 2u, "recorder.requests[20u] == 2u");
+    expect(state, recorder.requests[21u] == 2u, "recorder.requests[21u] == 2u");
 }
 
 int main(void) {

@@ -30,38 +30,44 @@ static KinetisK22* make_device(TestState* state) {
     configuration.profile = KINETIS_K22_PROFILE_MK22FN1M012;
     configuration.package = KINETIS_K22_PACKAGE_LQ_144_LQFP;
     KinetisK22* device = kinetis_k22_create(configuration);
-    TEST_EXPECT(state, device != NULL);
-    TEST_EXPECT(state, k22_test_disable_watchdog(device));
+    expect(state, device != NULL, "device != NULL");
+    expect(state, k22_test_disable_watchdog(device), "k22_test_disable_watchdog(device)");
     const uint32_t gate = 1u << 2u;
-    TEST_EXPECT(state, kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate)));
+    expect(state, kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate)),
+           "kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate))");
     return device;
 }
 
 static void reset_device(TestState* state, KinetisK22* device) {
     kinetis_k22_warm_reset(device, 0u, 4u);
-    TEST_EXPECT(state, k22_test_disable_watchdog(device));
+    expect(state, k22_test_disable_watchdog(device), "k22_test_disable_watchdog(device)");
     const uint32_t gate = 1u << 2u;
-    TEST_EXPECT(state, kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate)));
+    expect(state, kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate)),
+           "kinetis_k22_write(device, SIM_SCGC4, &gate, sizeof(gate))");
 }
 
 static void write8(TestState* state, KinetisK22* device, uint32_t address, uint8_t value) {
-    TEST_EXPECT(state, kinetis_k22_write(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
+           "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
 static uint8_t read8(TestState* state, KinetisK22* device, uint32_t address) {
     uint8_t value = 0u;
-    TEST_EXPECT(state, kinetis_k22_read(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_read(device, address, &value, sizeof(value)),
+           "kinetis_k22_read(device, address, &value, sizeof(value))");
     return value;
 }
 
 static void write16(TestState* state, KinetisK22* device, uint32_t address,
                     uint16_t value) {
-    TEST_EXPECT(state, kinetis_k22_write(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
+           "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
 static void write32(TestState* state, KinetisK22* device, uint32_t address,
                     uint32_t value) {
-    TEST_EXPECT(state, kinetis_k22_write(device, address, &value, sizeof(value)));
+    expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
+           "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
 static void configure_dma(TestState* state, KinetisK22* device) {
@@ -93,17 +99,20 @@ static void configure_time(TestState* state, KinetisK22* device) {
 }
 
 static void clear_eoc(TestState* state, KinetisK22* device) {
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     (void)read8(state, device, CMT_CMD2);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
 }
 
 static void expect_output(TestState* state, KinetisK22* device, bool driven, bool high) {
     bool actual_driven = !driven;
     bool actual_high = !high;
-    TEST_EXPECT(state, kinetis_k22_get_cmt_output(device, &actual_driven, &actual_high));
-    TEST_EXPECT(state, actual_driven == driven);
-    TEST_EXPECT(state, actual_high == high);
+    expect(state, kinetis_k22_get_cmt_output(device, &actual_driven, &actual_high),
+           "kinetis_k22_get_cmt_output(device, &actual_driven, &actual_high)");
+    expect(state, actual_driven == driven, "actual_driven == driven");
+    expect(state, actual_high == high, "actual_high == high");
 }
 
 static void test_direct_output(TestState* state, KinetisK22* device) {
@@ -121,12 +130,15 @@ static void test_time_mode(TestState* state, KinetisK22* device) {
     configure_time(state, device);
     write8(state, device, CMT_OC, 0x60u);
     write8(state, device, CMT_MSC, 3u);
-    TEST_EXPECT(state, device->cmt_running);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
-    TEST_EXPECT(state, (device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) != 0u);
+    expect(state, device->cmt_running, "device->cmt_running");
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
+    expect(state, (device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) != 0u,
+           "(device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) != 0u");
     const uint8_t command = read8(state, device, CMT_CMD1);
     write8(state, device, CMT_CMD1, command);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     clear_eoc(state, device);
     expect_output(state, device, true, false);
     advance_bus(device, 1u);
@@ -138,25 +150,30 @@ static void test_time_mode(TestState* state, KinetisK22* device) {
     advance_bus(device, 2u);
     expect_output(state, device, true, true);
     advance_bus(device, 33u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     write8(state, device, CMT_CMD4, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
 
     write8(state, device, CMT_MSC, 2u);
-    TEST_EXPECT(state, device->cmt_stop_pending);
+    expect(state, device->cmt_stop_pending, "device->cmt_stop_pending");
     advance_bus(device, 39u);
-    TEST_EXPECT(state, device->cmt_running);
+    expect(state, device->cmt_running, "device->cmt_running");
     write8(state, device, CMT_MSC, 3u);
-    TEST_EXPECT(state, !device->cmt_stop_pending);
+    expect(state, !device->cmt_stop_pending, "!device->cmt_stop_pending");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     clear_eoc(state, device);
     write8(state, device, CMT_MSC, 2u);
     advance_bus(device, 40u);
-    TEST_EXPECT(state, !device->cmt_running);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, !device->cmt_running, "!device->cmt_running");
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
 }
 
 static void test_baseband_and_extended_space(TestState* state, KinetisK22* device) {
@@ -171,7 +188,7 @@ static void test_baseband_and_extended_space(TestState* state, KinetisK22* devic
     write8(state, device, CMT_MSC, 0x1bu);
     advance_bus(device, 8u);
     clear_eoc(state, device);
-    TEST_EXPECT(state, device->cmt_extended_space);
+    expect(state, device->cmt_extended_space, "device->cmt_extended_space");
     expect_output(state, device, true, false);
     write8(state, device, CMT_MSC, 0x0au);
     advance_bus(device, 40u);
@@ -189,17 +206,19 @@ static void test_fsk_mode(TestState* state, KinetisK22* device) {
     write8(state, device, CMT_PPS, 0u);
     write8(state, device, CMT_MSC, 7u);
     clear_eoc(state, device);
-    TEST_EXPECT(state, device->cmt_period_ticks == 2u);
+    expect(state, device->cmt_period_ticks == 2u, "device->cmt_period_ticks == 2u");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, device->cmt_fsk_secondary);
-    TEST_EXPECT(state, device->cmt_period_ticks == 4u);
+    expect(state, device->cmt_fsk_secondary, "device->cmt_fsk_secondary");
+    expect(state, device->cmt_period_ticks == 4u, "device->cmt_period_ticks == 4u");
     clear_eoc(state, device);
     advance_bus(device, 3u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, !device->cmt_fsk_secondary);
+    expect(state, !device->cmt_fsk_secondary, "!device->cmt_fsk_secondary");
     clear_eoc(state, device);
     write8(state, device, CMT_MSC, 6u);
     advance_bus(device, 2u);
@@ -212,18 +231,21 @@ static void test_power_modes(TestState* state, KinetisK22* device) {
     device->cpu->sleeping = true;
     device->cpu->scr = 0u;
     advance_bus(device, 40u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     clear_eoc(state, device);
 
     device->cpu->scr = 4u;
     const uint64_t cycles = device->cmt_cycles;
     advance_bus(device, 40u);
-    TEST_EXPECT(state, device->cmt_cycles == cycles);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, device->cmt_cycles == cycles, "device->cmt_cycles == cycles");
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
 
     device->cpu->sleeping = false;
     advance_bus(device, 40u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
     clear_eoc(state, device);
     write8(state, device, CMT_MSC, 2u);
     advance_bus(device, 40u);
@@ -235,7 +257,7 @@ static void test_dividers(TestState* state, KinetisK22* device) {
     write8(state, device, CMT_OC, 0x60u);
     write8(state, device, CMT_MSC, 0x23u);
     clear_eoc(state, device);
-    TEST_EXPECT(state, device->cmt_period_ticks == 320u);
+    expect(state, device->cmt_period_ticks == 320u, "device->cmt_period_ticks == 320u");
     expect_output(state, device, true, false);
     advance_bus(device, 8u);
     expect_output(state, device, true, false);
@@ -249,40 +271,48 @@ static void test_dma_and_copy(TestState* state, KinetisK22* device) {
     configure_time(state, device);
     write8(state, device, CMT_DMA, 1u);
     write8(state, device, CMT_MSC, 3u);
-    TEST_EXPECT(state, !device->cmt_dma_pending);
+    expect(state, !device->cmt_dma_pending, "!device->cmt_dma_pending");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u);
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) != 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) != 0u");
 
     configure_dma(state, device);
     write8(state, device, CMT_MSC, 3u);
-    TEST_EXPECT(state, device->cmt_dma_pending);
-    TEST_EXPECT(state, (device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) == 0u);
+    expect(state, device->cmt_dma_pending, "device->cmt_dma_pending");
+    expect(state, (device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) == 0u,
+           "(device->cpu->irq_level[45u / 32u] & (1u << (45u & 31u))) == 0u");
     advance_bus(device, 1u);
-    TEST_EXPECT(state, !device->cmt_dma_pending);
-    TEST_EXPECT(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u);
+    expect(state, !device->cmt_dma_pending, "!device->cmt_dma_pending");
+    expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
+           "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
 
     KinetisK22* copy = make_device(state);
-    TEST_EXPECT(state, kinetis_k22_copy(copy, device));
-    TEST_EXPECT(state, copy->cmt_running == device->cmt_running);
-    TEST_EXPECT(state, copy->cmt_cycles == device->cmt_cycles);
+    expect(state, kinetis_k22_copy(copy, device), "kinetis_k22_copy(copy, device)");
+    expect(state, copy->cmt_running == device->cmt_running,
+           "copy->cmt_running == device->cmt_running");
+    expect(state, copy->cmt_cycles == device->cmt_cycles,
+           "copy->cmt_cycles == device->cmt_cycles");
     bool driven = false;
     bool high = false;
-    TEST_EXPECT(state, kinetis_k22_get_cmt_output(copy, &driven, &high));
+    expect(state, kinetis_k22_get_cmt_output(copy, &driven, &high),
+           "kinetis_k22_get_cmt_output(copy, &driven, &high)");
     kinetis_k22_destroy(copy);
 
     reset_device(state, device);
-    TEST_EXPECT(state, !device->cmt_running);
-    TEST_EXPECT(state, !device->cmt_dma_pending);
+    expect(state, !device->cmt_running, "!device->cmt_running");
+    expect(state, !device->cmt_dma_pending, "!device->cmt_dma_pending");
     expect_output(state, device, false, true);
 }
 
 static void test_api_guards(TestState* state) {
     bool driven = false;
     bool high = false;
-    TEST_EXPECT(state, !kinetis_k22_get_cmt_output(NULL, &driven, &high));
+    expect(state, !kinetis_k22_get_cmt_output(NULL, &driven, &high),
+           "!kinetis_k22_get_cmt_output(NULL, &driven, &high)");
     KinetisK22* device = kinetis_k22_create(kinetis_k22_default_configuration());
-    TEST_EXPECT(state, device != NULL);
-    TEST_EXPECT(state, !kinetis_k22_get_cmt_output(device, &driven, &high));
+    expect(state, device != NULL, "device != NULL");
+    expect(state, !kinetis_k22_get_cmt_output(device, &driven, &high),
+           "!kinetis_k22_get_cmt_output(device, &driven, &high)");
     kinetis_k22_destroy(device);
 }
 
