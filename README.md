@@ -10,7 +10,7 @@ C simulator for the Arm Cortex-M4F processor and NXP Kinetis K22 microcontroller
 
 ## Build
 
-```console
+```
 cmake -S . -B build/simulator -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build/simulator --parallel
 ```
@@ -25,7 +25,7 @@ cmake --build build/simulator --parallel
 
 ## Run Firmware
 
-```console
+```
 cortex_m4_firmware_runner <IMAGE> --reset-address <ADDRESS> [OPTIONS]
 ```
 
@@ -50,13 +50,13 @@ target_link_libraries(your_target PRIVATE cortex_m4::simulator)
 
 Run all unit and device tests:
 
-```console
+```
 ctest --test-dir build/simulator --output-on-failure --parallel
 ```
 
 Run specific test groups:
 
-```console
+```
 ctest --test-dir build/simulator -L core --output-on-failure --parallel
 ctest --test-dir build/simulator -L device --output-on-failure --parallel
 ctest --test-dir build/simulator -L system --output-on-failure --parallel
