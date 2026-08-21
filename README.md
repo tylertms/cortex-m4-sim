@@ -69,8 +69,7 @@ The parent build does not build the standalone tests.
 
 ## Tests
 
-CTest runs 64 isolated native C executables. No external test framework is
-necessary.
+CTest runs isolated native C executables. No external test framework is necessary.
 
 Run all tests:
 
