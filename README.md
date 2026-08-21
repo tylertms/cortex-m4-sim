@@ -1,100 +1,63 @@
 # Cortex-M4 Simulator
 
-This repository provides a native C simulator for the Arm Cortex-M4F processor.
-It also provides a Kinetis K22 device model.
+C simulator for the Arm Cortex-M4F processor and NXP Kinetis K22 microcontroller.
 
-The CPU model implements Armv7E-M and FPv4-SP-D16 behavior. The K22 model
-provides six device profiles and package-specific features.
+## Features
 
-The exact target package and silicon revision are not known. Thus, the
-simulator does not claim behavior that depends on this identification.
-
-## Supported behavior
-
-The CPU supports Thumb, Thumb-2, DSP, and floating-point instructions. It also
-supports exceptions, interrupts, faults, sleep states, the MPU, and debug units.
-
-The system model includes the NVIC, SCB, SysTick, bit-band access, reset,
-breakpoints, instruction tracing, and bounded execution.
-
-The K22 model includes these main interfaces:
-
-- Program flash, SRAM, FlexNVM, FlexRAM, and FlexBus memory
-- FTFA, FTFE, FMC, eDMA, DMAMUX, AIPS, AXBS, and SYSMPU
-- SIM, MCG, OSC, SMC, PMC, LLWU, RCM, RTC, and RFVBAT
-- PIT, LPTMR, PDB, FTM, CMT, watchdog, and EWM timers
-- ADC, DAC, CMP, VREF, RNG, and CRC data units
-- UART, LPUART, SPI, I2C, SDHC, USB, CAN, and I2S interfaces
-- PORT, GPIO, interrupt, DMA-request, reset, and clock routing
-
-The register model rejects unknown addresses and unsupported access widths. The
-profile and package models reject invalid device combinations.
-
-Hardware tests must check electrical timing, analog tolerances, clock accuracy,
-and silicon-specific behavior. The model does not replace these hardware tests.
+- CPU Core: Armv7E-M instruction set (Thumb, Thumb-2, DSP, FPv4-SP-D16 floating-point unit).
+- Core Peripherals: NVIC, SCB, SysTick, bit-band operations, MPU, breakpoints, and cycle-accurate execution.
+- Kinetis K22 Peripherals: Flash/SRAM, eDMA, DMAMUX, SIM, MCG, WDOG, PIT, LPTMR, ADC, UART, SPI, I2C, USB, GPIO.
 
 ## Build
 
-Configure a Release build:
-
-```
+```console
 cmake -S . -B build/simulator -G Ninja -DCMAKE_BUILD_TYPE=Release
-```
-
-Build the simulator:
-
-```
 cmake --build build/simulator --parallel
 ```
 
-The build provides these targets:
+### Build Targets
 
-- `cortex_m4::simulator` is the static simulator library.
-- `cortex_m4::firmware_image` loads ELF and raw binary images.
-- `cortex_m4::firmware_runner` loads and runs a firmware image.
+| Target | Type | Description |
+| :--- | :--- | :--- |
+| `cortex_m4::simulator` | Static Library | Core CPU and peripheral simulator. |
+| `cortex_m4::firmware_image` | Static Library | ELF and raw binary image loader. |
+| `cortex_m4::firmware_runner` | Executable | CLI tool to load and run firmware images. |
 
-The runner accepts an Arm ELF file or a raw binary file. It requires a reset
-address and uses finite instruction and cycle limits by default:
+## Run Firmware
 
+```console
+cortex_m4_firmware_runner <IMAGE> --reset-address <ADDRESS> [OPTIONS]
 ```
-cortex_m4_firmware_runner IMAGE --reset-address ADDRESS \
-  [--binary-address ADDRESS] [--max-instructions COUNT] \
-  [--max-cycles COUNT] [--stop-address ADDRESS]
-```
 
-## Use from CMake
+### Runner Options
 
-Add this repository as a Git submodule. Add the submodule to the parent build:
+| Option | Description |
+| :--- | :--- |
+| `--reset-address <ADDR>` | Entry point / reset address (required). |
+| `--binary-address <ADDR>` | Base address for raw binary images. |
+| `--stop-address <ADDR>` | Execution stop address. |
+| `--max-instructions <N>` | Maximum instruction count. |
+| `--max-cycles <N>` | Maximum clock cycle limit. |
+
+## Use in CMake Projects
 
 ```cmake
 add_subdirectory(sim/cortex-m4-sim EXCLUDE_FROM_ALL)
 target_link_libraries(your_target PRIVATE cortex_m4::simulator)
 ```
 
-The parent build does not build the standalone tests.
+## Run Tests
 
-## Tests
+Run all unit and device tests:
 
-CTest runs isolated native C executables. No external test framework is necessary.
-
-Run all tests:
-
-```
-ctest --test-dir build/simulator --parallel --output-on-failure
+```console
+ctest --test-dir build/simulator --output-on-failure --parallel
 ```
 
-The `tests` directory has this structure:
+Run specific test groups:
 
-- `core` contains instruction, exception, fault, power, and trace tests.
-- `device` contains memory, register, interrupt, and peripheral tests.
-- `system` contains firmware image tests.
-- `support` contains shared test data and the small assertion helper.
-
-Run one test group:
-
-```
-ctest --test-dir build/simulator -L unit --parallel --output-on-failure
-ctest --test-dir build/simulator -L core --parallel --output-on-failure
-ctest --test-dir build/simulator -L device --parallel --output-on-failure
-ctest --test-dir build/simulator -L system --parallel --output-on-failure
+```console
+ctest --test-dir build/simulator -L core --output-on-failure --parallel
+ctest --test-dir build/simulator -L device --output-on-failure --parallel
+ctest --test-dir build/simulator -L system --output-on-failure --parallel
 ```
