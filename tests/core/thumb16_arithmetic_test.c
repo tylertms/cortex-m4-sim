@@ -17,8 +17,7 @@ static void execute(TestState* state, KinetisK22* device, uint16_t opcode, uint3
     cortex_m4_set_register(cpu, 1, second);
     cortex_m4_set_xpsr(cpu, xpsr | (1u << 24));
     const CortexM4Result result = cortex_m4_step(cpu);
-    expect(state, result.stop == CORTEX_M4_STOP_RUNNING,
-           "result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, result.stop == CORTEX_M4_STOP_RUNNING, "result.stop == CORTEX_M4_STOP_RUNNING");
 }
 
 static uint32_t result(KinetisK22* device) {
@@ -66,13 +65,11 @@ int main(void) {
     for (size_t index = 0; index < sizeof(operations) / sizeof(operations[0]); index++) {
         execute(&state, device, operations[index], 0xffffffffu, 1,
                 index == 5 || index == 6 ? 1u << 29 : 0);
-        expect(&state, result(device) == expected[index],
-               "result(device) == expected[index]");
+        expect(&state, result(device) == expected[index], "result(device) == expected[index]");
     }
 
     const uint16_t register_shifts[] = {0x4088u, 0x40c8u, 0x4108u, 0x41c8u};
-    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]);
-         index++) {
+    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]); index++) {
         execute(&state, device, register_shifts[index], 0x81234567u, 0, 1u << 29);
         expect(&state, result(device) == 0x81234567u, "result(device) == 0x81234567u");
         expect(&state, (cortex_m4_get_xpsr(kinetis_k22_cpu(device)) & (1u << 29)) != 0,

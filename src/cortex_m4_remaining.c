@@ -118,6 +118,5 @@ static bool execute_negative_literal(CortexM4* cpu, uint16_t first, uint16_t sec
 
 bool cortex_m4_execute_remaining(CortexM4* cpu, uint16_t first, uint16_t second) {
     return execute_reverse(cpu, first, second) || execute_hint(cpu, first, second) ||
-           execute_preload_hint(first, second) ||
-           execute_negative_literal(cpu, first, second);
+           execute_preload_hint(first, second) || execute_negative_literal(cpu, first, second);
 }

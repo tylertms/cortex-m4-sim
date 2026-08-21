@@ -44,31 +44,23 @@ static KinetisK22* create_flexnvm_device(TestState* state) {
 
 static uint32_t read_register(TestState* state, KinetisK22* device, uint32_t address) {
     uint32_t value = UINT32_MAX;
-    expect(
-        state,
-        kinetis_k22_peripheral_read(device, address, 4u, CORTEX_M4_ACCESS_DATA, &value),
-        "kinetis_k22_peripheral_read(device, address, 4u, CORTEX_M4_ACCESS_DATA, &value)");
+    expect(state, kinetis_k22_peripheral_read(device, address, 4u, CORTEX_M4_ACCESS_DATA, &value),
+           "kinetis_k22_peripheral_read(device, address, 4u, CORTEX_M4_ACCESS_DATA, &value)");
     return value;
 }
 
-static void write_register(TestState* state, KinetisK22* device, uint32_t address,
-                           uint32_t value) {
-    expect(
-        state,
-        kinetis_k22_peripheral_write(device, address, 4u, CORTEX_M4_ACCESS_DATA, value),
-        "kinetis_k22_peripheral_write(device, address, 4u, CORTEX_M4_ACCESS_DATA, value)");
+static void write_register(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
+    expect(state, kinetis_k22_peripheral_write(device, address, 4u, CORTEX_M4_ACCESS_DATA, value),
+           "kinetis_k22_peripheral_write(device, address, 4u, CORTEX_M4_ACCESS_DATA, value)");
 }
 
 static void write_register_byte(TestState* state, KinetisK22* device, uint32_t address,
                                 uint8_t value) {
-    expect(
-        state,
-        kinetis_k22_peripheral_write(device, address, 1u, CORTEX_M4_ACCESS_DATA, value),
-        "kinetis_k22_peripheral_write(device, address, 1u, CORTEX_M4_ACCESS_DATA, value)");
+    expect(state, kinetis_k22_peripheral_write(device, address, 1u, CORTEX_M4_ACCESS_DATA, value),
+           "kinetis_k22_peripheral_write(device, address, 1u, CORTEX_M4_ACCESS_DATA, value)");
 }
 
-static void write_flash(TestState* state, KinetisK22* device, uint32_t address,
-                        uint8_t value) {
+static void write_flash(TestState* state, KinetisK22* device, uint32_t address, uint8_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -88,16 +80,14 @@ static void configure_cache(TestState* state, KinetisK22* device, uint32_t field
 }
 
 static uint32_t fccob_address(uint8_t index) {
-    static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,
-                                        9u, 8u, 15u, 14u, 13u, 12u};
+    static const uint8_t offsets[12] = {7u, 6u, 5u, 4u, 11u, 10u, 9u, 8u, 15u, 14u, 13u, 12u};
     return FTFE + offsets[index];
 }
 
 static void launch_flexnvm_phrase(TestState* state, KinetisK22* device, uint32_t offset,
                                   uint8_t value) {
     write_register_byte(state, device, fccob_address(0u), 0x07u);
-    write_register_byte(state, device, fccob_address(1u),
-                        (uint8_t)((0x800000u + offset) >> 16u));
+    write_register_byte(state, device, fccob_address(1u), (uint8_t)((0x800000u + offset) >> 16u));
     write_register_byte(state, device, fccob_address(2u), (uint8_t)(offset >> 8u));
     write_register_byte(state, device, fccob_address(3u), (uint8_t)offset);
     for (uint8_t index = 4u; index < 12u; index++)
@@ -152,8 +142,7 @@ static void test_lru_and_lock(TestState* state) {
         write_flash(state, device, addresses[index], (uint8_t)(index + 1u));
         if (index < 4u)
             expect(state,
-                   read_flash(state, device, addresses[index], CORTEX_M4_ACCESS_DATA) ==
-                       index + 1u,
+                   read_flash(state, device, addresses[index], CORTEX_M4_ACCESS_DATA) == index + 1u,
                    "read_flash(state, device, addresses[index], CORTEX_M4_ACCESS_DATA) == "
                    "index + 1u");
     }
@@ -214,37 +203,32 @@ static void test_master_permissions(TestState* state) {
     write_flash(state, device, 0x100u, 0x5au);
     uint32_t value = 0u;
     expect(state,
-           !kinetis_k22_peripheral_write(device, PFAPR, 4u,
-                                         CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u),
+           !kinetis_k22_peripheral_write(device, PFAPR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u),
            "!kinetis_k22_peripheral_write( device, PFAPR, 4u, "
            "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u)");
     write_register(state, device, PFAPR, 1u);
     expect(state, read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_INSTRUCTION) == 0x5au,
            "read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_INSTRUCTION) == 0x5au");
-    expect(state,
-           !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "!kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, !kinetis_k22_dma_read(device, 0x100u, 1u, &value),
            "!kinetis_k22_dma_read(device, 0x100u, 1u, &value)");
     write_register(state, device, PFAPR, 4u);
     expect(state, read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x5au,
            "read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x5au");
-    expect(
-        state,
-        !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
-        "!kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_INSTRUCTION, "
-        "&value)");
+    expect(state,
+           !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
+           "!kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_INSTRUCTION, "
+           "&value)");
     expect(state, !kinetis_k22_dma_read(device, 0x100u, 1u, &value),
            "!kinetis_k22_dma_read(device, 0x100u, 1u, &value)");
     write_register(state, device, PFAPR, 0x10u);
     expect(state, kinetis_k22_dma_read(device, 0x100u, 1u, &value),
            "kinetis_k22_dma_read(device, 0x100u, 1u, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
-    expect(state,
-           !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "!kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
     kinetis_k22_destroy(device);
@@ -259,8 +243,7 @@ static void test_copy(TestState* state) {
            "read_flash(state, source, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x11u");
     expect(state, kinetis_k22_flash_controller_write(source, 0x100u, 1u, 0x22u),
            "kinetis_k22_flash_controller_write(source, 0x100u, 1u, 0x22u)");
-    expect(state, kinetis_k22_copy(destination, source),
-           "kinetis_k22_copy(destination, source)");
+    expect(state, kinetis_k22_copy(destination, source), "kinetis_k22_copy(destination, source)");
     expect(state, read_flash(state, destination, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x11u,
            "read_flash(state, destination, 0x100u, CORTEX_M4_ACCESS_DATA) == 0x11u");
     kinetis_k22_destroy(source);
@@ -277,8 +260,7 @@ static void test_bank_one_cache(TestState* state) {
            "kinetis_k22_write(device, FLEXNVM + 0x100u, &data, sizeof(data))");
     expect(state, read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == program,
            "read_flash(state, device, 0x100u, CORTEX_M4_ACCESS_DATA) == program");
-    expect(state,
-           read_flash(state, device, FLEXNVM + 0x100u, CORTEX_M4_ACCESS_DATA) == data,
+    expect(state, read_flash(state, device, FLEXNVM + 0x100u, CORTEX_M4_ACCESS_DATA) == data,
            "read_flash(state, device, FLEXNVM + 0x100u, CORTEX_M4_ACCESS_DATA) == data");
     expect(state, read_register(state, device, TAG_W0_S0) == 0x101u,
            "read_register(state, device, TAG_W0_S0) == 0x101u");
@@ -292,31 +274,25 @@ static void test_bank_one_cache(TestState* state) {
     write_register(state, device, PFAPR, 1u);
     uint32_t value = 0u;
     expect(state,
-           !kinetis_k22_memory_read(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA,
-                                    &value),
+           !kinetis_k22_memory_read(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "!kinetis_k22_memory_read(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, "
            "&value)");
     expect(state, !kinetis_k22_dma_read(device, FLEXNVM + 0x100u, 1u, &value),
            "!kinetis_k22_dma_read(device, FLEXNVM + 0x100u, 1u, &value)");
-    expect(state,
-           !kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, !kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "!kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value)");
-    expect(state,
-           !kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
+    expect(state, !kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
            "!kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au)");
     expect(state, !kinetis_k22_dma_write(device, FLEXRAM, 1u, 0x5au),
            "!kinetis_k22_dma_write(device, FLEXRAM, 1u, 0x5au)");
     write_register(state, device, PFAPR, 0x3fu);
-    expect(
-        state,
-        !kinetis_k22_memory_write(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, 0u),
-        "!kinetis_k22_memory_write(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, "
-        "0u)");
     expect(state,
-           kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
+           !kinetis_k22_memory_write(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, 0u),
+           "!kinetis_k22_memory_write(device, FLEXNVM + 0x100u, 1u, CORTEX_M4_ACCESS_DATA, "
+           "0u)");
+    expect(state, kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
            "kinetis_k22_memory_write(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, 0x5au)");
-    expect(state,
-           kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, FLEXRAM, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
     kinetis_k22_destroy(device);
@@ -325,33 +301,25 @@ static void test_bank_one_cache(TestState* state) {
 static void test_bank_one_coherence_and_copy(TestState* state) {
     KinetisK22* source = create_flexnvm_device(state);
     KinetisK22* destination = create_flexnvm_device(state);
-    expect(state,
-           read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
+    expect(state, read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
            "read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu");
     program_flexnvm_phrase(state, source, 0x140u, 0xa5u);
-    expect(state,
-           read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
+    expect(state, read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
            "read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu");
-    expect(state, kinetis_k22_copy(destination, source),
-           "kinetis_k22_copy(destination, source)");
-    expect(
-        state,
-        read_flash(state, destination, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
-        "read_flash(state, destination, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu");
+    expect(state, kinetis_k22_copy(destination, source), "kinetis_k22_copy(destination, source)");
+    expect(state, read_flash(state, destination, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu,
+           "read_flash(state, destination, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xffu");
     const uint32_t control = read_register(state, source, PFB0CR);
     write_register(state, source, PFB0CR, control | (1u << 20u));
-    expect(state,
-           read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xa5u,
+    expect(state, read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xa5u,
            "read_flash(state, source, FLEXNVM + 0x140u, CORTEX_M4_ACCESS_DATA) == 0xa5u");
 
     const uint32_t bank_one_control = read_register(state, source, PFB1CR);
-    expect(state,
-           read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0xffu,
+    expect(state, read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0xffu,
            "read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0xffu");
     write_register(state, source, PFB1CR, bank_one_control & ~0x10u);
     program_flexnvm_phrase(state, source, 0x180u, 0x5au);
-    expect(state,
-           read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0x5au,
+    expect(state, read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0x5au,
            "read_flash(state, source, FLEXNVM + 0x180u, CORTEX_M4_ACCESS_DATA) == 0x5au");
     kinetis_k22_destroy(source);
     kinetis_k22_destroy(destination);
@@ -363,8 +331,7 @@ static void test_flash_collision_irq(TestState* state) {
     launch_flexnvm_phrase(state, device, 0x200u, 0x3cu);
     uint32_t value = 0u;
     expect(state,
-           kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA,
-                                   &value),
+           kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA, "
            "&value)");
     expect(state, value == 0xffu, "value == 0xffu");
@@ -378,8 +345,7 @@ static void test_flash_collision_irq(TestState* state) {
     expect(state, cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 18u),
            "cortex_m4_get_irq_pending(kinetis_k22_cpu(device), 18u)");
     expect(state,
-           kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA,
-                                   &value),
+           kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, FLEXNVM + 0x200u, 1u, CORTEX_M4_ACCESS_DATA, "
            "&value)");
     expect(state, value == 0x3cu, "value == 0x3cu");

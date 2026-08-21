@@ -93,8 +93,8 @@ typedef struct {
     uint32_t calls;
 } WaitFixture;
 
-static uint32_t wait_states(void* context, uint32_t address, uint8_t size,
-                            CortexM4Access access, bool write, bool sequential) {
+static uint32_t wait_states(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                            bool write, bool sequential) {
     WaitFixture* fixture = context;
     fixture->calls++;
     return (address & 1u) + size + access + (write ? 1u : 0u) + (sequential ? 1u : 0u);
@@ -134,8 +134,7 @@ static bool irq_level(const KinetisK22* device, uint8_t irq) {
 }
 
 static uint32_t flash_fccob_address(uint8_t index) {
-    static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,
-                                        9u, 8u, 15u, 14u, 13u, 12u};
+    static const uint8_t offsets[12] = {7u, 6u, 5u, 4u, 11u, 10u, 9u, 8u, 15u, 14u, 13u, 12u};
     return FTFA_FCCOB3 - 4u + offsets[index];
 }
 
@@ -171,14 +170,12 @@ static void expect_package_selection(TestState* state) {
 
     KinetisK22Configuration invalid = kinetis_k22_default_configuration();
     invalid.package = KINETIS_K22_PACKAGE_AH_64_WLCSP;
-    expect(state, kinetis_k22_create(invalid) == NULL,
-           "kinetis_k22_create(invalid) == NULL");
+    expect(state, kinetis_k22_create(invalid) == NULL, "kinetis_k22_create(invalid) == NULL");
 
     KinetisK22* small = create_device(state, KINETIS_K22_PACKAGE_LH_64_LQFP);
     uint16_t value = 0;
     uint8_t register_value = 0;
-    expect(state,
-           kinetis_k22_read(small, DAC1_DAT0L, &register_value, sizeof(register_value)),
+    expect(state, kinetis_k22_read(small, DAC1_DAT0L, &register_value, sizeof(register_value)),
            "kinetis_k22_read(small, DAC1_DAT0L, &register_value, sizeof(register_value))");
     expect(state, kinetis_k22_get_dac_output(small, 1, &value),
            "kinetis_k22_get_dac_output(small, 1, &value)");
@@ -190,16 +187,13 @@ static void expect_package_selection(TestState* state) {
     kinetis_k22_destroy(small);
 
     KinetisK22* large = create_device(state, KINETIS_K22_PACKAGE_DC_121_XFBGA);
-    expect(state,
-           kinetis_k22_read(large, DAC1_DAT0L, &register_value, sizeof(register_value)),
+    expect(state, kinetis_k22_read(large, DAC1_DAT0L, &register_value, sizeof(register_value)),
            "kinetis_k22_read(large, DAC1_DAT0L, &register_value, sizeof(register_value))");
     kinetis_k22_destroy(large);
 
     KinetisK22* limited = create_device(state, KINETIS_K22_PACKAGE_FX_88_HVQFN);
-    expect(
-        state,
-        !kinetis_k22_read(limited, DAC1_DAT0L, &register_value, sizeof(register_value)),
-        "!kinetis_k22_read(limited, DAC1_DAT0L, &register_value, sizeof(register_value))");
+    expect(state, !kinetis_k22_read(limited, DAC1_DAT0L, &register_value, sizeof(register_value)),
+           "!kinetis_k22_read(limited, DAC1_DAT0L, &register_value, sizeof(register_value))");
     expect(state, !kinetis_k22_get_dac_output(limited, 1, &value),
            "!kinetis_k22_get_dac_output(limited, 1, &value)");
     kinetis_k22_destroy(limited);
@@ -214,14 +208,11 @@ static void expect_integrated_flash_command(TestState* state, KinetisK22* device
     for (uint8_t index = 0u; index < sizeof(command); index++)
         expect(state, cpu_write8(device, flash_fccob_address(index), command[index]),
                "cpu_write8(device, flash_fccob_address(index), command[index])");
-    expect(state, cpu_write8(device, FTFA_FSTAT, 0x80u),
-           "cpu_write8(device, FTFA_FSTAT, 0x80u)");
+    expect(state, cpu_write8(device, FTFA_FSTAT, 0x80u), "cpu_write8(device, FTFA_FSTAT, 0x80u)");
     expect(state, read32(device, target, &value), "read32(device, target, &value)");
     expect(state, value == UINT32_MAX, "value == UINT32_MAX");
-    const uint32_t fstat_bit_band =
-        0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 6u * 4u;
-    expect(state, write32(device, fstat_bit_band, 1u),
-           "write32(device, fstat_bit_band, 1u)");
+    const uint32_t fstat_bit_band = 0x42000000u + (FTFA_FSTAT - 0x40000000u) * 32u + 6u * 4u;
+    expect(state, write32(device, fstat_bit_band, 1u), "write32(device, fstat_bit_band, 1u)");
     kinetis_k22_advance(device, 40u);
     expect(state, read32(device, target, &value), "read32(device, target, &value)");
     expect(state, value == 0x12345678u, "value == 0x12345678u");
@@ -234,8 +225,7 @@ static void launch_swap_command(TestState* state, KinetisK22* device, uint32_t a
     for (uint8_t index = 0u; index < sizeof(command); index++)
         expect(state, cpu_write8(device, flash_fccob_address(index), command[index]),
                "cpu_write8(device, flash_fccob_address(index), command[index])");
-    expect(state, cpu_write8(device, FTFA_FSTAT, 0x80u),
-           "cpu_write8(device, FTFA_FSTAT, 0x80u)");
+    expect(state, cpu_write8(device, FTFA_FSTAT, 0x80u), "cpu_write8(device, FTFA_FSTAT, 0x80u)");
     kinetis_k22_advance(device, 40u);
 }
 
@@ -255,37 +245,30 @@ static void expect_integrated_flash_swap(TestState* state) {
     expect(state, value == upper, "value == upper");
     expect(state, read8(device, 0x80020u, &value), "read8(device, 0x80020u, &value)");
     expect(state, value == lower, "value == lower");
-    expect(state, read8(device, FTFA_FSTAT + 1u, &value),
-           "read8(device, FTFA_FSTAT + 1u, &value)");
+    expect(state, read8(device, FTFA_FSTAT + 1u, &value), "read8(device, FTFA_FSTAT + 1u, &value)");
     expect(state, (value & 8u) != 0u, "(value & 8u) != 0u");
     kinetis_k22_destroy(device);
 }
 
 static void expect_io_irq_levels(TestState* state, KinetisK22* device) {
-    expect(state, write32(device, SIM_SCGC5, 1u << 12u),
-           "write32(device, SIM_SCGC5, 1u << 12u)");
-    expect(state, write32(device, PORTD_PCR0, 9u << 16u),
-           "write32(device, PORTD_PCR0, 9u << 16u)");
+    expect(state, write32(device, SIM_SCGC5, 1u << 12u), "write32(device, SIM_SCGC5, 1u << 12u)");
+    expect(state, write32(device, PORTD_PCR0, 9u << 16u), "write32(device, PORTD_PCR0, 9u << 16u)");
     kinetis_k22_gpio_drive(device, 3u, 0u, false);
     kinetis_k22_gpio_drive(device, 3u, 0u, true);
     expect(state, irq_level(device, 62u), "irq_level(device, 62u)");
     expect(state, write32(device, PORTD_ISFR, 1u), "write32(device, PORTD_ISFR, 1u)");
     expect(state, !irq_level(device, 62u), "!irq_level(device, 62u)");
 
-    expect(state, write32(device, SIM_SCGC4, 1u << 18u),
-           "write32(device, SIM_SCGC4, 1u << 18u)");
-    expect(state, write8(device, USB0_INTEN, 1u << 3u),
-           "write8(device, USB0_INTEN, 1u << 3u)");
+    expect(state, write32(device, SIM_SCGC4, 1u << 18u), "write32(device, SIM_SCGC4, 1u << 18u)");
+    expect(state, write8(device, USB0_INTEN, 1u << 3u), "write8(device, USB0_INTEN, 1u << 3u)");
     expect(state, write8(device, USB0_ENDPT3, 1u), "write8(device, USB0_ENDPT3, 1u)");
     expect(state, kinetis_k22_usb_token(device, 3u, 0x69u, false),
            "kinetis_k22_usb_token(device, 3u, 0x69u, false)");
     expect(state, irq_level(device, 53u), "irq_level(device, 53u)");
-    expect(state, write8(device, USB0_ISTAT, 1u << 3u),
-           "write8(device, USB0_ISTAT, 1u << 3u)");
+    expect(state, write8(device, USB0_ISTAT, 1u << 3u), "write8(device, USB0_ISTAT, 1u << 3u)");
     expect(state, !irq_level(device, 53u), "!irq_level(device, 53u)");
 
-    expect(state, write32(device, SIM_SCGC6, 1u << 15u),
-           "write32(device, SIM_SCGC6, 1u << 15u)");
+    expect(state, write32(device, SIM_SCGC6, 1u << 15u), "write32(device, SIM_SCGC6, 1u << 15u)");
     expect(state, write32(device, I2S0_TCSR, UINT32_C(0x80000100)),
            "write32(device, I2S0_TCSR, UINT32_C(0x80000100))");
     expect(state, write32(device, I2S0_TDR0, 0x12345678u),
@@ -306,8 +289,7 @@ static void expect_io_irq_levels(TestState* state, KinetisK22* device) {
 
 static void expect_can_irq_level(TestState* state) {
     KinetisK22* device = create_f12_device(state, KINETIS_K22_PACKAGE_MD_144_MAPBGA);
-    expect(state, write32(device, SIM_SCGC6, 1u << 4u),
-           "write32(device, SIM_SCGC6, 1u << 4u)");
+    expect(state, write32(device, SIM_SCGC6, 1u << 4u), "write32(device, SIM_SCGC6, 1u << 4u)");
     expect(state, write32(device, CAN0_MCR, 0x0fu), "write32(device, CAN0_MCR, 0x0fu)");
     expect(state, write32(device, CAN0_CTRL1, 0u), "write32(device, CAN0_CTRL1, 0u)");
     expect(state, write32(device, CAN0_IMASK1, 1u), "write32(device, CAN0_IMASK1, 1u)");
@@ -331,8 +313,7 @@ static void expect_memory_domains(TestState* state) {
     CortexM4* cpu = kinetis_k22_cpu(device);
     const CortexM4* constant_cpu = kinetis_k22_cpu_const(device);
     expect(state, constant_cpu == cpu, "constant_cpu == cpu");
-    expect(state, kinetis_k22_cpu_const(NULL) == NULL,
-           "kinetis_k22_cpu_const(NULL) == NULL");
+    expect(state, kinetis_k22_cpu_const(NULL) == NULL, "kinetis_k22_cpu_const(NULL) == NULL");
 
     const uint32_t flexram = 0x14000000u;
     uint32_t value = 0x12345678u;
@@ -344,13 +325,11 @@ static void expect_memory_domains(TestState* state) {
     expect(state, value == 0x12345678u, "value == 0x12345678u");
     expect(state, cortex_m4_write_memory(cpu, flexram + 4u, 4u, 0xa5a55a5au),
            "cortex_m4_write_memory(cpu, flexram + 4u, 4u, 0xa5a55a5au)");
-    expect(state, read32(device, flexram + 4u, &value),
-           "read32(device, flexram + 4u, &value)");
+    expect(state, read32(device, flexram + 4u, &value), "read32(device, flexram + 4u, &value)");
     expect(state, value == 0xa5a55a5au, "value == 0xa5a55a5au");
 
     const uint32_t flash = 0x100u;
-    expect(state,
-           !kinetis_k22_memory_write(device, flash, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
+    expect(state, !kinetis_k22_memory_write(device, flash, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
            "!kinetis_k22_memory_write(device, flash, 1u, CORTEX_M4_ACCESS_DATA, 0x5au)");
     uint8_t byte = 0x5au;
     expect(state, kinetis_k22_write(device, flash, &byte, sizeof(byte)),
@@ -373,8 +352,7 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     uint32_t value = 0;
     expect(state, read32(device, FMC_PFAPR, &value), "read32(device, FMC_PFAPR, &value)");
     expect(state, value == 0x00f8003fu, "value == 0x00f8003fu");
-    expect(state, write32(device, FMC_PFAPR, UINT32_MAX),
-           "write32(device, FMC_PFAPR, UINT32_MAX)");
+    expect(state, write32(device, FMC_PFAPR, UINT32_MAX), "write32(device, FMC_PFAPR, UINT32_MAX)");
     expect(state, read32(device, FMC_PFAPR, &value), "read32(device, FMC_PFAPR, &value)");
     expect(state, value == 0x00ffffffu, "value == 0x00ffffffu");
     expect(state, !read32(device, FMC_PFAPR + 0x0cu, &value),
@@ -382,8 +360,8 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     expect(state, !write32(device, FMC_PFAPR + 0x0cu, UINT32_MAX),
            "!write32(device, FMC_PFAPR + 0x0cu, UINT32_MAX)");
     expect(state,
-           !kinetis_k22_peripheral_write(device, FMC_PFAPR, 4u,
-                                         CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u),
+           !kinetis_k22_peripheral_write(device, FMC_PFAPR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                                         0u),
            "!kinetis_k22_peripheral_write( device, FMC_PFAPR, 4u, "
            "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0u)");
 
@@ -391,8 +369,7 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     expect(state, kinetis_k22_write(device, 0x100u, &flash, sizeof(flash)),
            "kinetis_k22_write(device, 0x100u, &flash, sizeof(flash))");
     expect(state, write32(device, FMC_PFAPR, 0x10u), "write32(device, FMC_PFAPR, 0x10u)");
-    expect(state,
-           !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, !kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "!kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, kinetis_k22_dma_read(device, 0x100u, 1u, &value),
            "kinetis_k22_dma_read(device, 0x100u, 1u, &value)");
@@ -400,57 +377,44 @@ static void expect_manifest_fallback(TestState* state, KinetisK22* device) {
     expect(state, write32(device, FMC_PFAPR, 4u), "write32(device, FMC_PFAPR, 4u)");
     expect(state, !kinetis_k22_dma_read(device, 0x100u, 1u, &value),
            "!kinetis_k22_dma_read(device, 0x100u, 1u, &value)");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
-    expect(state, write32(device, FMC_PFAPR, UINT32_MAX),
-           "write32(device, FMC_PFAPR, UINT32_MAX)");
+    expect(state, write32(device, FMC_PFAPR, UINT32_MAX), "write32(device, FMC_PFAPR, UINT32_MAX)");
     expect(state, read32(device, FMC_PFB0CR, &value), "read32(device, FMC_PFB0CR, &value)");
     expect(state, write32(device, FMC_PFB0CR, (value & ~0x18u) | 0x00f00000u),
            "write32(device, FMC_PFB0CR, (value & ~0x18u) | 0x00f00000u)");
 
     const uint32_t alias = 0x42000000u + (FMC_TAGVDW0S0 - 0x40000000u) * 32u + 5u * 4u;
     expect(state, write32(device, alias, 1), "write32(device, alias, 1)");
-    expect(state, read32(device, FMC_TAGVDW0S0, &value),
-           "read32(device, FMC_TAGVDW0S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &value), "read32(device, FMC_TAGVDW0S0, &value)");
     expect(state, value == 0x20u, "value == 0x20u");
     expect(state, read32(device, alias, &value), "read32(device, alias, &value)");
     expect(state, value == 1, "value == 1");
-    expect(state, write32(device, FMC_TAGVDW0S0, 0x21u),
-           "write32(device, FMC_TAGVDW0S0, 0x21u)");
-    expect(state, write32(device, FMC_TAGVDW1S0, 0x41u),
-           "write32(device, FMC_TAGVDW1S0, 0x41u)");
+    expect(state, write32(device, FMC_TAGVDW0S0, 0x21u), "write32(device, FMC_TAGVDW0S0, 0x21u)");
+    expect(state, write32(device, FMC_TAGVDW1S0, 0x41u), "write32(device, FMC_TAGVDW1S0, 0x41u)");
     expect(state, write32(device, FMC_DATAW0S0UM, 0x12345678u),
            "write32(device, FMC_DATAW0S0UM, 0x12345678u)");
     expect(state, write32(device, FMC_DATAW1S0UM, 0x89abcdefu),
            "write32(device, FMC_DATAW1S0UM, 0x89abcdefu)");
     expect(state, write32(device, FMC_PFB0CR, (1u << 19u) | (1u << 20u)),
            "write32(device, FMC_PFB0CR, (1u << 19u) | (1u << 20u))");
-    expect(state, read32(device, FMC_TAGVDW0S0, &value),
-           "read32(device, FMC_TAGVDW0S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &value), "read32(device, FMC_TAGVDW0S0, &value)");
     expect(state, value == 0u, "value == 0u");
-    expect(state, read32(device, FMC_TAGVDW1S0, &value),
-           "read32(device, FMC_TAGVDW1S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW1S0, &value), "read32(device, FMC_TAGVDW1S0, &value)");
     expect(state, value == 0x41u, "value == 0x41u");
-    expect(state, read32(device, FMC_DATAW0S0UM, &value),
-           "read32(device, FMC_DATAW0S0UM, &value)");
+    expect(state, read32(device, FMC_DATAW0S0UM, &value), "read32(device, FMC_DATAW0S0UM, &value)");
     expect(state, value == 0u, "value == 0u");
-    expect(state, read32(device, FMC_DATAW1S0UM, &value),
-           "read32(device, FMC_DATAW1S0UM, &value)");
+    expect(state, read32(device, FMC_DATAW1S0UM, &value), "read32(device, FMC_DATAW1S0UM, &value)");
     expect(state, value == 0x89abcdefu, "value == 0x89abcdefu");
     expect(state, read32(device, FMC_PFB0CR, &value), "read32(device, FMC_PFB0CR, &value)");
     expect(state, (value & 0x00f80000u) == 0u, "(value & 0x00f80000u) == 0u");
-    expect(state, write32(device, FMC_PFB0CR, 1u << 21u),
-           "write32(device, FMC_PFB0CR, 1u << 21u)");
-    expect(state, read32(device, FMC_TAGVDW1S0, &value),
-           "read32(device, FMC_TAGVDW1S0, &value)");
+    expect(state, write32(device, FMC_PFB0CR, 1u << 21u), "write32(device, FMC_PFB0CR, 1u << 21u)");
+    expect(state, read32(device, FMC_TAGVDW1S0, &value), "read32(device, FMC_TAGVDW1S0, &value)");
     expect(state, value == 0u, "value == 0u");
-    expect(state, read32(device, FMC_DATAW1S0UM, &value),
-           "read32(device, FMC_DATAW1S0UM, &value)");
+    expect(state, read32(device, FMC_DATAW1S0UM, &value), "read32(device, FMC_DATAW1S0UM, &value)");
     expect(state, value == 0u, "value == 0u");
-    expect(state, !read32(device, 0x43ffffffu, &value),
-           "!read32(device, 0x43ffffffu, &value)");
+    expect(state, !read32(device, 0x43ffffffu, &value), "!read32(device, 0x43ffffffu, &value)");
 
     expect(state, read32(device, MCM_PLASC, &value), "read32(device, MCM_PLASC, &value)");
     expect(state, value == 0x0017001fu, "value == 0x0017001fu");
@@ -470,27 +434,22 @@ static void expect_fmc_cache(TestState* state) {
     uint8_t byte = 0x5au;
     expect(state, kinetis_k22_write(device, 0x100u, &byte, sizeof(byte)),
            "kinetis_k22_write(device, 0x100u, &byte, sizeof(byte))");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
-    expect(state, read32(device, FMC_TAGVDW0S0, &value),
-           "read32(device, FMC_TAGVDW0S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &value), "read32(device, FMC_TAGVDW0S0, &value)");
     expect(state, (value & 1u) != 0u, "(value & 1u) != 0u");
-    expect(state, read32(device, FMC_DATAW0S0LM, &value),
-           "read32(device, FMC_DATAW0S0LM, &value)");
+    expect(state, read32(device, FMC_DATAW0S0LM, &value), "read32(device, FMC_DATAW0S0LM, &value)");
     expect(state, (value & 0xffu) == 0x5au, "(value & 0xffu) == 0x5au");
     expect(state, kinetis_k22_flash_controller_write(device, 0x100u, 1u, 0xa5u),
            "kinetis_k22_flash_controller_write(device, 0x100u, 1u, 0xa5u)");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0x5au, "value == 0x5au");
     expect(state, read32(device, FMC_PFB0CR, &value), "read32(device, FMC_PFB0CR, &value)");
     expect(state, write32(device, FMC_PFB0CR, value | (1u << 20u)),
            "write32(device, FMC_PFB0CR, value | (1u << 20u))");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0xa5u, "value == 0xa5u");
     kinetis_k22_destroy(device);
@@ -505,36 +464,27 @@ static void expect_fmc_invalidation_and_locking(TestState* state) {
     uint32_t value = 0u;
     expect(state, kinetis_k22_write(device, 0x100u, &byte, sizeof(byte)),
            "kinetis_k22_write(device, 0x100u, &byte, sizeof(byte))");
-    expect(state, read32(device, FMC_PFB0CR, &control),
-           "read32(device, FMC_PFB0CR, &control)");
+    expect(state, read32(device, FMC_PFB0CR, &control), "read32(device, FMC_PFB0CR, &control)");
     expect(state, write32(device, FMC_PFB0CR, control | 0x0ef00000u),
            "write32(device, FMC_PFB0CR, control | 0x0ef00000u)");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
-    expect(state, read32(device, FMC_TAGVDW0S0, &tag),
-           "read32(device, FMC_TAGVDW0S0, &tag)");
-    expect(state, write32(device, FMC_TAGVDW1S0, tag),
-           "write32(device, FMC_TAGVDW1S0, tag)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &tag), "read32(device, FMC_TAGVDW0S0, &tag)");
+    expect(state, write32(device, FMC_TAGVDW1S0, tag), "write32(device, FMC_TAGVDW1S0, tag)");
     device->fmc_bank[1][0] = 0u;
-    expect(state,
-           kinetis_k22_memory_write(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, 0xa5u),
+    expect(state, kinetis_k22_memory_write(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, 0xa5u),
            "kinetis_k22_memory_write(device, 0x100u, 1u, CORTEX_M4_ACCESS_DEBUG, 0xa5u)");
-    expect(state, read32(device, FMC_TAGVDW0S0, &value),
-           "read32(device, FMC_TAGVDW0S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &value), "read32(device, FMC_TAGVDW0S0, &value)");
     expect(state, value == 0u, "value == 0u");
-    expect(state, read32(device, FMC_TAGVDW1S0, &value),
-           "read32(device, FMC_TAGVDW1S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW1S0, &value), "read32(device, FMC_TAGVDW1S0, &value)");
     expect(state, value == 0u, "value == 0u");
 
     expect(state, write32(device, FMC_PFB0CR, control | 0x0ff00000u),
            "write32(device, FMC_PFB0CR, control | 0x0ff00000u)");
-    expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, 0x100u, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(state, value == 0xa5u, "value == 0xa5u");
-    expect(state, read32(device, FMC_TAGVDW0S0, &value),
-           "read32(device, FMC_TAGVDW0S0, &value)");
+    expect(state, read32(device, FMC_TAGVDW0S0, &value), "read32(device, FMC_TAGVDW0S0, &value)");
     expect(state, value == 0u, "value == 0u");
     kinetis_k22_destroy(device);
 }
@@ -716,8 +666,7 @@ static void expect_sdhc_integration(TestState* state) {
     expect(state, cortex_m4_write_memory(cpu, 0x400b100cu, 4u, 3u << 24u),
            "cortex_m4_write_memory(cpu, 0x400b100cu, 4u, 3u << 24u)");
     uint32_t response = 0u;
-    expect(state, read32(large, 0x400b1010u, &response),
-           "read32(large, 0x400b1010u, &response)");
+    expect(state, read32(large, 0x400b1010u, &response), "read32(large, 0x400b1010u, &response)");
     expect(state, response == 0x00010000u, "response == 0x00010000u");
     expect(state, cortex_m4_write_memory(cpu, 0x400b1008u, 4u, 0x00010000u),
            "cortex_m4_write_memory(cpu, 0x400b1008u, 4u, 0x00010000u)");
@@ -729,8 +678,7 @@ static void expect_sdhc_integration(TestState* state) {
            "cortex_m4_write_memory(cpu, 0x400b1008u, 4u, 0u)");
     expect(state, cortex_m4_write_memory(cpu, 0x400b100cu, 4u, 17u << 24u),
            "cortex_m4_write_memory(cpu, 0x400b100cu, 4u, 17u << 24u)");
-    expect(state, read32(large, 0x400b1020u, &response),
-           "read32(large, 0x400b1020u, &response)");
+    expect(state, read32(large, 0x400b1020u, &response), "read32(large, 0x400b1020u, &response)");
     expect(state, response == 0x03020100u, "response == 0x03020100u");
     kinetis_k22_sdhc_eject(large);
     expect(state, !kinetis_k22_sdhc_read_card(large, 0u, &response, 1u),
@@ -751,37 +699,31 @@ static void expect_endpoint_event_order(TestState* state, KinetisK22* device) {
     KinetisK22I2cTransfer transfer;
     expect(state, kinetis_k22_i2c_transfer(device, KINETIS_K22_SERIAL_I2C1, &transfer),
            "kinetis_k22_i2c_transfer(device, KINETIS_K22_SERIAL_I2C1, &transfer)");
-    expect(state, transfer.type == KINETIS_K22_I2C_START,
-           "transfer.type == KINETIS_K22_I2C_START");
+    expect(state, transfer.type == KINETIS_K22_I2C_START, "transfer.type == KINETIS_K22_I2C_START");
     expect(state, kinetis_k22_i2c_transfer(device, KINETIS_K22_SERIAL_I2C0, &transfer),
            "kinetis_k22_i2c_transfer(device, KINETIS_K22_SERIAL_I2C0, &transfer)");
-    expect(state, transfer.type == KINETIS_K22_I2C_START,
-           "transfer.type == KINETIS_K22_I2C_START");
+    expect(state, transfer.type == KINETIS_K22_I2C_START, "transfer.type == KINETIS_K22_I2C_START");
 }
 
 static void expect_pdb_data_triggers(TestState* state, KinetisK22* device) {
     CortexM4* cpu = kinetis_k22_cpu(device);
     uint32_t gates = 0;
     expect(state, read32(device, SIM_SCGC6, &gates), "read32(device, SIM_SCGC6, &gates)");
-    expect(state,
-           cortex_m4_write_memory(cpu, SIM_SCGC6, 4,
-                                  gates | (1u << 22u) | (1u << 27u) | (1u << 31u)),
-           "cortex_m4_write_memory(cpu, SIM_SCGC6, 4, gates | (1u << 22u) | (1u << 27u) | "
-           "(1u << 31u))");
+    expect(
+        state,
+        cortex_m4_write_memory(cpu, SIM_SCGC6, 4, gates | (1u << 22u) | (1u << 27u) | (1u << 31u)),
+        "cortex_m4_write_memory(cpu, SIM_SCGC6, 4, gates | (1u << 22u) | (1u << 27u) | "
+        "(1u << 31u))");
     expect(state, kinetis_k22_set_adc_channel(device, 0, 5, 0x345u),
            "kinetis_k22_set_adc_channel(device, 0, 5, 0x345u)");
-    expect(state, cpu_write8(device, ADC0_CFG1, 0x04u),
-           "cpu_write8(device, ADC0_CFG1, 0x04u)");
+    expect(state, cpu_write8(device, ADC0_CFG1, 0x04u), "cpu_write8(device, ADC0_CFG1, 0x04u)");
     expect(state, cpu_write8(device, ADC0_SC1A, 5u), "cpu_write8(device, ADC0_SC1A, 5u)");
-    expect(state, cpu_write8(device, ADC0_SC2, 0x40u),
-           "cpu_write8(device, ADC0_SC2, 0x40u)");
+    expect(state, cpu_write8(device, ADC0_SC2, 0x40u), "cpu_write8(device, ADC0_SC2, 0x40u)");
 
-    expect(state, cpu_write8(device, DAC0_DAT0L, 0x11u),
-           "cpu_write8(device, DAC0_DAT0L, 0x11u)");
+    expect(state, cpu_write8(device, DAC0_DAT0L, 0x11u), "cpu_write8(device, DAC0_DAT0L, 0x11u)");
     expect(state, cpu_write8(device, DAC0_DAT0L + 1u, 1u),
            "cpu_write8(device, DAC0_DAT0L + 1u, 1u)");
-    expect(state, cpu_write8(device, DAC0_DAT1L, 0x22u),
-           "cpu_write8(device, DAC0_DAT1L, 0x22u)");
+    expect(state, cpu_write8(device, DAC0_DAT1L, 0x22u), "cpu_write8(device, DAC0_DAT1L, 0x22u)");
     expect(state, cpu_write8(device, DAC0_DAT1L + 1u, 2u),
            "cpu_write8(device, DAC0_DAT1L + 1u, 2u)");
     expect(state, cpu_write8(device, DAC0_C0, 0x80u), "cpu_write8(device, DAC0_C0, 0x80u)");
@@ -816,17 +758,14 @@ static void expect_adc_alternate_triggers(TestState* state) {
     CortexM4* cpu = kinetis_k22_cpu(device);
     uint32_t gates = 0u;
     expect(state, read32(device, SIM_SCGC6, &gates), "read32(device, SIM_SCGC6, &gates)");
-    expect(state,
-           cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | (1u << 23u) | (1u << 27u)),
+    expect(state, cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | (1u << 23u) | (1u << 27u)),
            "cortex_m4_write_memory(cpu, SIM_SCGC6, 4u, gates | (1u << 23u) | (1u << 27u))");
     expect(state, kinetis_k22_set_adc_channel(device, 0u, 5u, 0x345u),
            "kinetis_k22_set_adc_channel(device, 0u, 5u, 0x345u)");
     expect(state, kinetis_k22_set_adc_channel(device, 0u, 6u, 0x456u),
            "kinetis_k22_set_adc_channel(device, 0u, 6u, 0x456u)");
-    expect(state, cpu_write8(device, ADC0_CFG1, 0x04u),
-           "cpu_write8(device, ADC0_CFG1, 0x04u)");
-    expect(state, cpu_write8(device, ADC0_SC2, 0x40u),
-           "cpu_write8(device, ADC0_SC2, 0x40u)");
+    expect(state, cpu_write8(device, ADC0_CFG1, 0x04u), "cpu_write8(device, ADC0_CFG1, 0x04u)");
+    expect(state, cpu_write8(device, ADC0_SC2, 0x40u), "cpu_write8(device, ADC0_SC2, 0x40u)");
     expect(state, cpu_write8(device, ADC0_SC1A, 5u), "cpu_write8(device, ADC0_SC1A, 5u)");
     expect(state, cpu_write8(device, ADC0_SC1B, 6u), "cpu_write8(device, ADC0_SC1B, 6u)");
     expect(state, cortex_m4_write_memory(cpu, PIT_MCR, 4u, 0u),
@@ -864,8 +803,7 @@ static void expect_adc_alternate_triggers(TestState* state) {
            "cortex_m4_write_memory(cpu, PIT_TFLG0, 4u, 1u)");
 
     uint32_t data_gates = 0u;
-    expect(state, read32(device, SIM_SCGC4, &data_gates),
-           "read32(device, SIM_SCGC4, &data_gates)");
+    expect(state, read32(device, SIM_SCGC4, &data_gates), "read32(device, SIM_SCGC4, &data_gates)");
     expect(state, cortex_m4_write_memory(cpu, SIM_SCGC4, 4u, data_gates | (1u << 19u)),
            "cortex_m4_write_memory(cpu, SIM_SCGC4, 4u, data_gates | (1u << 19u))");
     expect(state, cortex_m4_write_memory(cpu, SIM_SOPT7, 4u, 0x81u),
@@ -875,8 +813,7 @@ static void expect_adc_alternate_triggers(TestState* state) {
            "kinetis_k22_set_cmp_input(device, 0u, 1u, 10u)");
     expect(state, kinetis_k22_set_cmp_input(device, 0u, 2u, 20u),
            "kinetis_k22_set_cmp_input(device, 0u, 2u, 20u)");
-    expect(state, cpu_write8(device, CMP0_MUXCR, 0x0au),
-           "cpu_write8(device, CMP0_MUXCR, 0x0au)");
+    expect(state, cpu_write8(device, CMP0_MUXCR, 0x0au), "cpu_write8(device, CMP0_MUXCR, 0x0au)");
     expect(state, cpu_write8(device, CMP0_CR1, 1u), "cpu_write8(device, CMP0_CR1, 1u)");
     expect(state, kinetis_k22_set_cmp_input(device, 0u, 1u, 30u),
            "kinetis_k22_set_cmp_input(device, 0u, 1u, 30u)");
@@ -975,8 +912,7 @@ static void expect_lptmr_pulse_input(TestState* state, KinetisK22* device) {
     uint32_t value = 0u;
     expect(state, read32(device, LPTMR_CSR, &value), "read32(device, LPTMR_CSR, &value)");
     expect(state, value == 0xd3u, "value == 0xd3u");
-    expect(state, cortex_m4_get_irq_pending(cpu, 58u),
-           "cortex_m4_get_irq_pending(cpu, 58u)");
+    expect(state, cortex_m4_get_irq_pending(cpu, 58u), "cortex_m4_get_irq_pending(cpu, 58u)");
     expect(state, cortex_m4_write_memory(cpu, LPTMR_CNR, 4u, 0u),
            "cortex_m4_write_memory(cpu, LPTMR_CNR, 4u, 0u)");
     expect(state, read32(device, LPTMR_CNR, &value), "read32(device, LPTMR_CNR, &value)");
@@ -987,16 +923,14 @@ static void expect_lptmr_pulse_input(TestState* state, KinetisK22* device) {
     expect(state, cortex_m4_write_memory(cpu, LPTMR_CSR, 4u, 0u),
            "cortex_m4_write_memory(cpu, LPTMR_CSR, 4u, 0u)");
     uint32_t data_gates = 0u;
-    expect(state, read32(device, SIM_SCGC4, &data_gates),
-           "read32(device, SIM_SCGC4, &data_gates)");
+    expect(state, read32(device, SIM_SCGC4, &data_gates), "read32(device, SIM_SCGC4, &data_gates)");
     expect(state, cortex_m4_write_memory(cpu, SIM_SCGC4, 4u, data_gates | (1u << 19u)),
            "cortex_m4_write_memory(cpu, SIM_SCGC4, 4u, data_gates | (1u << 19u))");
     expect(state, kinetis_k22_set_cmp_input(device, 0u, 1u, 10u),
            "kinetis_k22_set_cmp_input(device, 0u, 1u, 10u)");
     expect(state, kinetis_k22_set_cmp_input(device, 0u, 2u, 20u),
            "kinetis_k22_set_cmp_input(device, 0u, 2u, 20u)");
-    expect(state, cpu_write8(device, CMP0_MUXCR, 0x0au),
-           "cpu_write8(device, CMP0_MUXCR, 0x0au)");
+    expect(state, cpu_write8(device, CMP0_MUXCR, 0x0au), "cpu_write8(device, CMP0_MUXCR, 0x0au)");
     expect(state, cpu_write8(device, CMP0_CR1, 1u), "cpu_write8(device, CMP0_CR1, 1u)");
     expect(state, cortex_m4_write_memory(cpu, LPTMR_PSR, 4u, 4u),
            "cortex_m4_write_memory(cpu, LPTMR_PSR, 4u, 4u)");
@@ -1016,10 +950,8 @@ static void expect_flexbus_integration(TestState* state, KinetisK22* device) {
     uint8_t memory[256];
     for (size_t index = 0u; index < sizeof(memory); index++)
         memory[index] = (uint8_t)(0x80u + index);
-    expect(
-        state,
-        kinetis_k22_flexbus_attach(device, 0x60000000u, memory, sizeof(memory), false),
-        "kinetis_k22_flexbus_attach(device, 0x60000000u, memory, sizeof(memory), false)");
+    expect(state, kinetis_k22_flexbus_attach(device, 0x60000000u, memory, sizeof(memory), false),
+           "kinetis_k22_flexbus_attach(device, 0x60000000u, memory, sizeof(memory), false)");
     CortexM4* cpu = kinetis_k22_cpu(device);
     expect(state, cortex_m4_write_memory(cpu, SIM_SCGC7, 4u, 1u),
            "cortex_m4_write_memory(cpu, SIM_SCGC7, 4u, 1u)");
@@ -1054,10 +986,8 @@ static void expect_reset_domains(TestState* state, KinetisK22* device) {
     const uint32_t sentinel = 0x5aa53cc3u;
     expect(state, write32(device, address, sentinel), "write32(device, address, sentinel)");
     kinetis_k22_gpio_drive(device, 0, 0, true);
-    expect(state, write16(device, WDOG_UNLOCK, 0xc520u),
-           "write16(device, WDOG_UNLOCK, 0xc520u)");
-    expect(state, write16(device, WDOG_UNLOCK, 0xd928u),
-           "write16(device, WDOG_UNLOCK, 0xd928u)");
+    expect(state, write16(device, WDOG_UNLOCK, 0xc520u), "write16(device, WDOG_UNLOCK, 0xc520u)");
+    expect(state, write16(device, WDOG_UNLOCK, 0xd928u), "write16(device, WDOG_UNLOCK, 0xd928u)");
     expect(state, write16(device, WDOG_TOVALH, 0), "write16(device, WDOG_TOVALH, 0)");
     expect(state, write16(device, WDOG_TOVALL, 1), "write16(device, WDOG_TOVALL, 1)");
     expect(state, write16(device, WDOG_STCTRLH, 1), "write16(device, WDOG_STCTRLH, 1)");
@@ -1075,10 +1005,8 @@ static void expect_reset_domains(TestState* state, KinetisK22* device) {
     expect(state, read32(device, GPIOA_PDIR, &value), "read32(device, GPIOA_PDIR, &value)");
     expect(state, (value & 1u) != 0, "(value & 1u) != 0");
 
-    expect(state, write16(device, WDOG_UNLOCK, 0xc520u),
-           "write16(device, WDOG_UNLOCK, 0xc520u)");
-    expect(state, write16(device, WDOG_UNLOCK, 0xd928u),
-           "write16(device, WDOG_UNLOCK, 0xd928u)");
+    expect(state, write16(device, WDOG_UNLOCK, 0xc520u), "write16(device, WDOG_UNLOCK, 0xc520u)");
+    expect(state, write16(device, WDOG_UNLOCK, 0xd928u), "write16(device, WDOG_UNLOCK, 0xd928u)");
     expect(state, write16(device, WDOG_TOVALH, 0u), "write16(device, WDOG_TOVALH, 0u)");
     expect(state, write16(device, WDOG_TOVALL, 1u), "write16(device, WDOG_TOVALL, 1u)");
     expect(state, write16(device, WDOG_STCTRLH, 5u), "write16(device, WDOG_STCTRLH, 5u)");
@@ -1097,22 +1025,18 @@ static void expect_copy(TestState* state, KinetisK22* source) {
     WaitFixture destination_wait = {0};
     cortex_m4_set_wait_states(kinetis_k22_cpu(source), wait_states, &source_wait);
     cortex_m4_set_wait_states(kinetis_k22_cpu(destination), wait_states, &destination_wait);
-    expect(state, kinetis_k22_copy(destination, source),
-           "kinetis_k22_copy(destination, source)");
+    expect(state, kinetis_k22_copy(destination, source), "kinetis_k22_copy(destination, source)");
     uint32_t value = 0;
     expect(state, read32(destination, 0x20000040u, &value),
            "read32(destination, 0x20000040u, &value)");
     expect(state, value == 0x5aa53cc3u, "value == 0x5aa53cc3u");
-    expect(state,
-           kinetis_k22_core_clock_hz(destination) == kinetis_k22_core_clock_hz(source),
+    expect(state, kinetis_k22_core_clock_hz(destination) == kinetis_k22_core_clock_hz(source),
            "kinetis_k22_core_clock_hz(destination) == kinetis_k22_core_clock_hz(source)");
     expect(state, kinetis_k22_bus_clock_hz(destination) == kinetis_k22_bus_clock_hz(source),
            "kinetis_k22_bus_clock_hz(destination) == kinetis_k22_bus_clock_hz(source)");
     test_connect_debugger(state, kinetis_k22_cpu(destination));
-    expect(
-        state,
-        cortex_m4_step(kinetis_k22_cpu(destination)).stop == CORTEX_M4_STOP_BREAKPOINT,
-        "cortex_m4_step(kinetis_k22_cpu(destination)).stop == CORTEX_M4_STOP_BREAKPOINT");
+    expect(state, cortex_m4_step(kinetis_k22_cpu(destination)).stop == CORTEX_M4_STOP_BREAKPOINT,
+           "cortex_m4_step(kinetis_k22_cpu(destination)).stop == CORTEX_M4_STOP_BREAKPOINT");
     expect(state, destination_wait.calls != 0u, "destination_wait.calls != 0u");
     expect(state, source_wait.calls == 0u, "source_wait.calls == 0u");
     kinetis_k22_destroy(destination);

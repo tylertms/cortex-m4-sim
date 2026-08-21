@@ -26,8 +26,8 @@ uint32_t cortex_m4_read_register_internal(const CortexM4* cpu, uint8_t index) {
     return cpu->registers[index & 15u];
 }
 
-static uint32_t wait_states(void* context, uint32_t address, uint8_t size,
-                            CortexM4Access access, bool write, bool sequential) {
+static uint32_t wait_states(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                            bool write, bool sequential) {
     TimingFixture* fixture = context;
     fixture->calls++;
     fixture->sequential_calls += sequential ? 1u : 0u;
@@ -48,10 +48,9 @@ static void reset_cpu(CortexM4* cpu, TimingFixture* fixture) {
     cortex_m4_set_wait_states(cpu, wait_states, fixture);
 }
 
-static void complete(CortexM4* cpu, uint16_t first, uint16_t second, bool wide,
-                     bool executed, uint32_t sequential_pc) {
-    cortex_m4_timing_complete_instruction(cpu, first, second, wide, executed,
-                                          sequential_pc);
+static void complete(CortexM4* cpu, uint16_t first, uint16_t second, bool wide, bool executed,
+                     uint32_t sequential_pc) {
+    cortex_m4_timing_complete_instruction(cpu, first, second, wide, executed, sequential_pc);
 }
 
 static void test_wait_states(TestState* state) {
@@ -216,18 +215,15 @@ static void test_barriers(TestState* state) {
     reset_cpu(&cpu, &fixture);
     issue_store(&cpu, &fixture, 5);
     expect(state, cpu.cycles == 1, "cpu.cycles == 1");
-    expect(state, cpu.timing_pending_store_cycles == 5,
-           "cpu.timing_pending_store_cycles == 5");
+    expect(state, cpu.timing_pending_store_cycles == 5, "cpu.timing_pending_store_cycles == 5");
 
     cortex_m4_timing_begin_instruction(&cpu);
     complete(&cpu, 0xbf00u, 0, false, true, 0x104u);
-    expect(state, cpu.timing_pending_store_cycles == 4,
-           "cpu.timing_pending_store_cycles == 4");
+    expect(state, cpu.timing_pending_store_cycles == 4, "cpu.timing_pending_store_cycles == 4");
 
     cortex_m4_timing_begin_instruction(&cpu);
     complete(&cpu, 0xf3bfu, 0x8f5fu, true, true, 0x108u);
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
     expect(state, cpu.timing_memory_epoch == 1, "cpu.timing_memory_epoch == 1");
     expect(state, cpu.cycles == 7, "cpu.cycles == 7");
 
@@ -236,16 +232,14 @@ static void test_barriers(TestState* state) {
     cortex_m4_timing_access(&cpu, 0x20000004u, 4, CORTEX_M4_ACCESS_DATA, false);
     complete(&cpu, 0x6808u, 0, false, true, 0x10au);
     expect(state, cpu.cycles == 11, "cpu.cycles == 11");
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
 
     issue_store(&cpu, &fixture, 5);
     const uint64_t before_dsb = cpu.cycles;
     cortex_m4_timing_begin_instruction(&cpu);
     complete(&cpu, 0xf3bfu, 0x8f4fu, true, true, 0x10eu);
     expect(state, cpu.cycles - before_dsb == 6, "cpu.cycles - before_dsb == 6");
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
     expect(state, cpu.timing_memory_epoch == 2, "cpu.timing_memory_epoch == 2");
 
     const uint64_t before_isb = cpu.cycles;
@@ -268,23 +262,20 @@ static void test_bus_completion(TestState* state) {
     cortex_m4_timing_access(&cpu, 0x100u, 2, CORTEX_M4_ACCESS_INSTRUCTION, false);
     complete(&cpu, 0xbf00u, 0, false, true, 0x102u);
     expect(state, cpu.cycles == 2, "cpu.cycles == 2");
-    expect(state, cpu.timing_pending_store_cycles == 4,
-           "cpu.timing_pending_store_cycles == 4");
+    expect(state, cpu.timing_pending_store_cycles == 4, "cpu.timing_pending_store_cycles == 4");
 
     cortex_m4_timing_begin_instruction(&cpu);
     cortex_m4_timing_access(&cpu, 0x20000100u, 2, CORTEX_M4_ACCESS_INSTRUCTION, false);
     complete(&cpu, 0xbf00u, 0, false, true, 0x104u);
     expect(state, cpu.cycles == 7, "cpu.cycles == 7");
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
 
     fixture.store_wait = 6;
     cortex_m4_timing_begin_instruction(&cpu);
     cortex_m4_timing_access(&cpu, 0xe000ed04u, 4, CORTEX_M4_ACCESS_DATA, true);
     complete(&cpu, 0x6008u, 0, false, true, 0x106u);
     expect(state, cpu.cycles == 14, "cpu.cycles == 14");
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
 
     reset_cpu(&cpu, &fixture);
     fixture.store_wait = 3;
@@ -293,8 +284,7 @@ static void test_bus_completion(TestState* state) {
     cortex_m4_timing_access(&cpu, 0x20000004u, 4, CORTEX_M4_ACCESS_DATA, true);
     complete(&cpu, 0xe881u, 0x0003u, true, true, 0x104u);
     expect(state, cpu.cycles == 6, "cpu.cycles == 6");
-    expect(state, cpu.timing_pending_store_cycles == 3,
-           "cpu.timing_pending_store_cycles == 3");
+    expect(state, cpu.timing_pending_store_cycles == 3, "cpu.timing_pending_store_cycles == 3");
 
     reset_cpu(&cpu, &fixture);
     issue_store(&cpu, &fixture, 5);
@@ -303,8 +293,7 @@ static void test_bus_completion(TestState* state) {
     cortex_m4_timing_access(&cpu, 0x20000004u, 4, CORTEX_M4_ACCESS_DATA, true);
     complete(&cpu, 0x6008u, 0, false, true, 0x104u);
     expect(state, cpu.cycles == 7, "cpu.cycles == 7");
-    expect(state, cpu.timing_pending_store_cycles == 2,
-           "cpu.timing_pending_store_cycles == 2");
+    expect(state, cpu.timing_pending_store_cycles == 2, "cpu.timing_pending_store_cycles == 2");
 }
 
 static void test_guards(TestState* state) {
@@ -418,12 +407,10 @@ static void test_exception_and_sleep_timing(TestState* state) {
     cpu.timing_pending_store_cycles = 7;
     cortex_m4_timing_sleep(&cpu, 3);
     expect(state, cpu.cycles == 106, "cpu.cycles == 106");
-    expect(state, cpu.timing_pending_store_cycles == 4,
-           "cpu.timing_pending_store_cycles == 4");
+    expect(state, cpu.timing_pending_store_cycles == 4, "cpu.timing_pending_store_cycles == 4");
     cortex_m4_timing_sleep(&cpu, 4);
     expect(state, cpu.cycles == 110, "cpu.cycles == 110");
-    expect(state, cpu.timing_pending_store_cycles == 0,
-           "cpu.timing_pending_store_cycles == 0");
+    expect(state, cpu.timing_pending_store_cycles == 0, "cpu.timing_pending_store_cycles == 0");
 }
 
 int main(void) {

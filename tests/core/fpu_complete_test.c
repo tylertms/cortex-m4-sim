@@ -30,14 +30,9 @@ static KinetisK22* create_device(TestState* state) {
     return device;
 }
 
-static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first,
-                         uint16_t second) {
-    const uint8_t program[] = {(uint8_t)first,
-                               (uint8_t)(first >> 8),
-                               (uint8_t)second,
-                               (uint8_t)(second >> 8),
-                               0x00,
-                               0xbe};
+static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first, uint16_t second) {
+    const uint8_t program[] = {
+        (uint8_t)first, (uint8_t)(first >> 8), (uint8_t)second, (uint8_t)(second >> 8), 0x00, 0xbe};
     expect(state, kinetis_k22_load(device, 0x100, program, sizeof(program)),
            "kinetis_k22_load(device, 0x100, program, sizeof(program))");
     expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
@@ -153,10 +148,8 @@ static void test_arithmetic_and_status(TestState* state, KinetisK22* device) {
     run(state, cpu);
     expect(state, cortex_m4_get_fp_register(cpu, 14) == 0x7f7fffffu,
            "cortex_m4_get_fp_register(cpu, 14) == 0x7f7fffffu");
-    expect(
-        state,
-        (cortex_m4_get_fpscr(cpu) & (FPSCR_OFC | FPSCR_IXC)) == (FPSCR_OFC | FPSCR_IXC),
-        "(cortex_m4_get_fpscr(cpu) & (FPSCR_OFC | FPSCR_IXC)) == (FPSCR_OFC | FPSCR_IXC)");
+    expect(state, (cortex_m4_get_fpscr(cpu) & (FPSCR_OFC | FPSCR_IXC)) == (FPSCR_OFC | FPSCR_IXC),
+           "(cortex_m4_get_fpscr(cpu) & (FPSCR_OFC | FPSCR_IXC)) == (FPSCR_OFC | FPSCR_IXC)");
 
     cpu = prepare(state, device, 0xee27u, 0x7a27u);
     cortex_m4_set_fp_register(cpu, 14, 0x00800000u);
@@ -165,10 +158,8 @@ static void test_arithmetic_and_status(TestState* state, KinetisK22* device) {
     run(state, cpu);
     expect(state, cortex_m4_get_fp_register(cpu, 14) == 0,
            "cortex_m4_get_fp_register(cpu, 14) == 0");
-    expect(
-        state,
-        (cortex_m4_get_fpscr(cpu) & (FPSCR_UFC | FPSCR_IXC)) == (FPSCR_UFC | FPSCR_IXC),
-        "(cortex_m4_get_fpscr(cpu) & (FPSCR_UFC | FPSCR_IXC)) == (FPSCR_UFC | FPSCR_IXC)");
+    expect(state, (cortex_m4_get_fpscr(cpu) & (FPSCR_UFC | FPSCR_IXC)) == (FPSCR_UFC | FPSCR_IXC),
+           "(cortex_m4_get_fpscr(cpu) & (FPSCR_UFC | FPSCR_IXC)) == (FPSCR_UFC | FPSCR_IXC)");
 }
 
 static void test_accumulate(TestState* state, KinetisK22* device) {
@@ -208,16 +199,14 @@ static void test_conversions(TestState* state, KinetisK22* device) {
     CortexM4* cpu = prepare(state, device, 0xeebdu, 0x0ae0u);
     cortex_m4_set_fp_register(cpu, 1, 0x3fe00000u);
     run(state, cpu);
-    expect(state, cortex_m4_get_fp_register(cpu, 0) == 1,
-           "cortex_m4_get_fp_register(cpu, 0) == 1");
+    expect(state, cortex_m4_get_fp_register(cpu, 0) == 1, "cortex_m4_get_fp_register(cpu, 0) == 1");
     expect(state, (cortex_m4_get_fpscr(cpu) & FPSCR_IXC) != 0,
            "(cortex_m4_get_fpscr(cpu) & FPSCR_IXC) != 0");
 
     cpu = prepare(state, device, 0xeebdu, 0x2a62u);
     cortex_m4_set_fp_register(cpu, 5, 0x3fe00000u);
     run(state, cpu);
-    expect(state, cortex_m4_get_fp_register(cpu, 4) == 2,
-           "cortex_m4_get_fp_register(cpu, 4) == 2");
+    expect(state, cortex_m4_get_fp_register(cpu, 4) == 2, "cortex_m4_get_fp_register(cpu, 4) == 2");
 
     cpu = prepare(state, device, 0xeeb8u, 0x4ae4u);
     cortex_m4_set_fp_register(cpu, 9, 0xfffffffeu);
@@ -310,8 +299,7 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     cpu = prepare(state, device, 0xed94u, 0x2b04u);
     cortex_m4_set_register(cpu, 4, 0x20000020u);
     const uint32_t double_values[2] = {0x76543210u, 0xfedcba98u};
-    expect(state,
-           kinetis_k22_write(device, 0x20000030u, double_values, sizeof(double_values)),
+    expect(state, kinetis_k22_write(device, 0x20000030u, double_values, sizeof(double_values)),
            "kinetis_k22_write(device, 0x20000030u, double_values, sizeof(double_values))");
     run(state, cpu);
     expect(state, cortex_m4_get_fp_register(cpu, 4) == 0x76543210u,
@@ -329,8 +317,7 @@ static void test_transfers(TestState* state, KinetisK22* device) {
            "cortex_m4_get_register(cpu, 7) == 0x20000030u");
     for (uint8_t index = 0; index < 4; index++) {
         uint32_t value = 0;
-        expect(state,
-               kinetis_k22_read(device, 0x20000020u + index * 4u, &value, sizeof(value)),
+        expect(state, kinetis_k22_read(device, 0x20000020u + index * 4u, &value, sizeof(value)),
                "kinetis_k22_read(device, 0x20000020u + index * 4u, &value, sizeof(value))");
         expect(state, value == 0x10000008u + index, "value == 0x10000008u + index");
     }
@@ -339,10 +326,8 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 6, 0x20000020u);
     for (uint8_t index = 0; index < 4; index++) {
         const uint32_t value = 0x10000008u + index;
-        expect(
-            state,
-            kinetis_k22_write(device, 0x20000020u + index * 4u, &value, sizeof(value)),
-            "kinetis_k22_write(device, 0x20000020u + index * 4u, &value, sizeof(value))");
+        expect(state, kinetis_k22_write(device, 0x20000020u + index * 4u, &value, sizeof(value)),
+               "kinetis_k22_write(device, 0x20000020u + index * 4u, &value, sizeof(value))");
     }
     run(state, cpu);
     expect(state, cortex_m4_get_register(cpu, 6) == 0x20000030u,
@@ -362,8 +347,7 @@ static void test_transfers(TestState* state, KinetisK22* device) {
            "cortex_m4_get_register(cpu, 13) == 0x200000f0u");
     for (uint8_t index = 0; index < 4; index++) {
         uint32_t value = 0;
-        expect(state,
-               kinetis_k22_read(device, 0x200000f0u + index * 4u, &value, sizeof(value)),
+        expect(state, kinetis_k22_read(device, 0x200000f0u + index * 4u, &value, sizeof(value)),
                "kinetis_k22_read(device, 0x200000f0u + index * 4u, &value, sizeof(value))");
         expect(state, value == 0x2000000cu + index, "value == 0x2000000cu + index");
     }
@@ -372,10 +356,8 @@ static void test_transfers(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 13, 0x200000f0u);
     for (uint8_t index = 0; index < 4; index++) {
         const uint32_t value = 0x30000010u + index;
-        expect(
-            state,
-            kinetis_k22_write(device, 0x200000f0u + index * 4u, &value, sizeof(value)),
-            "kinetis_k22_write(device, 0x200000f0u + index * 4u, &value, sizeof(value))");
+        expect(state, kinetis_k22_write(device, 0x200000f0u + index * 4u, &value, sizeof(value)),
+               "kinetis_k22_write(device, 0x200000f0u + index * 4u, &value, sizeof(value))");
     }
     run(state, cpu);
     expect(state, cortex_m4_get_register(cpu, 13) == 0x20000100u,

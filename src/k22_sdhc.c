@@ -38,9 +38,7 @@ enum {
     SDHC_IRQ_DATA_CRC = 1u << 21,
 };
 
-static uint32_t* reg(K22Sdhc* sdhc, uint32_t offset) {
-    return &sdhc->registers[offset / 4u];
-}
+static uint32_t* reg(K22Sdhc* sdhc, uint32_t offset) { return &sdhc->registers[offset / 4u]; }
 
 static const uint32_t* const_reg(const K22Sdhc* sdhc, uint32_t offset) {
     return &sdhc->registers[offset / 4u];

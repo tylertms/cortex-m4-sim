@@ -53,8 +53,7 @@ int main(void) {
     expect(&state, cortex_m4_get_register(cpu, 15) == 0x100u,
            "cortex_m4_get_register(cpu, 15) == 0x100u");
     expect(&state, !cortex_m4_get_irq_active(cpu, 0), "!cortex_m4_get_irq_active(cpu, 0)");
-    expect(&state, cortex_m4_get_fault_status(cpu) == 0,
-           "cortex_m4_get_fault_status(cpu) == 0");
+    expect(&state, cortex_m4_get_fault_status(cpu) == 0, "cortex_m4_get_fault_status(cpu) == 0");
     expect(&state, kinetis_k22_load(device, 0x200, handler, sizeof(handler)),
            "kinetis_k22_load(device, 0x200, handler, sizeof(handler))");
 
@@ -85,8 +84,7 @@ int main(void) {
     expect(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0x00000800u,
            "(cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0x00000800u");
     cortex_m4_step(cpu);
-    expect(&state, cortex_m4_get_register(cpu, 1) == 0,
-           "cortex_m4_get_register(cpu, 1) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 1) == 0, "cortex_m4_get_register(cpu, 1) == 0");
     expect(&state, (cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0,
            "(cortex_m4_get_xpsr(cpu) & 0x0600fc00u) == 0");
     cortex_m4_step(cpu);

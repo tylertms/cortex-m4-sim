@@ -51,9 +51,8 @@ bool cortex_m4_load_elf_data(KinetisK22* device, const void* image, size_t size,
         return false;
     }
     const uint8_t* data = image;
-    bool loaded = size >= ELF_HEADER_SIZE && data[0] == 0x7f && data[1] == 'E' &&
-                  data[2] == 'L' && data[3] == 'F' && data[4] == 1 && data[5] == 1 &&
-                  read_u16(data + 18) == 40;
+    bool loaded = size >= ELF_HEADER_SIZE && data[0] == 0x7f && data[1] == 'E' && data[2] == 'L' &&
+                  data[3] == 'F' && data[4] == 1 && data[5] == 1 && read_u16(data + 18) == 40;
     if (!loaded) {
         return false;
     }
@@ -98,8 +97,7 @@ bool cortex_m4_load_elf_data(KinetisK22* device, const void* image, size_t size,
 
 bool cortex_m4_load_binary_data(KinetisK22* device, const void* data, size_t size,
                                 uint32_t load_address, uint32_t* entry_address) {
-    if (device == NULL || data == NULL ||
-        !kinetis_k22_load(device, load_address, data, size)) {
+    if (device == NULL || data == NULL || !kinetis_k22_load(device, load_address, data, size)) {
         return false;
     }
     if (entry_address != NULL) {
@@ -118,8 +116,8 @@ bool cortex_m4_elf_symbol_data(const void* image, size_t size, const char* name,
         return false;
     }
     const uint8_t* data = image;
-    if (data[0] != 0x7fu || data[1] != 'E' || data[2] != 'L' || data[3] != 'F' ||
-        data[4] != 1u || data[5] != 1u) {
+    if (data[0] != 0x7fu || data[1] != 'E' || data[2] != 'L' || data[3] != 'F' || data[4] != 1u ||
+        data[5] != 1u) {
         return false;
     }
     const uint32_t section_offset = read_u32(data + 32u);
@@ -130,8 +128,7 @@ bool cortex_m4_elf_symbol_data(const void* image, size_t size, const char* name,
         return false;
     }
     for (uint16_t section_index = 0u; section_index < section_count; ++section_index) {
-        const uint8_t* section =
-            data + section_offset + (uint32_t)section_index * section_size;
+        const uint8_t* section = data + section_offset + (uint32_t)section_index * section_size;
         const uint32_t type = read_u32(section + 4u);
         if (type != 2u && type != 11u) {
             continue;
@@ -140,20 +137,17 @@ bool cortex_m4_elf_symbol_data(const void* image, size_t size, const char* name,
         const uint32_t symbols_size = read_u32(section + 20u);
         const uint32_t strings_index = read_u32(section + 24u);
         const uint32_t symbol_size = read_u32(section + 36u);
-        if (symbol_size < 16u || symbol_size > symbols_size ||
-            strings_index >= section_count ||
+        if (symbol_size < 16u || symbol_size > symbols_size || strings_index >= section_count ||
             !range_valid(size, symbols_offset, symbols_size)) {
             continue;
         }
-        const uint8_t* strings_section =
-            data + section_offset + strings_index * section_size;
+        const uint8_t* strings_section = data + section_offset + strings_index * section_size;
         const uint32_t strings_offset = read_u32(strings_section + 16u);
         const uint32_t strings_size = read_u32(strings_section + 20u);
         if (!range_valid(size, strings_offset, strings_size)) {
             continue;
         }
-        for (uint32_t offset = 0u; offset <= symbols_size - symbol_size;
-             offset += symbol_size) {
+        for (uint32_t offset = 0u; offset <= symbols_size - symbol_size; offset += symbol_size) {
             const uint8_t* symbol = data + symbols_offset + offset;
             const uint32_t name_offset = read_u32(symbol);
             if (name_offset >= strings_size) {
@@ -161,8 +155,7 @@ bool cortex_m4_elf_symbol_data(const void* image, size_t size, const char* name,
             }
             const char* symbol_name = (const char*)data + strings_offset + name_offset;
             const size_t available = strings_size - name_offset;
-            if (memchr(symbol_name, '\0', available) != NULL &&
-                strcmp(symbol_name, name) == 0) {
+            if (memchr(symbol_name, '\0', available) != NULL && strcmp(symbol_name, name) == 0) {
                 *address = read_u32(symbol + 4u);
                 return true;
             }

@@ -51,15 +51,14 @@ static K22Timing make_timing(TestState* state, Observations* observations) {
         .reset = reset_signal,
     };
     expect(state,
-           k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212), 8000000u,
-                           32768u, signals),
+           k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212), 8000000u, 32768u,
+                           signals),
            "k22_timing_init(&timing, k22_profile_get(K22_PROFILE_MK22FN51212), 8000000u, "
            "32768u, signals)");
     return timing;
 }
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     const uint8_t size = address >= EWM_CTRL ? 1u : 2u;
     expect(state, k22_timing_write(timing, address, size, value),
            "k22_timing_write(timing, address, size, value)");
@@ -73,8 +72,7 @@ static uint32_t read_register(TestState* state, K22Timing* timing, uint32_t addr
     return value;
 }
 
-static void write_byte(TestState* state, K22Timing* timing, uint32_t address,
-                       uint8_t value) {
+static void write_byte(TestState* state, K22Timing* timing, uint32_t address, uint8_t value) {
     expect(state, k22_timing_write(timing, address, 1u, value),
            "k22_timing_write(timing, address, 1u, value)");
 }
@@ -87,8 +85,7 @@ static uint8_t read_byte(TestState* state, K22Timing* timing, uint32_t address) 
 }
 
 static uint32_t core_cycles_for_bus_cycles(const K22Timing* timing, uint32_t bus_cycles) {
-    return (uint32_t)(((uint64_t)bus_cycles * timing->core_clock_hz + timing->bus_clock_hz -
-                       1u) /
+    return (uint32_t)(((uint64_t)bus_cycles * timing->core_clock_hz + timing->bus_clock_hz - 1u) /
                       timing->bus_clock_hz);
 }
 
@@ -106,8 +103,8 @@ static void unlock(TestState* state, K22Timing* timing) {
     write_register(state, timing, WDOG_UNLOCK, 0xd928u);
 }
 
-static void configure(TestState* state, K22Timing* timing, uint32_t timeout,
-                      uint32_t window, uint16_t control) {
+static void configure(TestState* state, K22Timing* timing, uint32_t timeout, uint32_t window,
+                      uint16_t control) {
     unlock(state, timing);
     write_register(state, timing, WDOG_TOVALH, timeout >> 16u);
     write_register(state, timing, WDOG_TOVALL, timeout);
@@ -188,8 +185,7 @@ static void test_refresh_and_interrupt(TestState* state) {
            "(read_register(state, &timing, WDOG_STCTRLL) & 0x8000u) != 0u");
     write_register(state, &timing, WDOG_STCTRLL, 0x8000u);
     expect(state, !observations.irq, "!observations.irq");
-    const uint32_t before_reset =
-        (uint32_t)(timing.wdog_reset_deadline - timing.wdog_bus_cycles);
+    const uint32_t before_reset = (uint32_t)(timing.wdog_reset_deadline - timing.wdog_bus_cycles);
     advance_bus(&timing, before_reset - 1u);
     expect(state, observations.resets == 0u, "observations.resets == 0u");
     advance_bus(&timing, 1u);
@@ -435,8 +431,7 @@ static void test_external_watchdog(TestState* state) {
     k22_timing_set_debug_halted(&timing, true);
     k22_timing_advance(&timing, core_cycles_for_lpo_cycles(&timing, 4u));
     expect(state, k22_timing_ewm_output(&timing), "k22_timing_ewm_output(&timing)");
-    expect(state, !k22_timing_set_ewm_input(NULL, false),
-           "!k22_timing_set_ewm_input(NULL, false)");
+    expect(state, !k22_timing_set_ewm_input(NULL, false), "!k22_timing_set_ewm_input(NULL, false)");
     expect(state, !k22_timing_ewm_output(NULL), "!k22_timing_ewm_output(NULL)");
 }
 

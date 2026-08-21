@@ -7,14 +7,12 @@ static CortexM4FlagWrite narrow_flag_write(uint16_t opcode) {
         return CORTEX_M4_FLAGS_IMPLICIT;
     }
     if ((opcode & 0xe000u) == 0x2000u) {
-        return (opcode & 0x1800u) == 0x0800u ? CORTEX_M4_FLAGS_EXPLICIT
-                                             : CORTEX_M4_FLAGS_IMPLICIT;
+        return (opcode & 0x1800u) == 0x0800u ? CORTEX_M4_FLAGS_EXPLICIT : CORTEX_M4_FLAGS_IMPLICIT;
     }
     if ((opcode & 0xfc00u) == 0x4000u) {
         const uint8_t operation = (uint8_t)((opcode >> 6) & 15u);
-        return operation == 8u || operation == 10u || operation == 11u
-                   ? CORTEX_M4_FLAGS_EXPLICIT
-                   : CORTEX_M4_FLAGS_IMPLICIT;
+        return operation == 8u || operation == 10u || operation == 11u ? CORTEX_M4_FLAGS_EXPLICIT
+                                                                       : CORTEX_M4_FLAGS_IMPLICIT;
     }
     if ((opcode & 0xfc00u) == 0x4400u && (opcode & 0x0300u) == 0x0100u) {
         return CORTEX_M4_FLAGS_EXPLICIT;
@@ -28,8 +26,8 @@ static bool wide_data_processing(uint16_t first, uint16_t second) {
 }
 
 static bool writes_apsr(uint16_t first, uint16_t second) {
-    const bool msr = (first & 0xfff0u) == 0xf380u && (second & 0xff00u) == 0x8800u &&
-                     (second & 0x00ffu) <= 3u;
+    const bool msr =
+        (first & 0xfff0u) == 0xf380u && (second & 0xff00u) == 0x8800u && (second & 0x00ffu) <= 3u;
     const bool vmrs = first == 0xeef1u && second == 0xfa10u;
     return msr || vmrs;
 }
@@ -48,8 +46,8 @@ CortexM4FlagWrite cortex_m4_it_flag_write(uint16_t first, uint16_t second, bool 
 }
 
 bool cortex_m4_it_condition_passed(const CortexM4* cpu) {
-    return cpu != NULL && (cpu->it_state == 0 ||
-                           cortex_m4_condition_passed(cpu, (uint8_t)(cpu->it_state >> 4)));
+    return cpu != NULL &&
+           (cpu->it_state == 0 || cortex_m4_condition_passed(cpu, (uint8_t)(cpu->it_state >> 4)));
 }
 
 void cortex_m4_it_advance(CortexM4* cpu) {

@@ -43,9 +43,7 @@ const K22PackageSelection* k22_package_default(const K22Profile* profile);
 K22ProfileId k22_package_selection_profile(const K22PackageSelection* selection);
 const K22Package* k22_package_selection_package(const K22PackageSelection* selection);
 uint32_t k22_package_port_pin_mask(const K22PackageSelection* selection, uint8_t port);
-bool k22_package_pin_exists(const K22PackageSelection* selection, uint8_t port,
-                            uint8_t pin);
-bool k22_package_has_peripheral(const K22PackageSelection* selection,
-                                K22PeripheralId peripheral);
+bool k22_package_pin_exists(const K22PackageSelection* selection, uint8_t port, uint8_t pin);
+bool k22_package_has_peripheral(const K22PackageSelection* selection, K22PeripheralId peripheral);
 
 #endif

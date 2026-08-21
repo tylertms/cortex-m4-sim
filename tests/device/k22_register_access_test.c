@@ -55,11 +55,10 @@ static KinetisK22* create_device(TestState* state, const ProfileFixture* fixture
            "kinetis_k22_load(device, 0u, vectors, sizeof(vectors))");
     expect(state, kinetis_k22_load(device, 0x100u, &program, sizeof(program)),
            "kinetis_k22_load(device, 0x100u, &program, sizeof(program))");
-    expect(
-        state,
-        kinetis_k22_load(device, 0x400u, flash_configuration, sizeof(flash_configuration)),
-        "kinetis_k22_load(device, 0x400u, flash_configuration, "
-        "sizeof(flash_configuration))");
+    expect(state,
+           kinetis_k22_load(device, 0x400u, flash_configuration, sizeof(flash_configuration)),
+           "kinetis_k22_load(device, 0x400u, flash_configuration, "
+           "sizeof(flash_configuration))");
     expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     return device;
 }
@@ -67,8 +66,8 @@ static KinetisK22* create_device(TestState* state, const ProfileFixture* fixture
 static void report_mismatch(const K22RegisterDescriptor* descriptor, const char* field,
                             uint32_t actual, uint32_t expected) {
     fprintf(stderr, "register 0x%08lx width %u has %s 0x%08lx, expected 0x%08lx\n",
-            (unsigned long)descriptor->address, descriptor->width, field,
-            (unsigned long)actual, (unsigned long)expected);
+            (unsigned long)descriptor->address, descriptor->width, field, (unsigned long)actual,
+            (unsigned long)expected);
 }
 
 static const K22RegisterDescriptor*
@@ -142,8 +141,8 @@ static void expect_reset_read(TestState* state, KinetisK22* device,
         uses_flash_configuration(descriptor)
             ? width_mask(descriptor->width)
             : widest->reset_mask >> ((descriptor->address - widest->address) * 8u);
-    const uint32_t expected = expected_reset_value(manifest, descriptor) & reset_mask &
-                              width_mask(descriptor->width);
+    const uint32_t expected =
+        expected_reset_value(manifest, descriptor) & reset_mask & width_mask(descriptor->width);
     if (actual != expected) {
         report_mismatch(descriptor, "reset value", actual, expected);
     }

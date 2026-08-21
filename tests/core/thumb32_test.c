@@ -18,12 +18,8 @@ static KinetisK22* create_device(TestState* state) {
 
 static void load_instruction(TestState* state, KinetisK22* device, uint16_t first,
                              uint16_t second) {
-    const uint8_t program[] = {(uint8_t)first,
-                               (uint8_t)(first >> 8),
-                               (uint8_t)second,
-                               (uint8_t)(second >> 8),
-                               0x00,
-                               0xbe};
+    const uint8_t program[] = {
+        (uint8_t)first, (uint8_t)(first >> 8), (uint8_t)second, (uint8_t)(second >> 8), 0x00, 0xbe};
     expect(state, kinetis_k22_load(device, 0x100, program, sizeof(program)),
            "kinetis_k22_load(device, 0x100, program, sizeof(program))");
     expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
@@ -46,12 +42,10 @@ int main(void) {
     cortex_m4_set_register(cpu, 1, 1);
     cortex_m4_set_register(cpu, 3, 4);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 3) == 16,
-           "cortex_m4_get_register(cpu, 3) == 16");
+    expect(&state, cortex_m4_get_register(cpu, 3) == 16, "cortex_m4_get_register(cpu, 3) == 16");
 
     const uint16_t register_shifts[] = {0xfa01u, 0xfa21u, 0xfa41u, 0xfa61u};
-    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]);
-         index++) {
+    for (size_t index = 0; index < sizeof(register_shifts) / sizeof(register_shifts[0]); index++) {
         load_instruction(&state, device, register_shifts[index], 0xf003u);
         cortex_m4_set_register(cpu, 1, 0x81234567u);
         cortex_m4_set_register(cpu, 3, 0);
@@ -67,15 +61,13 @@ int main(void) {
     cortex_m4_set_register(cpu, 2, 100);
     cortex_m4_set_register(cpu, 3, 7);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 3) == 14,
-           "cortex_m4_get_register(cpu, 3) == 14");
+    expect(&state, cortex_m4_get_register(cpu, 3) == 14, "cortex_m4_get_register(cpu, 3) == 14");
 
     load_instruction(&state, device, 0xfb01u, 0xf303u);
     cortex_m4_set_register(cpu, 1, 0x10000u);
     cortex_m4_set_register(cpu, 3, 0x10000u);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 3) == 0,
-           "cortex_m4_get_register(cpu, 3) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 3) == 0, "cortex_m4_get_register(cpu, 3) == 0");
 
     load_instruction(&state, device, 0xfba3u, 0x1302u);
     cortex_m4_set_register(cpu, 3, 0xffffffffu);
@@ -83,8 +75,7 @@ int main(void) {
     execute(&state, device);
     expect(&state, cortex_m4_get_register(cpu, 1) == 0xfffffffeu,
            "cortex_m4_get_register(cpu, 1) == 0xfffffffeu");
-    expect(&state, cortex_m4_get_register(cpu, 3) == 1,
-           "cortex_m4_get_register(cpu, 3) == 1");
+    expect(&state, cortex_m4_get_register(cpu, 3) == 1, "cortex_m4_get_register(cpu, 3) == 1");
 
     load_instruction(&state, device, 0xf3c2u, 0x020eu);
     cortex_m4_set_register(cpu, 2, 0xffffffffu);

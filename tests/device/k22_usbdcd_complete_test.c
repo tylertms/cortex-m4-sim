@@ -27,8 +27,7 @@ static uint32_t read_value(TestState* state, K22UsbDcd* usbdcd, uint32_t address
     return value;
 }
 
-static void write_value(TestState* state, K22UsbDcd* usbdcd, uint32_t address,
-                        uint32_t value) {
+static void write_value(TestState* state, K22UsbDcd* usbdcd, uint32_t address, uint32_t value) {
     expect(state, k22_usbdcd_write(usbdcd, address, 4u, value),
            "k22_usbdcd_write(usbdcd, address, 4u, value)");
 }
@@ -107,8 +106,7 @@ static void test_standard_host(TestState* state) {
            "(read_value(state, &usbdcd, CONTROL) & IF) == 0u");
 }
 
-static void test_bc12(TestState* state, KinetisK22UsbCharger charger,
-                      uint32_t expected_result) {
+static void test_bc12(TestState* state, KinetisK22UsbCharger charger, uint32_t expected_result) {
     K22UsbDcd usbdcd;
     k22_usbdcd_reset(&usbdcd);
     configure(state, &usbdcd, true);
@@ -120,16 +118,13 @@ static void test_bc12(TestState* state, KinetisK22UsbCharger charger,
            "read_value(state, &usbdcd, STATUS) == (ACTIVE | (1u << 18u))");
     expect(state, !k22_usbdcd_irq(&usbdcd), "!k22_usbdcd_irq(&usbdcd)");
     k22_usbdcd_advance(&usbdcd, 2u);
-    expect(state,
-           read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
+    expect(state, read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
            "read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u))");
     expect(state, k22_usbdcd_irq(&usbdcd), "k22_usbdcd_irq(&usbdcd)");
     write_value(state, &usbdcd, CONTROL, IE | BC12 | 1u);
     k22_usbdcd_advance(&usbdcd, 2u);
-    expect(
-        state,
-        read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (expected_result << 16u)),
-        "read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (expected_result << 16u))");
+    expect(state, read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (expected_result << 16u)),
+           "read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (expected_result << 16u))");
     expect(state, k22_usbdcd_irq(&usbdcd), "k22_usbdcd_irq(&usbdcd)");
 }
 
@@ -145,16 +140,13 @@ static void test_bc11_pullup(TestState* state) {
            "read_value(state, &usbdcd, STATUS) == (ACTIVE | (1u << 18u))");
     expect(state, !k22_usbdcd_irq(&usbdcd), "!k22_usbdcd_irq(&usbdcd)");
     k22_usbdcd_advance(&usbdcd, 2u);
-    expect(state,
-           read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
+    expect(state, read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
            "read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u))");
     write_value(state, &usbdcd, CONTROL, IE | 1u);
     k22_usbdcd_advance(&usbdcd, 10u);
-    expect(state,
-           read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
+    expect(state, read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u)),
            "read_value(state, &usbdcd, STATUS) == (ACTIVE | (2u << 18u) | (2u << 16u))");
-    expect(state, k22_usbdcd_set_pullup(&usbdcd, true),
-           "k22_usbdcd_set_pullup(&usbdcd, true)");
+    expect(state, k22_usbdcd_set_pullup(&usbdcd, true), "k22_usbdcd_set_pullup(&usbdcd, true)");
     k22_usbdcd_advance(&usbdcd, 3u);
     expect(state, read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (2u << 16u)),
            "read_value(state, &usbdcd, STATUS) == ((3u << 18u) | (2u << 16u))");
@@ -263,13 +255,11 @@ static void test_copy(TestState* state) {
            "k22_usbdcd_set_charger(&source, KINETIS_K22_USB_CHARGER_DEDICATED)");
     write_value(state, &source, CONTROL, IE | BC12 | START);
     k22_usbdcd_advance(&source, 3u);
-    expect(state, k22_usbdcd_copy(&destination, &source),
-           "k22_usbdcd_copy(&destination, &source)");
+    expect(state, k22_usbdcd_copy(&destination, &source), "k22_usbdcd_copy(&destination, &source)");
     expect(state, memcmp(&destination, &source, sizeof(source)) == 0,
            "memcmp(&destination, &source, sizeof(source)) == 0");
     expect(state, !k22_usbdcd_copy(NULL, &source), "!k22_usbdcd_copy(NULL, &source)");
-    expect(state, !k22_usbdcd_copy(&destination, NULL),
-           "!k22_usbdcd_copy(&destination, NULL)");
+    expect(state, !k22_usbdcd_copy(&destination, NULL), "!k22_usbdcd_copy(&destination, NULL)");
     k22_usbdcd_advance(NULL, 1u);
     k22_usbdcd_advance(&destination, 0u);
 }

@@ -44,8 +44,7 @@ static void test_special_registers(Fixture* fixture) {
     fixture->cpu->basepri = 0x80u;
     fixture->cpu->faultmask = 1u;
     fixture->cpu->control = 3u;
-    const uint8_t selectors[] = {0u, 1u,  2u,  3u,  5u,  6u,  7u, 8u,
-                                 9u, 16u, 17u, 18u, 19u, 20u, 31u};
+    const uint8_t selectors[] = {0u, 1u, 2u, 3u, 5u, 6u, 7u, 8u, 9u, 16u, 17u, 18u, 19u, 20u, 31u};
     const uint32_t expected[] = {0xa0000000u, 0xa0000007u, 0x01000000u, 0xa1000007u, 7u,
                                  0x01000000u, 0x01000007u, 0x20001000u, 0x20002000u, 1u,
                                  0x80u,       0x80u,       1u,          3u,          0u};
@@ -59,13 +58,10 @@ static void test_special_registers(Fixture* fixture) {
     const uint8_t write_selectors[] = {0u, 8u, 9u, 16u, 17u, 18u, 19u, 20u};
     for (size_t index = 0u; index < sizeof(write_selectors); index++)
         execute(fixture, 0xf381u, (uint16_t)(0x8800u | write_selectors[index]));
-    expect(fixture->state, fixture->cpu->msp == 0xa00000f4u,
-           "fixture->cpu->msp == 0xa00000f4u");
-    expect(fixture->state, fixture->cpu->psp == 0xa00000f4u,
-           "fixture->cpu->psp == 0xa00000f4u");
+    expect(fixture->state, fixture->cpu->msp == 0xa00000f4u, "fixture->cpu->msp == 0xa00000f4u");
+    expect(fixture->state, fixture->cpu->psp == 0xa00000f4u, "fixture->cpu->psp == 0xa00000f4u");
     expect(fixture->state, fixture->cpu->primask == 1u, "fixture->cpu->primask == 1u");
-    expect(fixture->state, fixture->cpu->basepri == 0xf0u,
-           "fixture->cpu->basepri == 0xf0u");
+    expect(fixture->state, fixture->cpu->basepri == 0xf0u, "fixture->cpu->basepri == 0xf0u");
     expect(fixture->state, fixture->cpu->faultmask == 1u, "fixture->cpu->faultmask == 1u");
     expect(fixture->state, fixture->cpu->control == 7u, "fixture->cpu->control == 7u");
 
@@ -73,8 +69,7 @@ static void test_special_registers(Fixture* fixture) {
     fixture->cpu->basepri = 0xf0u;
     fixture->cpu->registers[1] = 0x80u;
     execute(fixture, 0xf381u, 0x8812u);
-    expect(fixture->state, fixture->cpu->basepri == 0x80u,
-           "fixture->cpu->basepri == 0x80u");
+    expect(fixture->state, fixture->cpu->basepri == 0x80u, "fixture->cpu->basepri == 0x80u");
 
     fixture->cpu->xpsr = CORTEX_M4_XPSR_T;
     fixture->cpu->control = CORTEX_M4_CONTROL_NPRIV;
@@ -86,15 +81,13 @@ static void test_special_registers(Fixture* fixture) {
 
 static void test_immediates(Fixture* fixture) {
     execute(fixture, 0xf240u, 0x0101u);
-    expect(fixture->state, fixture->cpu->registers[1] == 1u,
-           "fixture->cpu->registers[1] == 1u");
+    expect(fixture->state, fixture->cpu->registers[1] == 1u, "fixture->cpu->registers[1] == 1u");
     execute(fixture, 0xf2c1u, 0x2100u);
     expect(fixture->state, fixture->cpu->registers[1] == 0x12000001u,
            "fixture->cpu->registers[1] == 0x12000001u");
 
     const uint16_t immediates[] = {0x0012u, 0x1012u, 0x2012u, 0x3012u, 0x4001u};
-    const uint32_t expected[] = {0x00000012u, 0x00120012u, 0x12001200u, 0x12121212u,
-                                 0x81000000u};
+    const uint32_t expected[] = {0x00000012u, 0x00120012u, 0x12001200u, 0x12121212u, 0x81000000u};
     for (size_t index = 0u; index < sizeof(immediates) / sizeof(immediates[0]); index++) {
         fixture->cpu->registers[1] = 0u;
         execute(fixture, 0xf041u, immediates[index]);
@@ -121,17 +114,14 @@ static void test_arithmetic(Fixture* fixture) {
     fixture->cpu->registers[1] = 10u;
     fixture->cpu->registers[2] = 3u;
     execute(fixture, 0xfb91u, 0xf0f2u);
-    expect(fixture->state, fixture->cpu->registers[0] == 3u,
-           "fixture->cpu->registers[0] == 3u");
+    expect(fixture->state, fixture->cpu->registers[0] == 3u, "fixture->cpu->registers[0] == 3u");
     execute(fixture, 0xfbb1u, 0xf0f2u);
-    expect(fixture->state, fixture->cpu->registers[0] == 3u,
-           "fixture->cpu->registers[0] == 3u");
+    expect(fixture->state, fixture->cpu->registers[0] == 3u, "fixture->cpu->registers[0] == 3u");
 
     fixture->cpu->ccr = 0u;
     fixture->cpu->registers[2] = 0u;
     execute(fixture, 0xfbb1u, 0xf0f2u);
-    expect(fixture->state, fixture->cpu->registers[0] == 0u,
-           "fixture->cpu->registers[0] == 0u");
+    expect(fixture->state, fixture->cpu->registers[0] == 0u, "fixture->cpu->registers[0] == 0u");
     fixture->cpu->ccr = 1u << 4u;
     fixture->cpu->cfsr = 0u;
     execute(fixture, 0xfbb1u, 0xf0f2u);
@@ -150,8 +140,7 @@ static void test_arithmetic(Fixture* fixture) {
     fixture->cpu->registers[2] = 6u;
     fixture->cpu->registers[3] = 5u;
     execute(fixture, 0xfb01u, 0x3002u);
-    expect(fixture->state, fixture->cpu->registers[0] == 47u,
-           "fixture->cpu->registers[0] == 47u");
+    expect(fixture->state, fixture->cpu->registers[0] == 47u, "fixture->cpu->registers[0] == 47u");
 
     fixture->cpu->registers[1] = UINT32_MAX;
     fixture->cpu->registers[2] = 2u;
@@ -163,8 +152,7 @@ static void test_arithmetic(Fixture* fixture) {
     execute(fixture, 0xfba1u, 0x0302u);
     expect(fixture->state, fixture->cpu->registers[0] == 0xfffffffeu,
            "fixture->cpu->registers[0] == 0xfffffffeu");
-    expect(fixture->state, fixture->cpu->registers[3] == 1u,
-           "fixture->cpu->registers[3] == 1u");
+    expect(fixture->state, fixture->cpu->registers[3] == 1u, "fixture->cpu->registers[3] == 1u");
 
     fixture->cpu->registers[0] = 1u;
     fixture->cpu->registers[3] = 0u;
@@ -189,11 +177,9 @@ static void test_memory_and_exclusive(Fixture* fixture) {
     const uint32_t address = 0x20000100u;
     uint16_t halfword = 0x1234u;
     uint8_t byte = 0x5au;
-    expect(fixture->state,
-           kinetis_k22_write(fixture->device, address, &halfword, sizeof(halfword)),
+    expect(fixture->state, kinetis_k22_write(fixture->device, address, &halfword, sizeof(halfword)),
            "kinetis_k22_write(fixture->device, address, &halfword, sizeof(halfword))");
-    expect(fixture->state,
-           kinetis_k22_write(fixture->device, address + 2u, &byte, sizeof(byte)),
+    expect(fixture->state, kinetis_k22_write(fixture->device, address + 2u, &byte, sizeof(byte)),
            "kinetis_k22_write(fixture->device, address + 2u, &byte, sizeof(byte))");
     fixture->cpu->registers[1] = address + 2u;
     execute(fixture, 0xe8d1u, 0x0f4fu);
@@ -201,16 +187,13 @@ static void test_memory_and_exclusive(Fixture* fixture) {
            "fixture->cpu->registers[0] == byte");
     fixture->cpu->registers[2] = 0xa5u;
     execute(fixture, 0xe8c1u, 0x2f40u);
-    expect(fixture->state, fixture->cpu->registers[0] == 0u,
-           "fixture->cpu->registers[0] == 0u");
-    expect(fixture->state,
-           kinetis_k22_read(fixture->device, address + 2u, &byte, sizeof(byte)),
+    expect(fixture->state, fixture->cpu->registers[0] == 0u, "fixture->cpu->registers[0] == 0u");
+    expect(fixture->state, kinetis_k22_read(fixture->device, address + 2u, &byte, sizeof(byte)),
            "kinetis_k22_read(fixture->device, address + 2u, &byte, sizeof(byte))");
     expect(fixture->state, byte == 0xa5u, "byte == 0xa5u");
 
     const uint32_t branch = 0x121u;
-    expect(fixture->state,
-           kinetis_k22_load(fixture->device, 0x104u, &branch, sizeof(branch)),
+    expect(fixture->state, kinetis_k22_load(fixture->device, 0x104u, &branch, sizeof(branch)),
            "kinetis_k22_load(fixture->device, 0x104u, &branch, sizeof(branch))");
     execute(fixture, 0xf8dfu, 0xf000u);
     expect(fixture->state, fixture->cpu->registers[15] == 0x120u,
@@ -229,8 +212,7 @@ static void test_memory_and_exclusive(Fixture* fixture) {
            "fixture->cpu->registers[0] == 0x11u");
 
     byte = 0x80u;
-    expect(fixture->state,
-           kinetis_k22_write(fixture->device, address + 1u, &byte, sizeof(byte)),
+    expect(fixture->state, kinetis_k22_write(fixture->device, address + 1u, &byte, sizeof(byte)),
            "kinetis_k22_write(fixture->device, address + 1u, &byte, sizeof(byte))");
     fixture->cpu->registers[1] = address;
     execute(fixture, 0xf911u, 0x0701u);
@@ -255,8 +237,7 @@ static void test_memory_and_exclusive(Fixture* fixture) {
     expect(fixture->state, fixture->cpu->registers[2] == 0x11121314u,
            "fixture->cpu->registers[2] == 0x11121314u");
     execute(fixture, 0xf3bfu, 0x8f2fu);
-    expect(fixture->state, !fixture->cpu->exclusive_valid,
-           "!fixture->cpu->exclusive_valid");
+    expect(fixture->state, !fixture->cpu->exclusive_valid, "!fixture->cpu->exclusive_valid");
 
     fixture->cpu->registers[4] = address + 0x20u;
     fixture->cpu->ici_valid = true;

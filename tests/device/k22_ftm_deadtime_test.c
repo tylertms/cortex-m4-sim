@@ -17,8 +17,7 @@ enum {
     FTM0_SWOCTRL = 0x40038094u,
 };
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     expect(state, k22_timing_write(timing, address, 4u, value),
            "k22_timing_write(timing, address, 4u, value)");
 }
@@ -46,8 +45,8 @@ static void expect_pair(TestState* state, K22Timing* timing, bool first, bool se
     expect(state, !(first_output && second_output), "!(first_output && second_output)");
 }
 
-static void configure_pwm(TestState* state, K22Timing* timing, uint32_t combine,
-                          uint32_t deadtime, uint16_t compare, uint16_t modulo) {
+static void configure_pwm(TestState* state, K22Timing* timing, uint32_t combine, uint32_t deadtime,
+                          uint16_t compare, uint16_t modulo) {
     initialize(state, timing);
     write_register(state, timing, FTM0_MOD, modulo);
     write_register(state, timing, FTM0_COMBINE, combine);
@@ -60,8 +59,8 @@ static void configure_pwm(TestState* state, K22Timing* timing, uint32_t combine,
     write_register(state, timing, FTM0_SC, 8u);
 }
 
-static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cycles,
-                               bool first, bool second) {
+static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cycles, bool first,
+                               bool second) {
     k22_timing_advance(timing, cycles);
     expect_pair(state, timing, first, second);
 }
@@ -69,11 +68,9 @@ static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cyc
 static void test_pair_transitions(TestState* state) {
     K22Timing timing;
     configure_pwm(state, &timing, 0x13u, 2u, 4u, 7u);
-    expect(state, timing.ftm[0].registers[4] == 0x13u,
-           "timing.ftm[0].registers[4] == 0x13u");
+    expect(state, timing.ftm[0].registers[4] == 0x13u, "timing.ftm[0].registers[4] == 0x13u");
     expect(state, timing.ftm[0].registers[5] == 2u, "timing.ftm[0].registers[5] == 2u");
-    expect(state, timing.ftm[0].channel_sc[0] == 0x28u,
-           "timing.ftm[0].channel_sc[0] == 0x28u");
+    expect(state, timing.ftm[0].channel_sc[0] == 0x28u, "timing.ftm[0].channel_sc[0] == 0x28u");
     k22_timing_advance(&timing, 1u);
     expect(state, timing.ftm[0].channel_deadtime_remaining[0] == 2u,
            "timing.ftm[0].channel_deadtime_remaining[0] == 2u");
@@ -200,8 +197,7 @@ static void test_duty_suppression_and_aggregate_steps(TestState* state) {
     for (uint8_t cycle = 0u; cycle < 64u; cycle++)
         k22_timing_advance(&stepped, 1u);
     for (uint8_t channel = 0u; channel < 2u; channel++)
-        expect(state,
-               output(state, &aggregate, channel) == output(state, &stepped, channel),
+        expect(state, output(state, &aggregate, channel) == output(state, &stepped, channel),
                "output(state, &aggregate, channel) == output(state, &stepped, channel)");
     expect(state,
            aggregate.ftm[0].channel_deadtime_remaining[0] ==
@@ -222,8 +218,7 @@ static void test_duty_suppression_and_aggregate_steps(TestState* state) {
     configure_pwm(state, &short_second, 0x13u, 4u, 6u, 7u);
     for (uint8_t cycle = 0u; cycle < 32u; cycle++) {
         k22_timing_advance(&short_second, 1u);
-        expect(state, !output(state, &short_second, 1u),
-               "!output(state, &short_second, 1u)");
+        expect(state, !output(state, &short_second, 1u), "!output(state, &short_second, 1u)");
     }
 }
 

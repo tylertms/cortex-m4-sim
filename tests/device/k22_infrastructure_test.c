@@ -65,8 +65,7 @@ static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -90,8 +89,7 @@ static void write8(TestState* state, KinetisK22* device, uint32_t address, uint8
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
-static void write16(TestState* state, KinetisK22* device, uint32_t address,
-                    uint16_t value) {
+static void write16(TestState* state, KinetisK22* device, uint32_t address, uint16_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -145,8 +143,7 @@ static void test_cmt(TestState* state, KinetisK22* device) {
            "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
     expect(state, read16(state, device, DMA_TCD0 + 0x16u) == 1u,
            "read16(state, device, DMA_TCD0 + 0x16u) == 1u");
-    expect(state, read16(state, device, DMA_ERQ) == 0u,
-           "read16(state, device, DMA_ERQ) == 0u");
+    expect(state, read16(state, device, DMA_ERQ) == 0u, "read16(state, device, DMA_ERQ) == 0u");
     write8(state, device, CMT_CMD2, 1u);
     expect(state, (read8(state, device, CMT_MSC) & 0x80u) == 0u,
            "(read8(state, device, CMT_MSC) & 0x80u) == 0u");
@@ -192,8 +189,7 @@ static void test_timing_dma(TestState* state, KinetisK22* device) {
 
 static void test_usbdcd(TestState* state, KinetisK22* device) {
     write32(state, device, SIM_SCGC6, read32(state, device, SIM_SCGC6) | (1u << 21u));
-    expect(state,
-           kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_STANDARD_HOST),
+    expect(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_STANDARD_HOST),
            "kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_STANDARD_HOST)");
     write32(state, device, USBDCD_CLOCK, 1u << 2u);
     write32(state, device, USBDCD_TIMER0, 0u);
@@ -213,8 +209,7 @@ static void test_usbdcd(TestState* state, KinetisK22* device) {
     expect(state, (read32(state, device, USBDCD_CONTROL) & (1u << 8u)) == 0u,
            "(read32(state, device, USBDCD_CONTROL) & (1u << 8u)) == 0u");
     write32(state, device, USBDCD_CONTROL, (1u << 16u) | (1u << 25u));
-    expect(state,
-           kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_CHARGING_PORT),
+    expect(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_CHARGING_PORT),
            "kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_CHARGING_PORT)");
     write32(state, device, USBDCD_CONTROL, (1u << 17u) | (1u << 16u) | (1u << 24u));
     kinetis_k22_advance(device, 5u);
@@ -248,8 +243,8 @@ static void test_usbdcd(TestState* state, KinetisK22* device) {
     expect(state, read32(state, device, USBDCD_TIMER2) == 0u,
            "read32(state, device, USBDCD_TIMER2) == 0u");
     expect(state,
-           !kinetis_k22_set_usb_charger(
-               device, (KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_ERROR + 1)),
+           !kinetis_k22_set_usb_charger(device,
+                                        (KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_ERROR + 1)),
            "!kinetis_k22_set_usb_charger( device, "
            "(KinetisK22UsbCharger)(KINETIS_K22_USB_CHARGER_ERROR + 1))");
 }
@@ -258,28 +253,23 @@ static void test_access_controls(TestState* state, KinetisK22* device) {
     write32(state, device, AIPS0_PACRI, 1u << 20u);
     uint32_t value = 0u;
     expect(state,
-           kinetis_k22_peripheral_read(device, CMT_MSC, 1u,
-                                       CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value),
+           kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                                       &value),
            "kinetis_k22_peripheral_read(device, CMT_MSC, 1u, "
            "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value)");
     write32(state, device, AIPS0_PACRI, 6u << 20u);
     expect(state,
-           !kinetis_k22_peripheral_read(device, CMT_MSC, 1u,
-                                        CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value),
+           !kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA,
+                                        &value),
            "!kinetis_k22_peripheral_read(device, CMT_MSC, 1u, "
            "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, &value)");
     cortex_m4_set_control(kinetis_k22_cpu(device), CORTEX_M4_CONTROL_NPRIV);
-    expect(
-        state,
-        !kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value),
-        "!kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value)");
+    expect(state, !kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value),
+           "!kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     cortex_m4_set_control(kinetis_k22_cpu(device), 0u);
-    expect(
-        state,
-        kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value),
-        "kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value)");
-    expect(state,
-           !kinetis_k22_peripheral_write(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, 0u),
+    expect(state, kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value),
+           "kinetis_k22_peripheral_read(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, &value)");
+    expect(state, !kinetis_k22_peripheral_write(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, 0u),
            "!kinetis_k22_peripheral_write(device, CMT_MSC, 1u, CORTEX_M4_ACCESS_DATA, 0u)");
     write32(state, device, AIPS0_PACRI, 0u);
 
@@ -289,13 +279,11 @@ static void test_access_controls(TestState* state, KinetisK22* device) {
            "!kinetis_k22_write(device, AXBS_PRS0, &priority, sizeof(priority))");
 
     write32(state, device, FMC_PFAPR, 0u);
-    expect(
-        state,
-        !kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
-        "!kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_INSTRUCTION, "
-        "&value)");
     expect(state,
-           kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_DEBUG, &value),
+           !kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
+           "!kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_INSTRUCTION, "
+           "&value)");
+    expect(state, kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_DEBUG, &value),
            "kinetis_k22_memory_read(device, 0x100u, 2u, CORTEX_M4_ACCESS_DEBUG, &value)");
 }
 

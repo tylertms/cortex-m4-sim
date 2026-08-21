@@ -20,8 +20,8 @@ enum {
     SYSMPU_RGD0_WORD3 = 0x4000d40cu,
 };
 
-static void write_debug(TestState* state, KinetisK22* device, uint32_t address,
-                        const void* value, size_t size) {
+static void write_debug(TestState* state, KinetisK22* device, uint32_t address, const void* value,
+                        size_t size) {
     expect(state, kinetis_k22_write(device, address, value, size),
            "kinetis_k22_write(device, address, value, size)");
 }
@@ -33,16 +33,13 @@ static uint32_t read_debug(TestState* state, KinetisK22* device, uint32_t addres
     return value;
 }
 
-static void configure_region(TestState* state, KinetisK22* device,
-                             uint32_t access_control) {
+static void configure_region(TestState* state, KinetisK22* device, uint32_t access_control) {
     for (uint8_t region = 0; region < 12u; region++) {
         const uint32_t valid = SYSMPU_RGD0_WORD3 + (uint32_t)region * 16u;
         write_debug(state, device, valid, &(uint32_t){0}, sizeof(uint32_t));
     }
-    write_debug(state, device, SYSMPU_RGD0_WORD0, &(uint32_t){0x20000000u},
-                sizeof(uint32_t));
-    write_debug(state, device, SYSMPU_RGD0_WORD1, &(uint32_t){0x200000ffu},
-                sizeof(uint32_t));
+    write_debug(state, device, SYSMPU_RGD0_WORD0, &(uint32_t){0x20000000u}, sizeof(uint32_t));
+    write_debug(state, device, SYSMPU_RGD0_WORD1, &(uint32_t){0x200000ffu}, sizeof(uint32_t));
     write_debug(state, device, SYSMPU_RGD0_WORD2, &access_control, sizeof(access_control));
     write_debug(state, device, SYSMPU_RGD0_WORD3, &(uint32_t){1u}, sizeof(uint32_t));
 }
@@ -76,21 +73,18 @@ int main(void) {
 
     configure_region(&state, device, (2u << 3u) | (1u << 9u) | (1u << 15u));
     uint32_t value = 0;
-    expect(
-        &state,
-        !kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
-        "!kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_INSTRUCTION, "
-        "&value)");
+    expect(&state,
+           !kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_INSTRUCTION, &value),
+           "!kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_INSTRUCTION, "
+           "&value)");
     expect(&state, read_debug(&state, device, SYSMPU_EAR0) == source,
            "read_debug(&state, device, SYSMPU_EAR0) == source");
     expect(&state, (read_debug(&state, device, SYSMPU_EDR0) & 0x0ff00000u) == 0x00200000u,
            "(read_debug(&state, device, SYSMPU_EDR0) & 0x0ff00000u) == 0x00200000u");
-    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u},
-                sizeof(uint32_t));
+    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u}, sizeof(uint32_t));
 
     configure_region(&state, device, (1u << 9u) | (1u << 15u));
-    expect(&state,
-           read_debug(&state, device, SYSMPU_RGD0_WORD2) == ((1u << 9u) | (1u << 15u)),
+    expect(&state, read_debug(&state, device, SYSMPU_RGD0_WORD2) == ((1u << 9u) | (1u << 15u)),
            "read_debug(&state, device, SYSMPU_RGD0_WORD2) == ((1u << 9u) | (1u << 15u))");
     expect(&state, (read_debug(&state, device, SYSMPU_RGD0_WORD3) & 1u) != 0u,
            "(read_debug(&state, device, SYSMPU_RGD0_WORD3) & 1u) != 0u");
@@ -98,28 +92,22 @@ int main(void) {
            "(read_debug(&state, device, SYSMPU_CESR) & 1u) != 0u");
     expect(&state, k22_io_clock_enabled(&device->io, K22_PERIPHERAL_SYSMPU),
            "k22_io_clock_enabled(&device->io, K22_PERIPHERAL_SYSMPU)");
-    expect(&state,
-           !k22_io_sysmpu_access(&device->io, destination, 2u, true, K22_SYSMPU_WRITE),
+    expect(&state, !k22_io_sysmpu_access(&device->io, destination, 2u, true, K22_SYSMPU_WRITE),
            "!k22_io_sysmpu_access(&device->io, destination, 2u, true, K22_SYSMPU_WRITE)");
-    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u},
-                sizeof(uint32_t));
-    expect(&state,
-           kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_DATA, &value),
+    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u}, sizeof(uint32_t));
+    expect(&state, kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_DATA, &value),
            "kinetis_k22_memory_read(device, source, 1u, CORTEX_M4_ACCESS_DATA, &value)");
     expect(&state, value == source_value, "value == source_value");
-    expect(&state,
-           !kinetis_k22_memory_write(device, source, 1u, CORTEX_M4_ACCESS_DATA, 0xa5u),
+    expect(&state, !kinetis_k22_memory_write(device, source, 1u, CORTEX_M4_ACCESS_DATA, 0xa5u),
            "!kinetis_k22_memory_write(device, source, 1u, CORTEX_M4_ACCESS_DATA, 0xa5u)");
     expect(&state, read_debug(&state, device, SYSMPU_EAR0) == source,
            "read_debug(&state, device, SYSMPU_EAR0) == source");
     expect(&state, (read_debug(&state, device, SYSMPU_EDR0) & 0x0ff00000u) == 0x01100000u,
            "(read_debug(&state, device, SYSMPU_EDR0) & 0x0ff00000u) == 0x01100000u");
-    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u},
-                sizeof(uint32_t));
+    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u}, sizeof(uint32_t));
     expect(&state, !kinetis_k22_dma_write(device, destination, 1u, 0xa5u),
            "!kinetis_k22_dma_write(device, destination, 1u, 0xa5u)");
-    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u},
-                sizeof(uint32_t));
+    write_debug(&state, device, SYSMPU_CESR, &(uint32_t){(1u << 27u) | 1u}, sizeof(uint32_t));
 
     configure_transfer(&state, device, source, destination);
     write_debug(&state, device, DMA_SSRT, &(uint8_t){0}, sizeof(uint8_t));

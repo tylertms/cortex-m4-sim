@@ -77,8 +77,7 @@ static bool bus_write(void* context, uint32_t address, uint8_t size, uint32_t va
     }
     if (address >= RAM_BASE && address - RAM_BASE <= sizeof(bus->ram) - size) {
         store(bus->ram, address - RAM_BASE, size, value);
-        if (bus->dma_write_count <
-            sizeof(bus->dma_write_values) / sizeof(bus->dma_write_values[0]))
+        if (bus->dma_write_count < sizeof(bus->dma_write_values) / sizeof(bus->dma_write_values[0]))
             bus->dma_write_values[bus->dma_write_count++] = value;
         return true;
     }
@@ -98,8 +97,7 @@ static K22Data* create(TestState* state, TestBus* bus, K22ProfileId profile) {
     return data;
 }
 
-static K22Data* create_without_program(TestState* state, TestBus* bus,
-                                       K22ProfileId profile) {
+static K22Data* create_without_program(TestState* state, TestBus* bus, K22ProfileId profile) {
     K22DataBus callbacks = {bus, bus_read, bus_write, NULL, bus_interrupt, NULL};
     K22Data* data = k22_data_create(k22_profile_get(profile), callbacks);
     expect(state, data != NULL, "data != NULL");
@@ -107,8 +105,7 @@ static K22Data* create_without_program(TestState* state, TestBus* bus,
     return data;
 }
 
-static uint32_t read_value(TestState* state, K22Data* data, uint32_t address,
-                           uint8_t size) {
+static uint32_t read_value(TestState* state, K22Data* data, uint32_t address, uint8_t size) {
     uint32_t value = 0;
     expect(state, k22_data_read(data, address, size, &value),
            "k22_data_read(data, address, size, &value)");
@@ -122,8 +119,7 @@ static void write_value(TestState* state, K22Data* data, uint32_t address, uint8
 }
 
 static uint32_t flash_fccob_address(uint8_t index) {
-    static const uint8_t offsets[12] = {7u, 6u, 5u,  4u,  11u, 10u,
-                                        9u, 8u, 15u, 14u, 13u, 12u};
+    static const uint8_t offsets[12] = {7u, 6u, 5u, 4u, 11u, 10u, 9u, 8u, 15u, 14u, 13u, 12u};
     return FTFA + offsets[index];
 }
 
@@ -174,10 +170,8 @@ static void test_profile_boundaries(TestState* state) {
     TestBus bus = {0};
     K22Data* small = create(state, &bus, K22_PROFILE_MK22F12810);
     uint32_t value = 0;
-    expect(state, !k22_data_read(small, RNG, 4, &value),
-           "!k22_data_read(small, RNG, 4, &value)");
-    expect(state, !k22_data_read(small, DAC1, 1, &value),
-           "!k22_data_read(small, DAC1, 1, &value)");
+    expect(state, !k22_data_read(small, RNG, 4, &value), "!k22_data_read(small, RNG, 4, &value)");
+    expect(state, !k22_data_read(small, DAC1, 1, &value), "!k22_data_read(small, DAC1, 1, &value)");
     expect(state, !k22_data_read(small, DMAMUX + 4, 1, &value),
            "!k22_data_read(small, DMAMUX + 4, 1, &value)");
     expect(state, k22_data_read(small, DMAMUX + 3, 1, &value),
@@ -188,10 +182,8 @@ static void test_profile_boundaries(TestState* state) {
            "!k22_data_set_cmp_input(small, 2, 0, 0)");
     k22_data_destroy(small);
     K22Data* large = create(state, &bus, K22_PROFILE_MK22FN51212);
-    expect(state, k22_data_read(large, RNG, 4, &value),
-           "k22_data_read(large, RNG, 4, &value)");
-    expect(state, k22_data_read(large, DAC1, 1, &value),
-           "k22_data_read(large, DAC1, 1, &value)");
+    expect(state, k22_data_read(large, RNG, 4, &value), "k22_data_read(large, RNG, 4, &value)");
+    expect(state, k22_data_read(large, DAC1, 1, &value), "k22_data_read(large, DAC1, 1, &value)");
     k22_data_destroy(large);
 }
 
@@ -200,23 +192,19 @@ static void test_dma(TestState* state) {
     K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
     for (uint8_t index = 0; index < 8; index++)
         bus.ram[index] = (uint8_t)(0x80u + index);
-    write_tcd(state, data, TCD0, RAM_BASE, 2, 0x0101u, 4, -8, RAM_BASE + 0x100, 2, 2, -8,
-              0x0eu);
+    write_tcd(state, data, TCD0, RAM_BASE, 2, 0x0101u, 4, -8, RAM_BASE + 0x100, 2, 2, -8, 0x0eu);
     write_value(state, data, DMAMUX, 1, 0x80u | 16u);
     write_value(state, data, DMA + 0x1b, 1, 0);
     k22_data_dma_request(data, 16u);
     k22_data_advance(data, 1);
-    expect(state, load(bus.ram, 0x100, 4) == 0x83828180u,
-           "load(bus.ram, 0x100, 4) == 0x83828180u");
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_DMA0],
-           "bus.interrupt[K22_DATA_INTERRUPT_DMA0]");
+    expect(state, load(bus.ram, 0x100, 4) == 0x83828180u, "load(bus.ram, 0x100, 4) == 0x83828180u");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_DMA0], "bus.interrupt[K22_DATA_INTERRUPT_DMA0]");
     write_value(state, data, DMA + 0x1f, 1, 0);
     expect(state, !bus.interrupt[K22_DATA_INTERRUPT_DMA0],
            "!bus.interrupt[K22_DATA_INTERRUPT_DMA0]");
     k22_data_dma_request(data, 16u);
     k22_data_advance(data, 1);
-    expect(state, load(bus.ram, 0x104, 4) == 0x87868584u,
-           "load(bus.ram, 0x104, 4) == 0x87868584u");
+    expect(state, load(bus.ram, 0x104, 4) == 0x87868584u, "load(bus.ram, 0x104, 4) == 0x87868584u");
     expect(state, (read_value(state, data, TCD0 + 0x1c, 2) & 0x80u) != 0,
            "(read_value(state, data, TCD0 + 0x1c, 2) & 0x80u) != 0");
     expect(state, (read_value(state, data, DMA + 0x0c, 2) & 1u) == 0,
@@ -249,8 +237,7 @@ static void test_dma_advanced(TestState* state) {
     K22Data* data = create(state, &bus, K22_PROFILE_MK22FN51212);
     bus.ram[0x10] = 0x5au;
     bus.ram[0x20] = 0xa5u;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x10, 1, 0, 1, 0, RAM_BASE + 0x110, 1, 0x8201u,
-              0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x10, 1, 0, 1, 0, RAM_BASE + 0x110, 1, 0x8201u, 0, 0);
     write_tcd(state, data, TCD1, RAM_BASE + 0x20, 1, 0, 1, 0, RAM_BASE + 0x120, 1, 1, 0, 0);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
@@ -261,8 +248,8 @@ static void test_dma_advanced(TestState* state) {
     bus.ram[0x30] = 0x11u;
     bus.ram[0x31] = 0x22u;
     store_tcd(&bus, next, RAM_BASE + 0x31, 1, 0, 1, 0, RAM_BASE + 0x131, 1, 1, 0, 0);
-    write_tcd(state, data, TCD0, RAM_BASE + 0x30, 1, 0, 1, 0, RAM_BASE + 0x130, 1, 1,
-              (int32_t)next, 0x10u);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x30, 1, 0, 1, 0, RAM_BASE + 0x130, 1, 1, (int32_t)next,
+              0x10u);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     expect(state, bus.ram[0x130] == 0x11u, "bus.ram[0x130] == 0x11u");
@@ -276,14 +263,12 @@ static void test_dma_advanced(TestState* state) {
     bus.ram[0x600] = 0;
     bus.ram[0x601] = 1;
     bus.ram[0x602] = 2;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x603, 1, 2u << 11, 2, 0, RAM_BASE + 0x700, 1,
-              2, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x603, 1, 2u << 11, 2, 0, RAM_BASE + 0x700, 1, 2, 0, 0);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
     write_value(state, data, DMA + 0x1d, 1, 0);
     k22_data_advance(data, 1);
-    expect(state, load(bus.ram, 0x700, 4) == 0x02010003u,
-           "load(bus.ram, 0x700, 4) == 0x02010003u");
+    expect(state, load(bus.ram, 0x700, 4) == 0x02010003u, "load(bus.ram, 0x700, 4) == 0x02010003u");
 
     for (uint8_t index = 0; index < 8; index++)
         bus.ram[0x800 + index] = index;
@@ -315,8 +300,7 @@ static void test_dma_advanced(TestState* state) {
     write_value(state, data, DMA + 0x1eu, 1, 0u);
 
     bus.ram[0x40] = 0x3cu;
-    write_tcd(state, data, TCD0, RAM_BASE + 0x40u, 1, 0, 1, 0, RAM_BASE + 0x140u, 1, 1, 0,
-              0x0120u);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x40u, 1, 0, 1, 0, RAM_BASE + 0x140u, 1, 1, 0, 0x0120u);
     bus.observe_dma_active = true;
     write_value(state, data, DMA + 0x1du, 1, 0u);
     k22_data_advance(data, 1u);
@@ -330,8 +314,8 @@ static void test_dma_advanced(TestState* state) {
 
     bus.ram[0x50u] = 0x7eu;
     write_value(state, data, DMA, 4, 0x80u);
-    write_tcd(state, data, TCD0, RAM_BASE + 0x50u, 1, 0,
-              0xc0000000u | (0xfffffu << 10u) | 1u, 0, RAM_BASE + 0x150u, 1, 2, 0, 0);
+    write_tcd(state, data, TCD0, RAM_BASE + 0x50u, 1, 0, 0xc0000000u | (0xfffffu << 10u) | 1u, 0,
+              RAM_BASE + 0x150u, 1, 2, 0, 0);
     write_value(state, data, DMA + 0x1du, 1, 0u);
     k22_data_advance(data, 1u);
     write_value(state, data, DMA + 0x1du, 1, 0u);
@@ -344,8 +328,8 @@ static void test_dma_advanced(TestState* state) {
     k22_data_destroy(data);
 }
 
-static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd,
-                                    uint32_t source, uint32_t destination);
+static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd, uint32_t source,
+                                    uint32_t destination);
 
 static void test_dmamux_triggers(TestState* state) {
     TestBus bus = {0};
@@ -390,8 +374,7 @@ static void test_dmamux_triggers(TestState* state) {
            "(read_value(state, data, DMA + 0x34u, 2u) & 1u) == 0u");
 
     k22_data_reset(data);
-    prepare_single_byte_dma(state, data, TCD0 + 4u * 32u, RAM_BASE + 0x11u,
-                            RAM_BASE + 0x203u);
+    prepare_single_byte_dma(state, data, TCD0 + 4u * 32u, RAM_BASE + 0x11u, RAM_BASE + 0x203u);
     write_value(state, data, DMAMUX + 4u, 1u, 0xc0u | 16u);
     write_value(state, data, DMA + 0x1bu, 1u, 4u);
     expect(state, k22_data_dma_request(data, 16u), "k22_data_dma_request(data, 16u)");
@@ -421,9 +404,8 @@ static void test_dmamux_triggers(TestState* state) {
 
 static void test_dmamux_source_matrix(TestState* state) {
     static const uint64_t expected[K22_PROFILE_COUNT] = {
-        UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f2f00fffdf0fc),
-        UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f6ffffffdf0fc),
-        UINT64_C(0xfffffffffffffffc), UINT64_C(0xfffffffffffffffc),
+        UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f2f00fffdf0fc), UINT64_C(0xfc3f2f00fffdf0fc),
+        UINT64_C(0xfc3f6ffffffdf0fc), UINT64_C(0xfffffffffffffffc), UINT64_C(0xfffffffffffffffc),
     };
     TestBus bus = {0};
     for (uint8_t profile = 0u; profile < K22_PROFILE_COUNT; profile++) {
@@ -445,8 +427,8 @@ static void test_dmamux_source_matrix(TestState* state) {
     }
 }
 
-static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd,
-                                    uint32_t source, uint32_t destination) {
+static void prepare_single_byte_dma(TestState* state, K22Data* data, uint32_t tcd, uint32_t source,
+                                    uint32_t destination) {
     write_tcd(state, data, tcd, source, 0, 0, 1, 0, destination, 0, 1, 0, 0);
 }
 
@@ -473,8 +455,7 @@ static void test_dma_arbitration_and_control(TestState* state) {
     k22_data_reset(data);
     bus.dma_write_count = 0u;
     prepare_single_byte_dma(state, data, TCD0, RAM_BASE + 0x10u, RAM_BASE + 0x200u);
-    prepare_single_byte_dma(state, data, TCD0 + 15u * 32u, RAM_BASE + 0x20u,
-                            RAM_BASE + 0x201u);
+    prepare_single_byte_dma(state, data, TCD0 + 15u * 32u, RAM_BASE + 0x20u, RAM_BASE + 0x201u);
     write_value(state, data, DMA, 4u, 4u);
     write_value(state, data, DMA + 0x1du, 1u, 0u);
     write_value(state, data, DMA + 0x1du, 1u, 15u);
@@ -567,8 +548,7 @@ static void test_adc(TestState* state) {
     k22_data_advance(data, 100);
     expect(state, (read_value(state, data, ADC0, 1) & 0x80u) != 0,
            "(read_value(state, data, ADC0, 1) & 0x80u) != 0");
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_ADC0],
-           "bus.interrupt[K22_DATA_INTERRUPT_ADC0]");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_ADC0], "bus.interrupt[K22_DATA_INTERRUPT_ADC0]");
     expect(state, read_value(state, data, ADC0 + 0x10, 2) == 0x0abcu,
            "read_value(state, data, ADC0 + 0x10, 2) == 0x0abcu");
     expect(state, !bus.interrupt[K22_DATA_INTERRUPT_ADC0],
@@ -623,8 +603,7 @@ static void test_adc_compare_dma_and_continuous(TestState* state) {
            "read_value(state, data, ADC0 + 0x10u, 2) == 100u");
 
     store(bus.ram, 0xb00u, 2u, 100u);
-    write_tcd(state, data, TCD0, RAM_BASE + 0xb00u, 0, 0, 2u, 0, RAM_BASE + 0xa00u, 0, 1u,
-              0, 0u);
+    write_tcd(state, data, TCD0, RAM_BASE + 0xb00u, 0, 0, 2u, 0, RAM_BASE + 0xa00u, 0, 1u, 0, 0u);
     write_value(state, data, DMAMUX, 1, 0x80u | 40u);
     write_value(state, data, DMA + 0x1bu, 1, 0u);
     write_value(state, data, ADC0 + 0x20u, 1, 0x04u);
@@ -642,8 +621,7 @@ static void test_adc_compare_dma_and_continuous(TestState* state) {
            "(read_value(state, data, ADC0, 1) & 0x80u) != 0u");
 
     bus.ram[0xb20u] = 0x4du;
-    write_tcd(state, data, TCD1, RAM_BASE + 0xb20u, 0, 0, 1u, 0, RAM_BASE + 0xa20u, 0, 1u,
-              0, 0u);
+    write_tcd(state, data, TCD1, RAM_BASE + 0xb20u, 0, 0, 1u, 0, RAM_BASE + 0xa20u, 0, 1u, 0, 0u);
     write_value(state, data, DMAMUX + 1u, 1, 0x80u | 41u);
     write_value(state, data, DMA + 0x1bu, 1, 1u);
     write_value(state, data, ADC1 + 0x20u, 1, 0x04u);
@@ -687,10 +665,8 @@ static void test_dac_cmp_vref(TestState* state) {
     expect(state, read_value(state, data, DAC0 + 0x23, 1) == 0x12u,
            "read_value(state, data, DAC0 + 0x23, 1) == 0x12u");
 
-    expect(state, k22_data_set_cmp_input(data, 0, 1, 20),
-           "k22_data_set_cmp_input(data, 0, 1, 20)");
-    expect(state, k22_data_set_cmp_input(data, 0, 2, 10),
-           "k22_data_set_cmp_input(data, 0, 2, 10)");
+    expect(state, k22_data_set_cmp_input(data, 0, 1, 20), "k22_data_set_cmp_input(data, 0, 1, 20)");
+    expect(state, k22_data_set_cmp_input(data, 0, 2, 10), "k22_data_set_cmp_input(data, 0, 2, 10)");
     bool comparator_high = false;
     expect(state, k22_data_get_cmp_output(data, 0, &comparator_high),
            "k22_data_get_cmp_output(data, 0, &comparator_high)");
@@ -703,18 +679,15 @@ static void test_dac_cmp_vref(TestState* state) {
     expect(state, comparator_high, "comparator_high");
     expect(state, (read_value(state, data, CMP0 + 3, 1) & 5u) == 5u,
            "(read_value(state, data, CMP0 + 3, 1) & 5u) == 5u");
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_CMP0],
-           "bus.interrupt[K22_DATA_INTERRUPT_CMP0]");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_CMP0], "bus.interrupt[K22_DATA_INTERRUPT_CMP0]");
     write_value(state, data, CMP0 + 3, 1, 0x0cu);
     expect(state, !bus.interrupt[K22_DATA_INTERRUPT_CMP0],
            "!bus.interrupt[K22_DATA_INTERRUPT_CMP0]");
-    expect(state, k22_data_set_cmp_input(data, 0, 1, 0),
-           "k22_data_set_cmp_input(data, 0, 1, 0)");
+    expect(state, k22_data_set_cmp_input(data, 0, 1, 0), "k22_data_set_cmp_input(data, 0, 1, 0)");
     expect(state, (read_value(state, data, CMP0 + 3, 1) & 2u) != 0,
            "(read_value(state, data, CMP0 + 3, 1) & 2u) != 0");
     write_value(state, data, CMP0 + 4u, 1, 0xa0u);
-    expect(state, k22_data_set_cmp_input(data, 0, 7, 20),
-           "k22_data_set_cmp_input(data, 0, 7, 20)");
+    expect(state, k22_data_set_cmp_input(data, 0, 7, 20), "k22_data_set_cmp_input(data, 0, 7, 20)");
     write_value(state, data, CMP0 + 3u, 1, 0x48u);
     write_value(state, data, CMP0 + 5u, 1, (7u << 3u) | 2u);
     expect(state, (read_value(state, data, CMP0 + 3u, 1) & 1u) != 0u,
@@ -749,12 +722,10 @@ static void test_rng_crc(TestState* state) {
     expect(state, (read_value(state, data, RNG + 4, 4) & 1u) == 0,
            "(read_value(state, data, RNG + 4, 4) & 1u) == 0");
     k22_data_advance(data, 1);
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_RNG],
-           "bus.interrupt[K22_DATA_INTERRUPT_RNG]");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_RNG], "bus.interrupt[K22_DATA_INTERRUPT_RNG]");
     expect(state, read_value(state, data, RNG + 0x0c, 4) == 0x00042021u,
            "read_value(state, data, RNG + 0x0c, 4) == 0x00042021u");
-    expect(state, !bus.interrupt[K22_DATA_INTERRUPT_RNG],
-           "!bus.interrupt[K22_DATA_INTERRUPT_RNG]");
+    expect(state, !bus.interrupt[K22_DATA_INTERRUPT_RNG], "!bus.interrupt[K22_DATA_INTERRUPT_RNG]");
     write_value(state, data, RNG, 4, 0x10u);
     expect(state, read_value(state, data, RNG + 4, 4) == 0,
            "read_value(state, data, RNG + 4, 4) == 0");
@@ -814,8 +785,7 @@ static void test_flash_flex_copy(TestState* state) {
     write_fccob(state, data, 10u, 0xdeu);
     write_fccob(state, data, 11u, 0xf0u);
     write_value(state, data, FTFA, 1, 0x80u);
-    expect(state, read_value(state, data, FTFA, 1) == 0,
-           "read_value(state, data, FTFA, 1) == 0");
+    expect(state, read_value(state, data, FTFA, 1) == 0, "read_value(state, data, FTFA, 1) == 0");
     expect(state, load(bus.flash, 0x1000, 4) == 0x78563412u,
            "load(bus.flash, 0x1000, 4) == 0x78563412u");
     expect(state, load(bus.flash, 0x1004, 4) == 0xf0debc9au,
@@ -835,8 +805,7 @@ static void test_flash_flex_copy(TestState* state) {
     memset(configuration, 0xff, sizeof(configuration));
     configuration[8] = 0xfeu;
     configuration[0x0c] = 0xfeu;
-    expect(state,
-           k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
+    expect(state, k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
            "k22_data_set_flash_configuration(data, configuration, sizeof(configuration))");
     expect(state, read_value(state, data, 0x408u, 1) == 0xfeu,
            "read_value(state, data, 0x408u, 1) == 0xfeu");
@@ -907,8 +876,7 @@ static void test_flash_collision_lifecycle(TestState* state) {
     expect(state, !bus.interrupt[K22_DATA_INTERRUPT_FTFA],
            "!bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
     k22_data_advance(data, 1u);
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA],
-           "bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA], "bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
     write_value(state, data, FTFA + 1u, 1u, 0u);
     expect(state, !bus.interrupt[K22_DATA_INTERRUPT_FTFA],
            "!bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
@@ -994,8 +962,8 @@ static void test_flash_controller_geometry(TestState* state) {
     k22_data_destroy(data);
 }
 
-static void flash_command(TestState* state, K22Data* data, uint8_t command,
-                          uint32_t address, uint32_t cycles) {
+static void flash_command(TestState* state, K22Data* data, uint8_t command, uint32_t address,
+                          uint32_t cycles) {
     write_fccob(state, data, 0u, command);
     set_flash_address(state, data, address);
     launch_flash(state, data, cycles);
@@ -1096,8 +1064,7 @@ static void test_flash_commands_and_failures(TestState* state) {
     write_value(state, data, FTFA, 1, 0x20u);
     write_value(state, data, FTFA + 1u, 1, 0x80u);
     flash_command(state, data, 0x03u, 8u, 40u);
-    expect(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA],
-           "bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
+    expect(state, bus.interrupt[K22_DATA_INTERRUPT_FTFA], "bus.interrupt[K22_DATA_INTERRUPT_FTFA]");
     k22_data_destroy(data);
 
     memset(&bus, 0, sizeof(bus));
@@ -1119,8 +1086,7 @@ static void clear_flash_status(TestState* state, K22Data* data) {
     write_value(state, data, FTFA, 1u, 0x70u);
 }
 
-static void set_flash_data(TestState* state, K22Data* data, const uint8_t* bytes,
-                           uint8_t length) {
+static void set_flash_data(TestState* state, K22Data* data, const uint8_t* bytes, uint8_t length) {
     for (uint8_t index = 0u; index < length; index++)
         write_fccob(state, data, (uint8_t)(4u + index), bytes[index]);
 }
@@ -1161,12 +1127,9 @@ static void test_flash_command_semantics(TestState* state) {
     clear_flash_status(state, data);
     write_fccob(state, data, 8u, 1u);
     flash_command(state, data, 0x03u, 0u, 40u);
-    expect(state, read_fccob(state, data, 4u) == 0x01u,
-           "read_fccob(state, data, 4u) == 0x01u");
-    expect(state, read_fccob(state, data, 6u) == 0x46u,
-           "read_fccob(state, data, 6u) == 0x46u");
-    expect(state, read_fccob(state, data, 7u) == 0x54u,
-           "read_fccob(state, data, 7u) == 0x54u");
+    expect(state, read_fccob(state, data, 4u) == 0x01u, "read_fccob(state, data, 4u) == 0x01u");
+    expect(state, read_fccob(state, data, 6u) == 0x46u, "read_fccob(state, data, 6u) == 0x46u");
+    expect(state, read_fccob(state, data, 7u) == 0x54u, "read_fccob(state, data, 7u) == 0x54u");
     k22_data_destroy(data);
 
     memset(&bus, 0, sizeof(bus));
@@ -1174,11 +1137,11 @@ static void test_flash_command_semantics(TestState* state) {
     data = create(state, &bus, K22_PROFILE_MK22FN1M012);
     uint8_t erased_configuration[16];
     memset(erased_configuration, 0xff, sizeof(erased_configuration));
-    expect(state,
-           k22_data_set_flash_configuration(data, erased_configuration,
-                                            sizeof(erased_configuration)),
-           "k22_data_set_flash_configuration(data, erased_configuration, "
-           "sizeof(erased_configuration))");
+    expect(
+        state,
+        k22_data_set_flash_configuration(data, erased_configuration, sizeof(erased_configuration)),
+        "k22_data_set_flash_configuration(data, erased_configuration, "
+        "sizeof(erased_configuration))");
     k22_data_reset(data);
     write_fccob(state, data, 4u, 0u);
     flash_command(state, data, 0x00u, 0x00000u, 40u);
@@ -1235,8 +1198,7 @@ static void test_flash_command_semantics(TestState* state) {
     uint8_t flex_configuration[16];
     memset(flex_configuration, 0xff, sizeof(flex_configuration));
     expect(state,
-           k22_data_set_flash_configuration(data, flex_configuration,
-                                            sizeof(flex_configuration)),
+           k22_data_set_flash_configuration(data, flex_configuration, sizeof(flex_configuration)),
            "k22_data_set_flash_configuration(data, flex_configuration, "
            "sizeof(flex_configuration))");
     k22_data_reset(data);
@@ -1283,23 +1245,20 @@ static void test_flash_command_semantics(TestState* state) {
     memset(bus.flash, 0xff, sizeof(bus.flash));
     data = create(state, &bus, K22_PROFILE_MK22FX51212);
     expect(state,
-           k22_data_set_flash_configuration(data, flex_configuration,
-                                            sizeof(flex_configuration)),
+           k22_data_set_flash_configuration(data, flex_configuration, sizeof(flex_configuration)),
            "k22_data_set_flash_configuration(data, flex_configuration, "
            "sizeof(flex_configuration))");
     k22_data_reset(data);
     write_fccob(state, data, 4u, 0u);
     flash_command(state, data, 0x03u, 0u, 40u);
-    expect(state, read_fccob(state, data, 4u) == 0xffu,
-           "read_fccob(state, data, 4u) == 0xffu");
+    expect(state, read_fccob(state, data, 4u) == 0xffu, "read_fccob(state, data, 4u) == 0xffu");
     write_fccob(state, data, 4u, 0u);
     flash_command(state, data, 0x00u, 0x800000u, 40u);
     expect(state, (read_value(state, data, FTFA, 1u) & 1u) == 0u,
            "(read_value(state, data, FTFA, 1u) & 1u) == 0u");
     write_fccob(state, data, 4u, 0u);
     flash_command(state, data, 0x03u, 0x800000u, 40u);
-    expect(state, read_fccob(state, data, 4u) == 0xffu,
-           "read_fccob(state, data, 4u) == 0xffu");
+    expect(state, read_fccob(state, data, 4u) == 0xffu, "read_fccob(state, data, 4u) == 0xffu");
     write_fccob(state, data, 3u, 0u);
     write_fccob(state, data, 4u, 0x02u);
     write_fccob(state, data, 5u, 0x04u);
@@ -1385,8 +1344,7 @@ static void test_flash_command_semantics(TestState* state) {
     configuration[10] = 0xffu;
     configuration[11] = 0xffu;
     configuration[12] = 0x80u;
-    expect(state,
-           k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
+    expect(state, k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
            "k22_data_set_flash_configuration(data, configuration, sizeof(configuration))");
     k22_data_reset(data);
     set_flash_data(state, data, configuration, 8u);
@@ -1444,8 +1402,7 @@ static void test_flash_command_guards(TestState* state) {
     data = create(state, &bus, K22_PROFILE_MK22FX51212);
     uint8_t configuration[16];
     memset(configuration, 0xff, sizeof(configuration));
-    expect(state,
-           k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
+    expect(state, k22_data_set_flash_configuration(data, configuration, sizeof(configuration)),
            "k22_data_set_flash_configuration(data, configuration, sizeof(configuration))");
     k22_data_reset(data);
     write_fccob(state, data, 3u, 0u);

@@ -40,8 +40,7 @@ int main(void) {
     load_instruction(&state, device, 0xfab1u, 0xf081u);
     cortex_m4_set_register(cpu, 1, 0x00001000u);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 0) == 19,
-           "cortex_m4_get_register(cpu, 0) == 19");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 19, "cortex_m4_get_register(cpu, 0) == 19");
 
     load_instruction(&state, device, 0xfa91u, 0xf0a1u);
     cortex_m4_set_register(cpu, 1, 0x80000001u);
@@ -60,8 +59,7 @@ int main(void) {
     load_instruction(&state, device, 0xf381u, 0x0010u);
     cortex_m4_set_register(cpu, 1, 0xffffffffu);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 0) == 0,
-           "cortex_m4_get_register(cpu, 0) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 0, "cortex_m4_get_register(cpu, 0) == 0");
 
     load_instruction(&state, device, 0xf361u, 0x200fu);
     cortex_m4_set_register(cpu, 0, 0xffff0000u);
@@ -80,13 +78,11 @@ int main(void) {
     cortex_m4_set_register(cpu, 4, 5);
     cortex_m4_set_register(cpu, 12, 8);
     execute(&state, device);
-    expect(&state, cortex_m4_get_register(cpu, 4) == 9,
-           "cortex_m4_get_register(cpu, 4) == 9");
+    expect(&state, cortex_m4_get_register(cpu, 4) == 9, "cortex_m4_get_register(cpu, 4) == 9");
 
     const uint32_t address = 0x20000020u;
     const uint16_t exclusive_program[] = {0xe851u, 0x0f00u, 0xe841u, 0x3200u, 0xbe00u};
-    expect(&state,
-           kinetis_k22_load(device, 0x100, exclusive_program, sizeof(exclusive_program)),
+    expect(&state, kinetis_k22_load(device, 0x100, exclusive_program, sizeof(exclusive_program)),
            "kinetis_k22_load(device, 0x100, exclusive_program, sizeof(exclusive_program))");
     expect(&state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     test_connect_debugger(&state, cpu);
@@ -98,8 +94,7 @@ int main(void) {
     CortexM4Result result = cortex_m4_run(cpu, (CortexM4RunLimits){3, 10});
     expect(&state, result.stop == CORTEX_M4_STOP_BREAKPOINT,
            "result.stop == CORTEX_M4_STOP_BREAKPOINT");
-    expect(&state, cortex_m4_get_register(cpu, 2) == 0,
-           "cortex_m4_get_register(cpu, 2) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 2) == 0, "cortex_m4_get_register(cpu, 2) == 0");
     expect(&state, kinetis_k22_read(device, address, &memory, sizeof(memory)),
            "kinetis_k22_read(device, address, &memory, sizeof(memory))");
     expect(&state, memory == 0xa55ac33cu, "memory == 0xa55ac33cu");

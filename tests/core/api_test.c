@@ -42,8 +42,7 @@ static CortexM4* create_cpu(TestState* state, ApiBus* bus) {
     bus->rejected_read = UINT32_MAX;
     const uint32_t vectors[2] = {0x300u, 0x101u};
     memcpy(bus->memory, vectors, sizeof(vectors));
-    CortexM4* cpu =
-        cortex_m4_create((CortexM4Bus){bus, bus_read, bus_write, NULL, bus_reset});
+    CortexM4* cpu = cortex_m4_create((CortexM4Bus){bus, bus_read, bus_write, NULL, bus_reset});
     expect(state, cpu != NULL, "cpu != NULL");
     expect(state, cortex_m4_reset(cpu, 0u), "cortex_m4_reset(cpu, 0u)");
     return cpu;
@@ -55,8 +54,7 @@ static void load_instruction(ApiBus* bus, uint16_t first, uint16_t second) {
 }
 
 static void test_creation_and_configuration(TestState* state) {
-    expect(state,
-           cortex_m4_create((CortexM4Bus){NULL, NULL, bus_write, NULL, NULL}) == NULL,
+    expect(state, cortex_m4_create((CortexM4Bus){NULL, NULL, bus_write, NULL, NULL}) == NULL,
            "cortex_m4_create((CortexM4Bus){NULL, NULL, bus_write, NULL, NULL}) == NULL");
     expect(state, cortex_m4_create((CortexM4Bus){NULL, bus_read, NULL, NULL, NULL}) == NULL,
            "cortex_m4_create((CortexM4Bus){NULL, bus_read, NULL, NULL, NULL}) == NULL");
@@ -91,10 +89,8 @@ static void test_reset_failures(TestState* state) {
 static void test_step_guards(TestState* state) {
     expect(state, cortex_m4_step(NULL).stop == CORTEX_M4_STOP_LOCKUP,
            "cortex_m4_step(NULL).stop == CORTEX_M4_STOP_LOCKUP");
-    expect(
-        state,
-        cortex_m4_run(NULL, (CortexM4RunLimits){0u, 0u}).stop == CORTEX_M4_STOP_LOCKUP,
-        "cortex_m4_run(NULL, (CortexM4RunLimits){0u, 0u}).stop == CORTEX_M4_STOP_LOCKUP");
+    expect(state, cortex_m4_run(NULL, (CortexM4RunLimits){0u, 0u}).stop == CORTEX_M4_STOP_LOCKUP,
+           "cortex_m4_run(NULL, (CortexM4RunLimits){0u, 0u}).stop == CORTEX_M4_STOP_LOCKUP");
     ApiBus bus = {0};
     CortexM4* cpu = create_cpu(state, &bus);
     cpu->stop = CORTEX_M4_STOP_BREAKPOINT;
@@ -166,21 +162,16 @@ static void test_api_boundaries(TestState* state) {
            "cortex_m4_read_register_internal(cpu, 13u) == 0x333u");
     cortex_m4_write_register_internal(cpu, 13u, 0x445u);
     expect(state, cpu->psp == 0x444u, "cpu->psp == 0x444u");
-    expect(state, cortex_m4_get_fault_address(cpu) == 0u,
-           "cortex_m4_get_fault_address(cpu) == 0u");
+    expect(state, cortex_m4_get_fault_address(cpu) == 0u, "cortex_m4_get_fault_address(cpu) == 0u");
     expect(state, cortex_m4_get_fault_address(NULL) == 0u,
            "cortex_m4_get_fault_address(NULL) == 0u");
     expect(state, cortex_m4_get_instruction_count(NULL) == 0u,
            "cortex_m4_get_instruction_count(NULL) == 0u");
-    expect(state, cortex_m4_get_cycle_count(NULL) == 0u,
-           "cortex_m4_get_cycle_count(NULL) == 0u");
+    expect(state, cortex_m4_get_cycle_count(NULL) == 0u, "cortex_m4_get_cycle_count(NULL) == 0u");
     cortex_m4_set_nzcv(cpu, 0x80000000u, true, true);
-    expect(state, (cpu->xpsr & CORTEX_M4_XPSR_V) != 0u,
-           "(cpu->xpsr & CORTEX_M4_XPSR_V) != 0u");
-    expect(state, cortex_m4_condition_passed(cpu, 14u),
-           "cortex_m4_condition_passed(cpu, 14u)");
-    expect(state, !cortex_m4_condition_passed(cpu, 15u),
-           "!cortex_m4_condition_passed(cpu, 15u)");
+    expect(state, (cpu->xpsr & CORTEX_M4_XPSR_V) != 0u, "(cpu->xpsr & CORTEX_M4_XPSR_V) != 0u");
+    expect(state, cortex_m4_condition_passed(cpu, 14u), "cortex_m4_condition_passed(cpu, 14u)");
+    expect(state, !cortex_m4_condition_passed(cpu, 15u), "!cortex_m4_condition_passed(cpu, 15u)");
     bool carry = false;
     expect(state, cortex_m4_shift(0x80000000u, 2u, 32u, false, &carry) == 0xffffffffu,
            "cortex_m4_shift(0x80000000u, 2u, 32u, false, &carry) == 0xffffffffu");

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define MASKS(a, b, c, d, e) {a, b, c, d, e}
-#define SELECTION(profile_id, package_id, a, b, c, d, e)                                   \
+#define SELECTION(profile_id, package_id, a, b, c, d, e)                                           \
     {profile_id, package_id, MASKS(a, b, c, d, e)}
 
 struct K22PackageSelection {
@@ -29,8 +29,8 @@ static const K22Package packages[K22_PACKAGE_COUNT] = {
 };
 
 static const K22PackageSelection selections[] = {
-    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu,
-              0x00000fffu, 0x000000ffu, 0x00000000u),
+    SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu, 0x00000fffu,
+              0x000000ffu, 0x00000000u),
     SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
               0x00000fffu, 0x000000ffu, 0x00000000u),
     SELECTION(K22_PROFILE_MK22F12810, K22_PACKAGE_LL_100_LQFP, 0x000ff03fu, 0x00ff0e0fu,
@@ -142,15 +142,12 @@ uint32_t k22_package_port_pin_mask(const K22PackageSelection* selected, uint8_t 
     return selected->port_pin_mask[port];
 }
 
-bool k22_package_pin_exists(const K22PackageSelection* selected, uint8_t port,
-                            uint8_t pin) {
-    return selected != NULL && port < K22_PACKAGE_PORT_COUNT &&
-           pin < K22_PACKAGE_PIN_COUNT &&
+bool k22_package_pin_exists(const K22PackageSelection* selected, uint8_t port, uint8_t pin) {
+    return selected != NULL && port < K22_PACKAGE_PORT_COUNT && pin < K22_PACKAGE_PIN_COUNT &&
            (selected->port_pin_mask[port] & (UINT32_C(1) << pin)) != 0;
 }
 
-bool k22_package_has_peripheral(const K22PackageSelection* selected,
-                                K22PeripheralId peripheral) {
+bool k22_package_has_peripheral(const K22PackageSelection* selected, K22PeripheralId peripheral) {
     if (selected == NULL || (unsigned)peripheral >= K22_PERIPHERAL_COUNT)
         return false;
     const K22Profile* profile = k22_profile_get(selected->profile);

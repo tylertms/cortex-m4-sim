@@ -19,8 +19,7 @@ enum {
     FTM0_PWMLOAD = 0x40038098u,
 };
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     expect(state, k22_timing_write(timing, address, 4u, value),
            "k22_timing_write(timing, address, 4u, value)");
 }
@@ -93,8 +92,7 @@ static void test_software_synchronization(TestState* state) {
     initialize(state, &timing);
     write_register(state, &timing, FTM0_MODE, 5u);
     write_register(state, &timing, FTM0_COMBINE, 1u << 5u);
-    write_register(state, &timing, FTM0_SYNCONF,
-                   (1u << 9u) | (1u << 8u) | (1u << 7u) | (1u << 2u));
+    write_register(state, &timing, FTM0_SYNCONF, (1u << 9u) | (1u << 8u) | (1u << 7u) | (1u << 2u));
     write_register(state, &timing, FTM0_MOD, 3u);
     write_register(state, &timing, FTM0_CNTIN, 0u);
     write_register(state, &timing, FTM0_C0V, 1u);
@@ -155,8 +153,7 @@ static void test_unsynchronized_output_compare(TestState* state) {
     expect_register(state, &timing, FTM0_C0V, 2u);
 }
 
-static void test_intermediate_load(TestState* state, uint32_t load_select,
-                                   uint32_t cycles) {
+static void test_intermediate_load(TestState* state, uint32_t load_select, uint32_t cycles) {
     K22Timing timing;
     initialize(state, &timing);
     write_register(state, &timing, FTM0_MODE, 5u);
@@ -245,8 +242,7 @@ static void test_hardware_output_synchronization(TestState* state) {
     expect_register(state, &timing, FTM0_SWOCTRL, 0u);
     write_register(state, &timing, FTM0_SYNC, (1u << 4u) | (1u << 3u));
     write_register(state, &timing, FTM0_SYNCONF,
-                   (1u << 20u) | (1u << 19u) | (1u << 18u) | (1u << 7u) | (1u << 5u) |
-                       (1u << 4u));
+                   (1u << 20u) | (1u << 19u) | (1u << 18u) | (1u << 7u) | (1u << 5u) | (1u << 4u));
     expect(state, k22_timing_trigger_ftm_hardware(&timing, 0u, 0u),
            "k22_timing_trigger_ftm_hardware(&timing, 0u, 0u)");
     k22_timing_advance(&timing, 1u);
@@ -255,8 +251,8 @@ static void test_hardware_output_synchronization(TestState* state) {
     expect_register(state, &timing, FTM0_SWOCTRL, 0x0101u);
 }
 
-static void prepare_hardware_write_buffers(TestState* state, K22Timing* timing,
-                                           uint32_t synconf, uint32_t sync) {
+static void prepare_hardware_write_buffers(TestState* state, K22Timing* timing, uint32_t synconf,
+                                           uint32_t sync) {
     initialize(state, timing);
     write_register(state, timing, FTM0_MODE, 5u);
     write_register(state, timing, FTM0_COMBINE, 1u << 5u);

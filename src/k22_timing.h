@@ -17,8 +17,8 @@ typedef enum {
     K22_TIMING_TRIGGER_ADC_ALTERNATE,
 } K22TimingTrigger;
 
-typedef void (*K22TimingTriggerSignal)(void* context, K22TimingTrigger trigger,
-                                       uint8_t instance, uint8_t channel);
+typedef void (*K22TimingTriggerSignal)(void* context, K22TimingTrigger trigger, uint8_t instance,
+                                       uint8_t channel);
 
 typedef struct {
     void* context;
@@ -193,9 +193,8 @@ typedef struct {
     uint64_t reset_generation;
 } K22Timing;
 
-bool k22_timing_init(K22Timing* timing, const K22Profile* profile,
-                     uint32_t external_oscillator_hz, uint32_t rtc_oscillator_hz,
-                     K22TimingSignals signals);
+bool k22_timing_init(K22Timing* timing, const K22Profile* profile, uint32_t external_oscillator_hz,
+                     uint32_t rtc_oscillator_hz, K22TimingSignals signals);
 bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value);
 bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value);
 void k22_timing_advance(K22Timing* timing, uint32_t core_cycles);
@@ -209,17 +208,14 @@ void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping, bool deep_sle
 bool k22_timing_set_ewm_input(K22Timing* timing, bool high);
 bool k22_timing_ewm_output(const K22Timing* timing);
 void k22_timing_watchdog_advance(K22Timing* timing, uint32_t ticks);
-bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
-                              bool high);
-bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,
-                              bool high);
+bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel, bool high);
+bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input, bool high);
 bool k22_timing_trigger_ftm_hardware(K22Timing* timing, uint8_t instance, uint8_t trigger);
 bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_t channel,
                                bool* high);
 void k22_timing_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
 void k22_timing_warm_reset(K22Timing* timing, uint8_t srs0, uint8_t srs1);
-bool k22_timing_copy(K22Timing* destination, const K22Timing* source,
-                     K22TimingSignals signals);
+bool k22_timing_copy(K22Timing* destination, const K22Timing* source, K22TimingSignals signals);
 uint32_t k22_timing_core_clock_hz(const K22Timing* timing);
 uint32_t k22_timing_bus_clock_hz(const K22Timing* timing);
 

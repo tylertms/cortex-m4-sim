@@ -21,8 +21,7 @@ enum {
     RESET_STATUS_1 = 0x4007f001u,
 };
 
-static uint32_t read_value(TestState* state, CortexM4* cpu, uint32_t address,
-                           uint8_t size) {
+static uint32_t read_value(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size) {
     uint32_t value = 0;
     expect(state, cortex_m4_read_memory(cpu, address, size, &value),
            "cortex_m4_read_memory(cpu, address, size, &value)");
@@ -58,10 +57,8 @@ int main(void) {
            "read_value(&state, cpu, MPU_TYPE, 4) == 0u");
     cortex_m4_set_irq(cpu, 85, true);
     cortex_m4_set_irq(cpu, 86, true);
-    expect(&state, cortex_m4_get_irq_pending(cpu, 85),
-           "cortex_m4_get_irq_pending(cpu, 85)");
-    expect(&state, !cortex_m4_get_irq_pending(cpu, 86),
-           "!cortex_m4_get_irq_pending(cpu, 86)");
+    expect(&state, cortex_m4_get_irq_pending(cpu, 85), "cortex_m4_get_irq_pending(cpu, 85)");
+    expect(&state, !cortex_m4_get_irq_pending(cpu, 86), "!cortex_m4_get_irq_pending(cpu, 86)");
     cortex_m4_set_irq(cpu, 85, false);
     expect(&state, cortex_m4_write_memory(cpu, NVIC_ENABLE, 4, 0x00000100u),
            "cortex_m4_write_memory(cpu, NVIC_ENABLE, 4, 0x00000100u)");
@@ -79,13 +76,11 @@ int main(void) {
            "(read_value(&state, cpu, SCB_ICSR, 4) & 0x001ff000u) == 24u << 12");
     expect(&state, cortex_m4_write_memory(cpu, NVIC_CLEAR_PENDING, 4, 0x00000100u),
            "cortex_m4_write_memory(cpu, NVIC_CLEAR_PENDING, 4, 0x00000100u)");
-    expect(&state, !cortex_m4_get_irq_pending(cpu, 8),
-           "!cortex_m4_get_irq_pending(cpu, 8)");
+    expect(&state, !cortex_m4_get_irq_pending(cpu, 8), "!cortex_m4_get_irq_pending(cpu, 8)");
 
     expect(&state, cortex_m4_write_memory(cpu, NVIC_SOFTWARE_TRIGGER, 4, 33),
            "cortex_m4_write_memory(cpu, NVIC_SOFTWARE_TRIGGER, 4, 33)");
-    expect(&state, cortex_m4_get_irq_pending(cpu, 33),
-           "cortex_m4_get_irq_pending(cpu, 33)");
+    expect(&state, cortex_m4_get_irq_pending(cpu, 33), "cortex_m4_get_irq_pending(cpu, 33)");
     expect(&state, cortex_m4_write_memory(cpu, SCB_SHPR, 4, 0x12345678u),
            "cortex_m4_write_memory(cpu, SCB_SHPR, 4, 0x12345678u)");
     expect(&state, read_value(&state, cpu, SCB_SHPR, 4) == 0x00305070u,

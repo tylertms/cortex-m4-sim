@@ -167,9 +167,8 @@ static void charging_port_result(K22UsbDcd* usbdcd) {
     usbdcd->status = (usbdcd->status & (STATUS_TIMEOUT | STATUS_ERROR)) | STATUS_ACTIVE |
                      (2u << STATUS_PHASE_SHIFT) | (2u << STATUS_RESULT_SHIFT);
     signal(usbdcd);
-    set_phase(usbdcd, (usbdcd->control & CONTROL_BC12) != 0u
-                          ? K22_USBDCD_SECONDARY_DETECTION
-                          : K22_USBDCD_WAIT_PULLUP);
+    set_phase(usbdcd, (usbdcd->control & CONTROL_BC12) != 0u ? K22_USBDCD_SECONDARY_DETECTION
+                                                             : K22_USBDCD_WAIT_PULLUP);
 }
 
 static void advance_millisecond(K22UsbDcd* usbdcd) {
@@ -187,8 +186,8 @@ static void advance_millisecond(K22UsbDcd* usbdcd) {
         if (usbdcd->charger == KINETIS_K22_USB_CHARGER_NONE) {
             usbdcd->phase_elapsed = 0u;
         } else if (usbdcd->phase_elapsed >= ((usbdcd->timer1 >> 16u) & 0x3ffu)) {
-            usbdcd->status = (usbdcd->status & (STATUS_TIMEOUT | STATUS_ERROR)) |
-                             STATUS_ACTIVE | (1u << STATUS_PHASE_SHIFT);
+            usbdcd->status = (usbdcd->status & (STATUS_TIMEOUT | STATUS_ERROR)) | STATUS_ACTIVE |
+                             (1u << STATUS_PHASE_SHIFT);
             set_phase(usbdcd, K22_USBDCD_PRIMARY_DELAY);
         }
         break;
@@ -213,8 +212,8 @@ static void advance_millisecond(K22UsbDcd* usbdcd) {
                                       ? (uint16_t)(usbdcd->timer2 & 0x3ffu)
                                       : (uint16_t)(usbdcd->timer2 & 0x0fu);
         if (usbdcd->phase_elapsed >= duration)
-            finish(usbdcd, 3u,
-                   usbdcd->charger == KINETIS_K22_USB_CHARGER_DEDICATED ? 3u : 2u, false);
+            finish(usbdcd, 3u, usbdcd->charger == KINETIS_K22_USB_CHARGER_DEDICATED ? 3u : 2u,
+                   false);
         break;
     }
     case K22_USBDCD_IDLE:

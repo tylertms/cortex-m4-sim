@@ -61,8 +61,7 @@ bool k22_data_dma_request(K22Data* data, uint8_t source);
 bool k22_data_dma_trigger(K22Data* data, uint8_t channel);
 void k22_data_adc_trigger(K22Data* data, uint8_t instance);
 void k22_data_adc_pretrigger(K22Data* data, uint8_t instance, uint8_t pretrigger);
-bool k22_data_set_adc_input(K22Data* data, uint8_t instance, uint8_t channel,
-                            uint16_t value);
+bool k22_data_set_adc_input(K22Data* data, uint8_t instance, uint8_t channel, uint16_t value);
 bool k22_data_set_cmp_input(K22Data* data, uint8_t instance, uint8_t input, uint8_t value);
 bool k22_data_get_cmp_output(const K22Data* data, uint8_t instance, bool* high);
 bool k22_data_get_dac_output(const K22Data* data, uint8_t instance, uint16_t* value);

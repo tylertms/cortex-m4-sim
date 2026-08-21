@@ -58,14 +58,12 @@ static uint8_t read8(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void write16(TestState* state, KinetisK22* device, uint32_t address,
-                    uint16_t value) {
+static void write16(TestState* state, KinetisK22* device, uint32_t address, uint16_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -290,8 +288,7 @@ static void test_dma_and_copy(TestState* state, KinetisK22* device) {
     expect(state, kinetis_k22_copy(copy, device), "kinetis_k22_copy(copy, device)");
     expect(state, copy->cmt_running == device->cmt_running,
            "copy->cmt_running == device->cmt_running");
-    expect(state, copy->cmt_cycles == device->cmt_cycles,
-           "copy->cmt_cycles == device->cmt_cycles");
+    expect(state, copy->cmt_cycles == device->cmt_cycles, "copy->cmt_cycles == device->cmt_cycles");
     bool driven = false;
     bool high = false;
     expect(state, kinetis_k22_get_cmt_output(copy, &driven, &high),

@@ -16,12 +16,10 @@
 #define CORESIGHT_LSR 0xfb4u
 #define CORESIGHT_UNLOCK 0xc5acce55u
 
-static uint32_t debug_read(TestState* state, CortexM4* cpu, uint32_t address,
-                           uint8_t size) {
+static uint32_t debug_read(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size) {
     uint32_t value = 0xdeadbeefu;
     expect(state,
-           cortex_m4_debug_read(cpu, address, size, &value) ==
-               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           cortex_m4_debug_read(cpu, address, size, &value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "cortex_m4_debug_read(cpu, address, size, &value) == "
            "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     return value;
@@ -30,8 +28,7 @@ static uint32_t debug_read(TestState* state, CortexM4* cpu, uint32_t address,
 static void debug_write(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size,
                         uint32_t value) {
     expect(state,
-           cortex_m4_debug_write(cpu, address, size, value) ==
-               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           cortex_m4_debug_write(cpu, address, size, value) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "cortex_m4_debug_write(cpu, address, size, value) == "
            "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
 }
@@ -57,24 +54,19 @@ static void test_reset_and_boundaries(TestState* state) {
     expect(state, debug_read(state, &cpu, DHCSR, 4) == 0x00010000u,
            "debug_read(state, &cpu, DHCSR, 4) == 0x00010000u");
     expect(state,
-           cortex_m4_debug_read(&cpu, 0x40000000u, 4, &value) ==
-               CORTEX_M4_SYSTEM_ACCESS_OUTSIDE,
+           cortex_m4_debug_read(&cpu, 0x40000000u, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE,
            "cortex_m4_debug_read(&cpu, 0x40000000u, 4, &value) == "
            "CORTEX_M4_SYSTEM_ACCESS_OUTSIDE");
     expect(state, value == 0x55aa55aau, "value == 0x55aa55aau");
-    expect(state,
-           cortex_m4_debug_write(&cpu, 0x40000000u, 4, 0) ==
-               CORTEX_M4_SYSTEM_ACCESS_OUTSIDE,
+    expect(state, cortex_m4_debug_write(&cpu, 0x40000000u, 4, 0) == CORTEX_M4_SYSTEM_ACCESS_OUTSIDE,
            "cortex_m4_debug_write(&cpu, 0x40000000u, 4, 0) == "
            "CORTEX_M4_SYSTEM_ACCESS_OUTSIDE");
     expect(state,
-           cortex_m4_debug_read(&cpu, DWT_BASE + 2u, 4, &value) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_read(&cpu, DWT_BASE + 2u, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, DWT_BASE + 2u, 4, &value) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,
-           cortex_m4_debug_read(&cpu, DWT_BASE, 2, &value) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_read(&cpu, DWT_BASE, 2, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, DWT_BASE, 2, &value) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,
@@ -82,14 +74,10 @@ static void test_reset_and_boundaries(TestState* state) {
                CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, DWT_BASE + 0x100u, 4, &value) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
-    expect(
-        state,
-        cortex_m4_debug_read(NULL, DHCSR, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
-        "cortex_m4_debug_read(NULL, DHCSR, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
-    expect(
-        state,
-        cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
-        "cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_read(NULL, DHCSR, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(NULL, DHCSR, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
 }
 
 static void test_halt_and_step(TestState* state) {
@@ -205,23 +193,18 @@ static void test_debug_monitor_and_vector_catch(TestState* state) {
     CortexM4 cpu = create_cpu();
     debug_write(state, &cpu, DEMCR, 4, (1u << 16) | (1u << 17));
     expect(state, cpu.debug.demcr == 0x00030000u, "cpu.debug.demcr == 0x00030000u");
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
     debug_write(state, &cpu, DEMCR, 4, 1u << 16);
-    expect(state, (cpu.system_pending & (1u << 12)) == 0,
-           "(cpu.system_pending & (1u << 12)) == 0");
+    expect(state, (cpu.system_pending & (1u << 12)) == 0, "(cpu.system_pending & (1u << 12)) == 0");
     cortex_m4_debug_breakpoint(&cpu);
     expect(state, (cpu.dfsr & (1u << 1)) != 0, "(cpu.dfsr & (1u << 1)) != 0");
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
-    expect(state, (cpu.system_pending & (1u << 3)) == 0,
-           "(cpu.system_pending & (1u << 3)) == 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 3)) == 0, "(cpu.system_pending & (1u << 3)) == 0");
     cpu.system_pending = 0;
     cpu.debug.demcr = 0;
     cortex_m4_debug_breakpoint(&cpu);
     expect(state, (cpu.hfsr & (1u << 31)) != 0, "(cpu.hfsr & (1u << 31)) != 0");
-    expect(state, (cpu.system_pending & (1u << 3)) != 0,
-           "(cpu.system_pending & (1u << 3)) != 0");
+    expect(state, (cpu.system_pending & (1u << 3)) != 0, "(cpu.system_pending & (1u << 3)) != 0");
     cpu.system_pending = 0;
     cpu.hfsr = 0;
     debug_write(state, &cpu, DHCSR, 4, 0xa05f0001u);
@@ -239,8 +222,7 @@ static void test_debug_monitor_and_vector_catch(TestState* state) {
     cpu.system_pending = 0;
     debug_write(state, &cpu, DEMCR, 4, (1u << 16) | (1u << 18));
     cortex_m4_debug_instruction_retired(&cpu);
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
     const uint8_t caught[] = {1u, 4u, 5u, 6u, 15u};
     const uint32_t masks[] = {1u, 1u << 4, 1u << 8, 7u << 5, 1u << 9};
     cpu.debug.dhcsr_control = 1u;
@@ -293,8 +275,7 @@ static void test_dwt(TestState* state) {
     cortex_m4_debug_memory_access(&cpu, 0x20000103u, 4u, false, 0u);
     expect(state, (cpu.debug.dwt_comparators[0].function & (1u << 24)) != 0,
            "(cpu.debug.dwt_comparators[0].function & (1u << 24)) != 0");
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
     cpu.system_pending = 0;
     debug_write(state, &cpu, DWT_BASE + 0x30u, 4, 0x00001000u);
     debug_write(state, &cpu, DWT_BASE + 0x34u, 4, 0u);
@@ -322,8 +303,7 @@ static void test_dwt(TestState* state) {
     cortex_m4_debug_advance(&cpu, 6u, false);
     expect(state, (cpu.debug.dwt_comparators[0].function & (1u << 24)) != 0,
            "(cpu.debug.dwt_comparators[0].function & (1u << 24)) != 0");
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
     expect(state, debug_read(state, &cpu, DWT_BASE + 0x20u, 4) == 105u,
            "debug_read(state, &cpu, DWT_BASE + 0x20u, 4) == 105u");
     expect(state, debug_read(state, &cpu, DWT_BASE + 0x24u, 4) == 2u,
@@ -348,8 +328,7 @@ static void test_dwt(TestState* state) {
            "cortex_m4_debug_read(&cpu, DWT_BASE + 0x64u, 4, &rejected) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,
-           cortex_m4_debug_write(&cpu, DWT_BASE + 0x64u, 4, 0) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_write(&cpu, DWT_BASE + 0x64u, 4, 0) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_write(&cpu, DWT_BASE + 0x64u, 4, 0) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     debug_write(state, &cpu, DWT_BASE + 0x30u, 4, 0x20000200u);
@@ -360,8 +339,7 @@ static void test_dwt(TestState* state) {
     cortex_m4_debug_memory_access(&cpu, 0x20000200u, 1u, false, 0x5au);
     expect(state, (cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0,
            "(cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0");
-    expect(state, (cpu.system_pending & (1u << 12)) != 0,
-           "(cpu.system_pending & (1u << 12)) != 0");
+    expect(state, (cpu.system_pending & (1u << 12)) != 0, "(cpu.system_pending & (1u << 12)) != 0");
     debug_write(state, &cpu, DWT_BASE + 0x40u, 4, 0xa55au);
     debug_write(state, &cpu, DWT_BASE + 0x38u, 4, 4u | (1u << 10));
     debug_write(state, &cpu, DWT_BASE + 0x48u, 4, 5u | (1u << 8) | (1u << 10) | (1u << 12));
@@ -412,8 +390,7 @@ static void test_fpb(TestState* state) {
            "debug_read(state, &cpu, FPB_BASE + 8u, 4) == 0u");
     uint32_t rejected = 0;
     expect(state,
-           cortex_m4_debug_read(&cpu, FPB_BASE, 2, &rejected) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_read(&cpu, FPB_BASE, 2, &rejected) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, FPB_BASE, 2, &rejected) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,
@@ -422,8 +399,7 @@ static void test_fpb(TestState* state) {
            "cortex_m4_debug_read(&cpu, FPB_BASE + 0x2cu, 4, &rejected) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,
-           cortex_m4_debug_write(&cpu, FPB_BASE + 0x2cu, 4, 0) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_write(&cpu, FPB_BASE + 0x2cu, 4, 0) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_write(&cpu, FPB_BASE + 0x2cu, 4, 0) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
 }
@@ -450,8 +426,7 @@ static void test_itm_and_tpiu(TestState* state) {
     debug_write(state, &cpu, ITM_BASE, 1, 0x5au);
     expect(state, cpu.debug.itm_stimulus[0] == 0x5au, "cpu.debug.itm_stimulus[0] == 0x5au");
     debug_write(state, &cpu, ITM_BASE + 1u, 1, 0xa5u);
-    expect(state, cpu.debug.itm_stimulus[0] == 0xa55au,
-           "cpu.debug.itm_stimulus[0] == 0xa55au");
+    expect(state, cpu.debug.itm_stimulus[0] == 0xa55au, "cpu.debug.itm_stimulus[0] == 0xa55au");
     debug_write(state, &cpu, ITM_BASE + 2u, 2, 0x3cc3u);
     expect(state, cpu.debug.itm_stimulus[0] == 0x3cc3a55au,
            "cpu.debug.itm_stimulus[0] == 0x3cc3a55au");
@@ -504,8 +479,7 @@ static void test_itm_and_tpiu(TestState* state) {
     debug_write(state, &cpu, TPIU_BASE + CORESIGHT_LSR, 4, 0u);
     uint32_t rejected = 0;
     expect(state,
-           cortex_m4_debug_read(&cpu, TPIU_BASE, 2, &rejected) ==
-               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           cortex_m4_debug_read(&cpu, TPIU_BASE, 2, &rejected) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, TPIU_BASE, 2, &rejected) == "
            "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state,

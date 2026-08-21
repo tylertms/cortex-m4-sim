@@ -30,8 +30,8 @@
 #define ITM_ENABLE 1u
 
 static bool valid_access(uint32_t address, uint8_t size) {
-    return (size == 1 || size == 2 || size == 4) &&
-           (address & (uint32_t)(size - 1u)) == 0 && (address & 3u) + size <= 4u;
+    return (size == 1 || size == 2 || size == 4) && (address & (uint32_t)(size - 1u)) == 0 &&
+           (address & 3u) + size <= 4u;
 }
 
 static uint32_t read_partial(uint32_t value, uint32_t address, uint8_t size) {
@@ -45,8 +45,7 @@ static uint32_t read_partial(uint32_t value, uint32_t address, uint8_t size) {
     return value;
 }
 
-static uint32_t write_partial(uint32_t previous, uint32_t address, uint8_t size,
-                              uint32_t value) {
+static uint32_t write_partial(uint32_t previous, uint32_t address, uint8_t size, uint32_t value) {
     const uint32_t shift = (address & 3u) * 8u;
     uint32_t mask = UINT32_MAX;
     if (size == 1) {
@@ -63,9 +62,7 @@ static CortexM4SystemAccess accepted_read(uint32_t data, uint32_t address, uint8
     return CORTEX_M4_SYSTEM_ACCESS_ACCEPTED;
 }
 
-static bool word_access(uint32_t address, uint8_t size) {
-    return size == 4 && (address & 3u) == 0;
-}
+static bool word_access(uint32_t address, uint8_t size) { return size == 4 && (address & 3u) == 0; }
 
 bool cortex_m4_debug_address(uint32_t address) {
     return (address >= ITM_BASE && address < ITM_BASE + 0x1000u) ||
@@ -113,8 +110,7 @@ static uint32_t core_register_read(const CortexM4* cpu, uint8_t selector) {
     if (selector < 16u) {
         if (selector == 13u) {
             const bool thread = (cpu->xpsr & 0x1ffu) == 0;
-            return thread && (cpu->control & CORTEX_M4_CONTROL_SPSEL) != 0 ? cpu->psp
-                                                                           : cpu->msp;
+            return thread && (cpu->control & CORTEX_M4_CONTROL_SPSEL) != 0 ? cpu->psp : cpu->msp;
         }
         return cpu->registers[selector];
     }
@@ -203,8 +199,8 @@ static uint32_t dhcsr_value(const CortexM4* cpu) {
     return value;
 }
 
-static CortexM4SystemAccess debug_register_read(CortexM4* cpu, uint32_t address,
-                                                uint8_t size, uint32_t* value) {
+static CortexM4SystemAccess debug_register_read(CortexM4* cpu, uint32_t address, uint8_t size,
+                                                uint32_t* value) {
     if (!word_access(address, size)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
@@ -226,8 +222,8 @@ static CortexM4SystemAccess debug_register_read(CortexM4* cpu, uint32_t address,
     return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
 }
 
-static CortexM4SystemAccess debug_register_write(CortexM4* cpu, uint32_t address,
-                                                 uint8_t size, uint32_t value) {
+static CortexM4SystemAccess debug_register_write(CortexM4* cpu, uint32_t address, uint8_t size,
+                                                 uint32_t value) {
     if (!word_access(address, size)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
@@ -290,8 +286,7 @@ static CortexM4SystemAccess dwt_read(CortexM4* cpu, uint32_t address, uint8_t si
         return accepted_read(cpu->debug.dwt_cycle_count, address, size, value);
     }
     if (offset >= 8 && offset <= 0x18u && (offset & 3u) == 0) {
-        return accepted_read(cpu->debug.dwt_counters[(offset - 8u) / 4u], address, size,
-                             value);
+        return accepted_read(cpu->debug.dwt_counters[(offset - 8u) / 4u], address, size, value);
     }
     if (offset == 0x1cu) {
         return accepted_read(cpu->registers[15], address, size, value);
@@ -300,12 +295,11 @@ static CortexM4SystemAccess dwt_read(CortexM4* cpu, uint32_t address, uint8_t si
         const uint8_t index = (uint8_t)((offset - 0x20u) / 0x10u);
         const uint32_t field = offset & 0x0fu;
         if (field == 0) {
-            return accepted_read(cpu->debug.dwt_comparators[index].comparator, address,
-                                 size, value);
+            return accepted_read(cpu->debug.dwt_comparators[index].comparator, address, size,
+                                 value);
         }
         if (field == 4) {
-            return accepted_read(cpu->debug.dwt_comparators[index].mask, address, size,
-                                 value);
+            return accepted_read(cpu->debug.dwt_comparators[index].mask, address, size, value);
         }
         if (field == 8) {
             const uint32_t function = cpu->debug.dwt_comparators[index].function;
@@ -379,8 +373,7 @@ static CortexM4SystemAccess fpb_read(CortexM4* cpu, uint32_t address, uint8_t si
         return accepted_read(cpu->debug.fpb_remap, address, size, value);
     }
     if (offset >= 8 && offset < 0x28u) {
-        return accepted_read(cpu->debug.fpb_comparators[(offset - 8u) / 4u], address, size,
-                             value);
+        return accepted_read(cpu->debug.fpb_comparators[(offset - 8u) / 4u], address, size, value);
     }
     if (offset == CORESIGHT_LSR) {
         return accepted_read(cpu->debug.fpb_locked ? 3u : 1u, address, size, value);
@@ -760,14 +753,12 @@ void cortex_m4_debug_exception(CortexM4* cpu, uint16_t exception) {
     }
 }
 
-static bool dwt_address_match(CortexM4DwtComparator* comparator, uint32_t address,
-                              uint8_t size, bool check_size) {
+static bool dwt_address_match(CortexM4DwtComparator* comparator, uint32_t address, uint8_t size,
+                              bool check_size) {
     const uint32_t mask = comparator->mask;
-    const bool address_match =
-        mask == 31u || (address >> mask) == (comparator->comparator >> mask);
+    const bool address_match = mask == 31u || (address >> mask) == (comparator->comparator >> mask);
     const uint8_t configured_size = (uint8_t)((comparator->function >> 10) & 3u);
-    const bool size_match =
-        !check_size || configured_size == 3u || size == (1u << configured_size);
+    const bool size_match = !check_size || configured_size == 3u || size == (1u << configured_size);
     if (address_match && size_match) {
         comparator->function |= DWT_FUNCTION_MATCHED;
         return true;
@@ -806,8 +797,7 @@ static bool dwt_data_match(CortexM4* cpu, uint8_t index, uint32_t address, uint8
     }
     const uint8_t address_index = (uint8_t)((comparator->function >> 12) & 0x0fu);
     if (address_index >= 4u ||
-        !dwt_address_match(&cpu->debug.dwt_comparators[address_index], address, size,
-                           true)) {
+        !dwt_address_match(&cpu->debug.dwt_comparators[address_index], address, size, true)) {
         return false;
     }
     if ((value & access_mask(size)) != (comparator->comparator & access_mask(size))) {
@@ -817,8 +807,8 @@ static bool dwt_data_match(CortexM4* cpu, uint8_t index, uint32_t address, uint8
     return true;
 }
 
-void cortex_m4_debug_memory_access(CortexM4* cpu, uint32_t address, uint8_t size,
-                                   bool write, uint32_t value) {
+void cortex_m4_debug_memory_access(CortexM4* cpu, uint32_t address, uint8_t size, bool write,
+                                   uint32_t value) {
     if (cpu == NULL || (cpu->debug.demcr & DEMCR_TRACE_ENABLE) == 0) {
         return;
     }
@@ -834,14 +824,13 @@ void cortex_m4_debug_memory_access(CortexM4* cpu, uint32_t address, uint8_t size
 
 bool cortex_m4_debug_remap_instruction(const CortexM4* cpu, uint32_t address,
                                        uint32_t* remapped_address) {
-    if (cpu == NULL || remapped_address == NULL ||
-        (cpu->debug.fpb_control & FPB_ENABLE) == 0 || address > 0x1fffffffu) {
+    if (cpu == NULL || remapped_address == NULL || (cpu->debug.fpb_control & FPB_ENABLE) == 0 ||
+        address > 0x1fffffffu) {
         return false;
     }
     for (uint8_t index = 0; index < 6u; index++) {
         const uint32_t comparator = cpu->debug.fpb_comparators[index];
-        if ((comparator & 1u) == 0 ||
-            (address & 0x1ffffffcu) != (comparator & 0x1ffffffcu)) {
+        if ((comparator & 1u) == 0 || (address & 0x1ffffffcu) != (comparator & 0x1ffffffcu)) {
             continue;
         }
         const uint8_t replacement = (uint8_t)(comparator >> 30);
@@ -855,14 +844,13 @@ bool cortex_m4_debug_remap_instruction(const CortexM4* cpu, uint32_t address,
 
 bool cortex_m4_debug_remap_literal(const CortexM4* cpu, uint32_t address,
                                    uint32_t* remapped_address) {
-    if (cpu == NULL || remapped_address == NULL ||
-        (cpu->debug.fpb_control & FPB_ENABLE) == 0 || address > 0x1fffffffu) {
+    if (cpu == NULL || remapped_address == NULL || (cpu->debug.fpb_control & FPB_ENABLE) == 0 ||
+        address > 0x1fffffffu) {
         return false;
     }
     for (uint8_t index = 6u; index < 8u; index++) {
         const uint32_t comparator = cpu->debug.fpb_comparators[index];
-        if ((comparator & 1u) != 0 &&
-            (address & 0x1ffffffcu) == (comparator & 0x1ffffffcu)) {
+        if ((comparator & 1u) != 0 && (address & 0x1ffffffcu) == (comparator & 0x1ffffffcu)) {
             *remapped_address = cpu->debug.fpb_remap + index * 4u;
             return true;
         }

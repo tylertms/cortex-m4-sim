@@ -131,17 +131,17 @@ static const K22PeripheralBlock mk22f12_blocks[] = {
 };
 
 #define COUNT(array) (sizeof(array) / sizeof((array)[0]))
-#define CPU(clock, irqs)                                                                   \
-    {.architecture = K22_CPU_ARCHITECTURE_ARMV7E_M,                                        \
-     .core_revision_major = 0,                                                             \
-     .core_revision_minor = 1,                                                             \
-     .nvic_priority_bits = 4,                                                              \
-     .external_irq_count = irqs,                                                           \
-     .little_endian = true,                                                                \
-     .has_fpu = true,                                                                      \
-     .has_mpu = false,                                                                     \
-     .has_vtor = true,                                                                     \
-     .has_systick = true,                                                                  \
+#define CPU(clock, irqs)                                                                           \
+    {.architecture = K22_CPU_ARCHITECTURE_ARMV7E_M,                                                \
+     .core_revision_major = 0,                                                                     \
+     .core_revision_minor = 1,                                                                     \
+     .nvic_priority_bits = 4,                                                                      \
+     .external_irq_count = irqs,                                                                   \
+     .little_endian = true,                                                                        \
+     .has_fpu = true,                                                                              \
+     .has_mpu = false,                                                                             \
+     .has_vtor = true,                                                                             \
+     .has_systick = true,                                                                          \
      .maximum_core_clock_hz = clock}
 
 static const K22Profile profiles[K22_PROFILE_COUNT] = {

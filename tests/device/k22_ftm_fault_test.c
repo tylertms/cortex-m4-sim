@@ -28,8 +28,7 @@ static void record_irq(void* context, uint8_t irq, bool asserted) {
     }
 }
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     expect(state, k22_timing_write(timing, address, 4u, value),
            "k22_timing_write(timing, address, 4u, value)");
 }
@@ -48,8 +47,8 @@ static bool output(TestState* state, K22Timing* timing, uint8_t channel) {
     return high;
 }
 
-static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorder,
-                       uint32_t mode, uint32_t combine, uint32_t fault_control) {
+static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorder, uint32_t mode,
+                       uint32_t combine, uint32_t fault_control) {
     const K22Profile* profile = k22_profile_get(K22_PROFILE_MK22FN51212);
     const K22TimingSignals signals = {
         .context = recorder,
@@ -68,8 +67,7 @@ static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorde
 
 static void expect_outputs(TestState* state, K22Timing* timing, bool first, bool second) {
     expect(state, output(state, timing, 0u) == first, "output(state, timing, 0u) == first");
-    expect(state, output(state, timing, 1u) == second,
-           "output(state, timing, 1u) == second");
+    expect(state, output(state, timing, 1u) == second, "output(state, timing, 1u) == second");
 }
 
 static void test_manual_fault_lifecycle(TestState* state) {
@@ -263,8 +261,7 @@ static void test_flag_clearing_and_irq_control(TestState* state) {
     expect(state, !recorder.level[IRQ_FTM0], "!recorder.level[IRQ_FTM0]");
     write_register(state, &timing, FTM0_MODE, 0xc5u);
     expect(state, recorder.level[IRQ_FTM0], "recorder.level[IRQ_FTM0]");
-    expect(state, recorder.transitions[IRQ_FTM0] >= 3u,
-           "recorder.transitions[IRQ_FTM0] >= 3u");
+    expect(state, recorder.transitions[IRQ_FTM0] >= 3u, "recorder.transitions[IRQ_FTM0] >= 3u");
 }
 
 static void test_clear_sequence_and_retrigger(TestState* state) {

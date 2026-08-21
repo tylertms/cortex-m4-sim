@@ -148,25 +148,18 @@ static void test_decrement_before_multiple(TestState* state, KinetisK22* device)
            "kinetis_k22_write(device, 0x2000008cu, values, sizeof(values))");
     cortex_m4_set_register(cpu, 9, 0x200000a0u);
     execute(state, device);
-    expect(state, cortex_m4_get_register(cpu, 0) == 1,
-           "cortex_m4_get_register(cpu, 0) == 1");
-    expect(state, cortex_m4_get_register(cpu, 1) == 2,
-           "cortex_m4_get_register(cpu, 1) == 2");
-    expect(state, cortex_m4_get_register(cpu, 2) == 3,
-           "cortex_m4_get_register(cpu, 2) == 3");
-    expect(state, cortex_m4_get_register(cpu, 3) == 4,
-           "cortex_m4_get_register(cpu, 3) == 4");
-    expect(state, cortex_m4_get_register(cpu, 10) == 10,
-           "cortex_m4_get_register(cpu, 10) == 10");
+    expect(state, cortex_m4_get_register(cpu, 0) == 1, "cortex_m4_get_register(cpu, 0) == 1");
+    expect(state, cortex_m4_get_register(cpu, 1) == 2, "cortex_m4_get_register(cpu, 1) == 2");
+    expect(state, cortex_m4_get_register(cpu, 2) == 3, "cortex_m4_get_register(cpu, 2) == 3");
+    expect(state, cortex_m4_get_register(cpu, 3) == 4, "cortex_m4_get_register(cpu, 3) == 4");
+    expect(state, cortex_m4_get_register(cpu, 10) == 10, "cortex_m4_get_register(cpu, 10) == 10");
     expect(state, cortex_m4_get_register(cpu, 9) == 0x2000008cu,
            "cortex_m4_get_register(cpu, 9) == 0x2000008cu");
 
     const uint32_t resumed_values[3] = {0x22222222u, 0x33333333u, 0xaaaaaaaa};
     load_instruction(state, device, 0xe939u, 0x040fu);
-    expect(
-        state,
-        kinetis_k22_write(device, 0x20000094u, resumed_values, sizeof(resumed_values)),
-        "kinetis_k22_write(device, 0x20000094u, resumed_values, sizeof(resumed_values))");
+    expect(state, kinetis_k22_write(device, 0x20000094u, resumed_values, sizeof(resumed_values)),
+           "kinetis_k22_write(device, 0x20000094u, resumed_values, sizeof(resumed_values))");
     cortex_m4_set_register(cpu, 0, 0x10101010u);
     cortex_m4_set_register(cpu, 1, 0x11111111u);
     cortex_m4_set_register(cpu, 9, 0x200000a0u);
@@ -196,8 +189,7 @@ static void test_register_offset(TestState* state, KinetisK22* device) {
     cortex_m4_set_register(cpu, 1, 0x200000a0u);
     cortex_m4_set_register(cpu, 2, 4);
     execute(state, device);
-    expect(state, cortex_m4_get_register(cpu, 0) == word,
-           "cortex_m4_get_register(cpu, 0) == word");
+    expect(state, cortex_m4_get_register(cpu, 0) == word, "cortex_m4_get_register(cpu, 0) == word");
 
     load_instruction(state, device, 0xf91au, 0x900bu);
     expect(state, kinetis_k22_write(device, 0x200000b0u, &word, sizeof(word)),
@@ -248,8 +240,7 @@ static void test_unprivileged(TestState* state, KinetisK22* device) {
 
     const uint32_t signed_values = 0x00008081u;
     load_instruction(state, device, 0xf911u, 0x0e00u);
-    expect(state,
-           kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values)),
+    expect(state, kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values)),
            "kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values))");
     cortex_m4_set_register(cpu, 1, 0x200000f0u);
     execute(state, device);
@@ -257,8 +248,7 @@ static void test_unprivileged(TestState* state, KinetisK22* device) {
            "cortex_m4_get_register(cpu, 0) == 0xffffff81u");
 
     load_instruction(state, device, 0xf931u, 0x0e00u);
-    expect(state,
-           kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values)),
+    expect(state, kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values)),
            "kinetis_k22_write(device, 0x200000f0u, &signed_values, sizeof(signed_values))");
     cortex_m4_set_register(cpu, 1, 0x200000f0u);
     execute(state, device);
@@ -340,8 +330,8 @@ typedef struct {
     uint32_t last_address;
 } TrackingBus;
 
-static bool tracking_read(void* context, uint32_t address, uint8_t size,
-                          CortexM4Access access, uint32_t* value) {
+static bool tracking_read(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                          uint32_t* value) {
     TrackingBus* bus = context;
     if ((uint64_t)address + size > sizeof(bus->memory)) {
         return false;
@@ -355,8 +345,8 @@ static bool tracking_read(void* context, uint32_t address, uint8_t size,
     return true;
 }
 
-static bool tracking_write(void* context, uint32_t address, uint8_t size,
-                           CortexM4Access access, uint32_t value) {
+static bool tracking_write(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                           uint32_t value) {
     TrackingBus* bus = context;
     if ((uint64_t)address + size > sizeof(bus->memory)) {
         return false;

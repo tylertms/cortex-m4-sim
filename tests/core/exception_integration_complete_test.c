@@ -76,8 +76,7 @@ static void test_psp_lifecycle(TestState* state) {
     cpu->irq_enabled[0] = 1u;
     cpu->irq_pending[0] = 1u;
     write_vector(&bus, 16u, 0x301u);
-    expect(state, cortex_m4_take_pending_exception(cpu),
-           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cortex_m4_take_pending_exception(cpu), "cortex_m4_take_pending_exception(cpu)");
     expect(state, cpu->psp == 0x8e0u, "cpu->psp == 0x8e0u");
     expect(state, cpu->registers[14] == 0xfffffffdu, "cpu->registers[14] == 0xfffffffdu");
     expect(state, cortex_m4_exception_return(cpu, cpu->registers[14]),
@@ -94,8 +93,7 @@ static void test_entry_failures(TestState* state) {
     cpu->irq_pending[0] = 1u;
     write_vector(&bus, 16u, 0x301u);
     bus.reject_writes = true;
-    expect(state, !cortex_m4_take_pending_exception(cpu),
-           "!cortex_m4_take_pending_exception(cpu)");
+    expect(state, !cortex_m4_take_pending_exception(cpu), "!cortex_m4_take_pending_exception(cpu)");
     expect(state, (cpu->cfsr & (1u << 12)) != 0u, "(cpu->cfsr & (1u << 12)) != 0u");
     cortex_m4_destroy(cpu);
 
@@ -104,8 +102,7 @@ static void test_entry_failures(TestState* state) {
     cpu->irq_enabled[0] = 1u;
     cpu->irq_pending[0] = 1u;
     bus.reject_reads = true;
-    expect(state, !cortex_m4_take_pending_exception(cpu),
-           "!cortex_m4_take_pending_exception(cpu)");
+    expect(state, !cortex_m4_take_pending_exception(cpu), "!cortex_m4_take_pending_exception(cpu)");
     expect(state, (cpu->hfsr & (1u << 1)) != 0u, "(cpu->hfsr & (1u << 1)) != 0u");
     cortex_m4_destroy(cpu);
 }
@@ -118,8 +115,7 @@ static void test_exception_selection(TestState* state) {
     cpu->system_priority[11] = 0x10u;
     write_vector(&bus, 14u, 0x301u);
     write_vector(&bus, 15u, 0x321u);
-    expect(state, cortex_m4_take_pending_exception(cpu),
-           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cortex_m4_take_pending_exception(cpu), "cortex_m4_take_pending_exception(cpu)");
     expect(state, (cpu->xpsr & 0x1ffu) == 15u, "(cpu->xpsr & 0x1ffu) == 15u");
     cortex_m4_destroy(cpu);
 
@@ -131,8 +127,7 @@ static void test_exception_selection(TestState* state) {
     cpu->irq_priority[1] = 0x10u;
     write_vector(&bus, 16u, 0x301u);
     write_vector(&bus, 17u, 0x321u);
-    expect(state, cortex_m4_take_pending_exception(cpu),
-           "cortex_m4_take_pending_exception(cpu)");
+    expect(state, cortex_m4_take_pending_exception(cpu), "cortex_m4_take_pending_exception(cpu)");
     expect(state, (cpu->xpsr & 0x1ffu) == 17u, "(cpu->xpsr & 0x1ffu) == 17u");
     cortex_m4_destroy(cpu);
 }
@@ -165,8 +160,7 @@ static void test_return_failures(TestState* state) {
     bus.reject_reads = true;
     expect(state, cortex_m4_exception_return(cpu, 0xfffffff9u),
            "cortex_m4_exception_return(cpu, 0xfffffff9u)");
-    expect(state, cpu->exception_unstack_memory_fault,
-           "cpu->exception_unstack_memory_fault");
+    expect(state, cpu->exception_unstack_memory_fault, "cpu->exception_unstack_memory_fault");
     expect(state, (cpu->cfsr & (1u << 11)) != 0u, "(cpu->cfsr & (1u << 11)) != 0u");
     cortex_m4_destroy(cpu);
 
@@ -175,8 +169,7 @@ static void test_return_failures(TestState* state) {
     prepare_active(cpu, 16u, 0xfffffff9u, 0x400u);
     expect(state, cortex_m4_exception_return(cpu, 0xfffffff9u),
            "cortex_m4_exception_return(cpu, 0xfffffff9u)");
-    expect(state, !cpu->exception_unstack_memory_fault,
-           "!cpu->exception_unstack_memory_fault");
+    expect(state, !cpu->exception_unstack_memory_fault, "!cpu->exception_unstack_memory_fault");
     expect(state, (cpu->cfsr & (1u << 17)) != 0u, "(cpu->cfsr & (1u << 17)) != 0u");
     cortex_m4_destroy(cpu);
 }

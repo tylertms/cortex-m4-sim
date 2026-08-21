@@ -66,8 +66,7 @@ int main(int argc, char** argv) {
             return EXIT_FAILURE;
         }
     }
-    if (vector_address > UINT32_MAX || binary_address > UINT32_MAX ||
-        stop_address > UINT32_MAX) {
+    if (vector_address > UINT32_MAX || binary_address > UINT32_MAX || stop_address > UINT32_MAX) {
         fprintf(stderr, "an address is too large\n");
         return EXIT_FAILURE;
     }
@@ -79,9 +78,8 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     uint32_t entry = 0;
-    const bool loaded =
-        binary ? cortex_m4_load_binary(device, argv[1], (uint32_t)binary_address)
-               : cortex_m4_load_elf(device, argv[1], &entry);
+    const bool loaded = binary ? cortex_m4_load_binary(device, argv[1], (uint32_t)binary_address)
+                               : cortex_m4_load_elf(device, argv[1], &entry);
     if (!loaded) {
         fprintf(stderr, "failed to load the firmware image\n");
         kinetis_k22_destroy(device);
@@ -92,29 +90,25 @@ int main(int argc, char** argv) {
         kinetis_k22_destroy(device);
         return EXIT_FAILURE;
     }
-    if (stop_address_set && !cortex_m4_set_breakpoint(kinetis_k22_cpu(device), 0,
-                                                      (uint32_t)stop_address, true)) {
+    if (stop_address_set &&
+        !cortex_m4_set_breakpoint(kinetis_k22_cpu(device), 0, (uint32_t)stop_address, true)) {
         fprintf(stderr, "the stop address is invalid\n");
         kinetis_k22_destroy(device);
         return EXIT_FAILURE;
     }
     const CortexM4Result result = cortex_m4_run(kinetis_k22_cpu(device), limits);
     printf("stop=%u pc=0x%08" PRIx32 " opcode=0x%08" PRIx32 " instructions=%" PRIu64
-           " cycles=%" PRIu64 " entry=0x%08" PRIx32 " cfsr=0x%08" PRIx32
-           " bfar=0x%08" PRIx32 "\n",
+           " cycles=%" PRIu64 " entry=0x%08" PRIx32 " cfsr=0x%08" PRIx32 " bfar=0x%08" PRIx32 "\n",
            result.stop, result.pc, result.opcode, result.instructions, result.cycles, entry,
            cortex_m4_get_fault_status(kinetis_k22_cpu(device)),
            cortex_m4_get_fault_address(kinetis_k22_cpu(device)));
     for (uint8_t index = 0; index < 16; index++) {
         printf("r%u=0x%08" PRIx32 "%c", index,
-               cortex_m4_get_register(kinetis_k22_cpu(device), index),
-               index == 15 ? '\n' : ' ');
+               cortex_m4_get_register(kinetis_k22_cpu(device), index), index == 15 ? '\n' : ' ');
     }
     kinetis_k22_destroy(device);
-    return result.stop == CORTEX_M4_STOP_UNSUPPORTED ||
-                   result.stop == CORTEX_M4_STOP_BUS_FAULT ||
-                   result.stop == CORTEX_M4_STOP_USAGE_FAULT ||
-                   result.stop == CORTEX_M4_STOP_LOCKUP
+    return result.stop == CORTEX_M4_STOP_UNSUPPORTED || result.stop == CORTEX_M4_STOP_BUS_FAULT ||
+                   result.stop == CORTEX_M4_STOP_USAGE_FAULT || result.stop == CORTEX_M4_STOP_LOCKUP
                ? EXIT_FAILURE
                : EXIT_SUCCESS;
 }

@@ -88,8 +88,8 @@ static RegisterAccess readable_register(KinetisK22* device, K22PeripheralId id) 
     const uint8_t sizes[] = {1u, 2u, 4u};
     for (size_t index = 0u; index < sizeof(sizes); index++) {
         uint32_t value = 0u;
-        if (kinetis_k22_peripheral_read(device, block.address, sizes[index],
-                                        CORTEX_M4_ACCESS_DEBUG, &value)) {
+        if (kinetis_k22_peripheral_read(device, block.address, sizes[index], CORTEX_M4_ACCESS_DEBUG,
+                                        &value)) {
             return (RegisterAccess){block.address, sizes[index]};
         }
     }
@@ -100,8 +100,7 @@ static void clear_gates(TestState* state, KinetisK22* device) {
     const uint32_t registers[] = {SIM_SCGC1, SIM_SCGC2, SIM_SCGC3, SIM_SCGC4,
                                   SIM_SCGC5, SIM_SCGC6, SIM_SCGC7};
     for (size_t index = 0u; index < sizeof(registers) / sizeof(registers[0]); index++) {
-        if (k22_register_manifest_lookup(device->profile->id, registers[index], 32u) !=
-            NULL) {
+        if (k22_register_manifest_lookup(device->profile->id, registers[index], 32u) != NULL) {
             expect(state,
                    kinetis_k22_peripheral_write(device, registers[index], 4u,
                                                 CORTEX_M4_ACCESS_DEBUG, 0u),
@@ -111,8 +110,7 @@ static void clear_gates(TestState* state, KinetisK22* device) {
     }
 }
 
-static void test_cases(TestState* state, KinetisK22* device, const GateCase* values,
-                       size_t count) {
+static void test_cases(TestState* state, KinetisK22* device, const GateCase* values, size_t count) {
     clear_gates(state, device);
     for (size_t index = 0u; index < count; index++) {
         const RegisterAccess access = readable_register(device, values[index].peripheral);
@@ -128,12 +126,11 @@ static void test_cases(TestState* state, KinetisK22* device, const GateCase* val
                "CORTEX_M4_ACCESS_DATA, &value)");
         expect(state,
                kinetis_k22_peripheral_write(device, values[index].register_address, 4u,
-                                            CORTEX_M4_ACCESS_DEBUG,
-                                            1u << values[index].bit),
+                                            CORTEX_M4_ACCESS_DEBUG, 1u << values[index].bit),
                "kinetis_k22_peripheral_write( device, values[index].register_address, 4u, "
                "CORTEX_M4_ACCESS_DEBUG, 1u << values[index].bit)");
-        const bool enabled = kinetis_k22_peripheral_read(
-            device, access.address, access.size, CORTEX_M4_ACCESS_DATA, &value);
+        const bool enabled = kinetis_k22_peripheral_read(device, access.address, access.size,
+                                                         CORTEX_M4_ACCESS_DATA, &value);
         expect(state, enabled, "enabled");
         expect(state,
                kinetis_k22_peripheral_write(device, values[index].register_address, 4u,
@@ -145,10 +142,10 @@ static void test_cases(TestState* state, KinetisK22* device, const GateCase* val
 
 int main(void) {
     TestState state = {0};
-    KinetisK22* large = create_device(&state, KINETIS_K22_PROFILE_MK22FN1M012,
-                                      KINETIS_K22_PACKAGE_LQ_144_LQFP);
-    KinetisK22* small = create_device(&state, KINETIS_K22_PROFILE_MK22FN51212,
-                                      KINETIS_K22_PACKAGE_DC_121_XFBGA);
+    KinetisK22* large =
+        create_device(&state, KINETIS_K22_PROFILE_MK22FN1M012, KINETIS_K22_PACKAGE_LQ_144_LQFP);
+    KinetisK22* small =
+        create_device(&state, KINETIS_K22_PROFILE_MK22FN51212, KINETIS_K22_PACKAGE_DC_121_XFBGA);
     test_cases(&state, large, cases, sizeof(cases) / sizeof(cases[0]));
     test_cases(&state, small, small_cases, sizeof(small_cases) / sizeof(small_cases[0]));
     kinetis_k22_destroy(large);

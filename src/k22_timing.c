@@ -77,8 +77,7 @@ static void trigger_dma(const K22Timing* timing, uint8_t channel) {
         timing->signals.dma_trigger(timing->signals.context, channel);
 }
 
-static void trigger(K22Timing* timing, K22TimingTrigger type, uint8_t instance,
-                    uint8_t channel) {
+static void trigger(K22Timing* timing, K22TimingTrigger type, uint8_t instance, uint8_t channel) {
     if (timing->signals.trigger != NULL)
         timing->signals.trigger(timing->signals.context, type, instance, channel);
 }
@@ -88,8 +87,7 @@ static void trigger_adc_alternate(K22Timing* timing, uint8_t source) {
 }
 
 static bool has(const K22Timing* timing, K22PeripheralId peripheral) {
-    return timing->profile != NULL &&
-           k22_profile_has_peripheral(timing->profile, peripheral);
+    return timing->profile != NULL && k22_profile_has_peripheral(timing->profile, peripheral);
 }
 
 static bool contains(const K22Timing* timing, K22PeripheralId peripheral, uint32_t address,
@@ -120,10 +118,9 @@ static uint32_t fll_clock(const K22Timing* timing) {
     if ((timing->mcg[0] & 4u) == 0) {
         const uint8_t index = (timing->mcg[0] >> 3u) & 7u;
         const uint16_t low_range_dividers[8] = {1u, 2u, 4u, 8u, 16u, 32u, 64u, 128u};
-        const uint16_t high_range_dividers[8] = {32u,  64u,   128u,  256u,
-                                                 512u, 1024u, 1280u, 1536u};
-        const uint16_t divider = (timing->mcg[1] & 0x30u) == 0 ? low_range_dividers[index]
-                                                               : high_range_dividers[index];
+        const uint16_t high_range_dividers[8] = {32u, 64u, 128u, 256u, 512u, 1024u, 1280u, 1536u};
+        const uint16_t divider =
+            (timing->mcg[1] & 0x30u) == 0 ? low_range_dividers[index] : high_range_dividers[index];
         reference = timing->external_oscillator_hz / divider;
     }
     uint32_t multiplier = multipliers[(c4 >> 5u) & 3u];
@@ -140,8 +137,7 @@ static uint32_t pll_clock(const K22Timing* timing) {
     }
     const uint32_t divider = (timing->mcg[4] & 0x1fu) + 1u;
     const uint32_t multiplier = (timing->mcg[5] & 0x1fu) + 24u;
-    return (uint32_t)(((uint64_t)timing->external_oscillator_hz * multiplier) /
-                      (divider * 2u));
+    return (uint32_t)(((uint64_t)timing->external_oscillator_hz * multiplier) / (divider * 2u));
 }
 
 static void update_clocks(K22Timing* timing) {
@@ -190,8 +186,7 @@ static uint32_t sim_fcfg1(const K22Timing* timing) {
                : 0x0f0f0f00u;
 }
 
-static bool read_sim(const K22Timing* timing, uint32_t address, uint8_t size,
-                     uint32_t* value) {
+static bool read_sim(const K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value) {
     if (size != 4) {
         return false;
     }
@@ -314,8 +309,8 @@ static bool write_sim(K22Timing* timing, uint32_t address, uint8_t size, uint32_
     }
 }
 
-static bool read_byte_block(const uint8_t* data, uint32_t base, uint32_t length,
-                            uint32_t address, uint8_t size, uint32_t* value) {
+static bool read_byte_block(const uint8_t* data, uint32_t base, uint32_t length, uint32_t address,
+                            uint8_t size, uint32_t* value) {
     if (size != 1 || address < base || address >= base + length) {
         return false;
     }
@@ -335,8 +330,7 @@ static uint32_t advance_pit_channel(K22Timing* timing, uint8_t channel, uint64_t
         expirations = 1u;
         const uint64_t period = (uint64_t)pit->load + 1u;
         const uint64_t additional = ticks / period;
-        expirations =
-            additional >= UINT32_MAX ? UINT32_MAX : expirations + (uint32_t)additional;
+        expirations = additional >= UINT32_MAX ? UINT32_MAX : expirations + (uint32_t)additional;
         pit->current = pit->load - (uint32_t)(ticks % period);
         pit->flag = true;
         if ((pit->control & 2u) != 0) {
@@ -352,12 +346,11 @@ static uint32_t advance_pit_channel(K22Timing* timing, uint8_t channel, uint64_t
 
 static void advance_pit(K22Timing* timing, uint32_t cycles) {
     if (!has(timing, K22_PERIPHERAL_PIT) || (timing->sim_scgc6 & (1u << 23u)) == 0 ||
-        (timing->pit_mcr & 2u) != 0 ||
-        ((timing->pit_mcr & 1u) != 0u && timing->debug_halted)) {
+        (timing->pit_mcr & 2u) != 0 || ((timing->pit_mcr & 1u) != 0u && timing->debug_halted)) {
         return;
     }
-    const uint64_t ticks = clock_ticks(&timing->pit_remainder, cycles, timing->bus_clock_hz,
-                                       timing->core_clock_hz);
+    const uint64_t ticks =
+        clock_ticks(&timing->pit_remainder, cycles, timing->bus_clock_hz, timing->core_clock_hz);
     uint64_t source = ticks;
     for (uint8_t channel = 0; channel < 4; channel++) {
         if ((timing->pit[channel].control & 4u) == 0) {
@@ -367,8 +360,7 @@ static void advance_pit(K22Timing* timing, uint32_t cycles) {
     }
 }
 
-static bool pit_read(const K22Timing* timing, uint32_t address, uint8_t size,
-                     uint32_t* value) {
+static bool pit_read(const K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value) {
     if (size != 4) {
         return false;
     }
@@ -532,8 +524,8 @@ bool k22_timing_set_lptmr_input(K22Timing* timing, uint8_t input, bool high) {
         !has(timing, K22_PERIPHERAL_LPTMR0))
         return false;
     timing->lptmr_input[input] = high;
-    if (!lptmr_running(timing) || (timing->lptmr_csr & 2u) == 0 ||
-        (timing->lptmr_psr & 4u) == 0 || ((timing->lptmr_csr >> 4u) & 3u) != input)
+    if (!lptmr_running(timing) || (timing->lptmr_csr & 2u) == 0 || (timing->lptmr_psr & 4u) == 0 ||
+        ((timing->lptmr_csr >> 4u) & 3u) != input)
         return true;
     const bool active = lptmr_selected_active(timing);
     if (active != timing->lptmr_observed_active) {
@@ -564,12 +556,10 @@ static uint32_t rtc_second_ticks(const K22Timing* timing) {
 static void rtc_complete_second(K22Timing* timing) {
     const uint8_t interval_counter = (uint8_t)(timing->rtc_tcr >> 24u);
     if (interval_counter == 0u) {
-        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) |
-                          ((timing->rtc_tcr & 0xff00u) << 16u) |
+        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) | ((timing->rtc_tcr & 0xff00u) << 16u) |
                           ((timing->rtc_tcr & 0xffu) << 16u);
     } else {
-        timing->rtc_tcr =
-            (timing->rtc_tcr & 0xffffu) | ((uint32_t)(interval_counter - 1u) << 24u);
+        timing->rtc_tcr = (timing->rtc_tcr & 0xffffu) | ((uint32_t)(interval_counter - 1u) << 24u);
     }
     const bool overflow = timing->rtc_tsr == UINT32_MAX;
     if (overflow) {
@@ -595,8 +585,8 @@ static void advance_rtc(K22Timing* timing, uint32_t cycles) {
         (timing->rtc_sr & 0x10u) == 0 || (timing->rtc_sr & 3u) != 0) {
         return;
     }
-    const uint64_t ticks = clock_ticks(&timing->rtc_remainder, cycles,
-                                       timing->rtc_oscillator_hz, timing->core_clock_hz);
+    const uint64_t ticks = clock_ticks(&timing->rtc_remainder, cycles, timing->rtc_oscillator_hz,
+                                       timing->core_clock_hz);
     uint64_t remaining = ticks;
     while (remaining != 0u && (timing->rtc_sr & 2u) == 0u) {
         const uint32_t second_ticks = rtc_second_ticks(timing);
@@ -611,8 +601,7 @@ static void advance_rtc(K22Timing* timing, uint32_t cycles) {
         }
     }
     timing->rtc_tpr =
-        (uint16_t)(timing->rtc_subsecond_ticks > 0x7fffu ? 0x7fffu
-                                                         : timing->rtc_subsecond_ticks);
+        (uint16_t)(timing->rtc_subsecond_ticks > 0x7fffu ? 0x7fffu : timing->rtc_subsecond_ticks);
 }
 
 static uint32_t pdb_divider(uint32_t sc) {
@@ -627,8 +616,7 @@ static bool pdb_auxiliary_offset(uint32_t offset) {
            (offset >= 0x190u && offset <= 0x198u && (offset & 3u) == 0);
 }
 
-static bool counter_reached(uint16_t start, uint64_t ticks, uint32_t period,
-                            uint16_t target) {
+static bool counter_reached(uint16_t start, uint64_t ticks, uint32_t period, uint16_t target) {
     if (ticks >= period)
         return true;
     const uint32_t distance =
@@ -649,20 +637,18 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
     }
     const uint64_t period = (uint64_t)timing->pdb_mod + 1u;
     const uint64_t total = (uint64_t)timing->pdb_counter + ticks;
-    const bool delayed = timing->pdb_idly <= timing->pdb_mod &&
-                         counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period,
-                                         timing->pdb_idly);
+    const bool delayed =
+        timing->pdb_idly <= timing->pdb_mod &&
+        counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period, timing->pdb_idly);
     timing->pdb_counter = (uint16_t)(total % period);
     for (uint8_t channel = 0; channel < 2u; channel++) {
         const uint32_t base = 0x10u + (uint32_t)channel * 0x28u;
         const uint32_t control = timing->pdb_registers[base >> 2u];
         for (uint8_t pretrigger = 0; pretrigger < 2u; pretrigger++) {
             const uint16_t delay =
-                (uint16_t)
-                    timing->pdb_registers[(base + 8u + (uint32_t)pretrigger * 4u) >> 2u];
+                (uint16_t)timing->pdb_registers[(base + 8u + (uint32_t)pretrigger * 4u) >> 2u];
             if ((control & (1u << pretrigger)) != 0 &&
-                counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period,
-                                delay)) {
+                counter_reached((uint16_t)(total - ticks), ticks, (uint32_t)period, delay)) {
                 timing->pdb_registers[(base + 4u) >> 2u] |= 1u << pretrigger;
                 trigger(timing, K22_TIMING_TRIGGER_PDB_ADC, channel, pretrigger);
             }
@@ -691,8 +677,8 @@ static void advance_pdb(K22Timing* timing, uint32_t cycles) {
 
 static bool ftm_location(const K22Timing* timing, uint32_t address, uint8_t* index,
                          uint32_t* offset) {
-    const K22PeripheralId ids[4] = {K22_PERIPHERAL_FTM0, K22_PERIPHERAL_FTM1,
-                                    K22_PERIPHERAL_FTM2, K22_PERIPHERAL_FTM3};
+    const K22PeripheralId ids[4] = {K22_PERIPHERAL_FTM0, K22_PERIPHERAL_FTM1, K22_PERIPHERAL_FTM2,
+                                    K22_PERIPHERAL_FTM3};
     for (uint8_t item = 0; item < 4; item++) {
         K22PeripheralBlock block;
         if (k22_profile_peripheral_block(timing->profile, ids[item], &block) &&
@@ -717,9 +703,7 @@ static uint8_t ftm_trigger_bit(uint8_t channel) {
     return channel < 6u ? bits[channel] : UINT8_MAX;
 }
 
-static uint8_t ftm_channel_count(uint8_t index) {
-    return index == 0u || index == 3u ? 8u : 2u;
-}
+static uint8_t ftm_channel_count(uint8_t index) { return index == 0u || index == 3u ? 8u : 2u; }
 
 static bool ftm_quadrature_enabled(const K22FtmState* ftm) {
     return ftm->quadrature_capable && (ftm->registers[11] & 1u) != 0u;
@@ -728,8 +712,8 @@ static bool ftm_quadrature_enabled(const K22FtmState* ftm) {
 static bool ftm_combine_mode(const K22FtmState* ftm, uint8_t channel) {
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
     const uint32_t pair = ftm->registers[4] >> pair_shift;
-    return (ftm->sc & (1u << 5u)) == 0u && !ftm_quadrature_enabled(ftm) &&
-           (pair & 1u) != 0u && (pair & 4u) == 0u;
+    return (ftm->sc & (1u << 5u)) == 0u && !ftm_quadrature_enabled(ftm) && (pair & 1u) != 0u &&
+           (pair & 4u) == 0u;
 }
 
 static bool ftm_complementary_mode(const K22FtmState* ftm, uint8_t channel) {
@@ -742,8 +726,7 @@ static bool ftm_complementary_mode(const K22FtmState* ftm, uint8_t channel) {
            !output_compare;
 }
 
-bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel,
-                              bool high) {
+bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t channel, bool high) {
     if (timing == NULL || timing->profile == NULL || instance >= 4u ||
         channel >= ftm_channel_count(instance))
         return false;
@@ -758,8 +741,7 @@ bool k22_timing_set_ftm_input(K22Timing* timing, uint8_t instance, uint8_t chann
     return true;
 }
 
-bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input,
-                              bool high) {
+bool k22_timing_set_ftm_fault(K22Timing* timing, uint8_t instance, uint8_t input, bool high) {
     if (timing == NULL || timing->profile == NULL || instance >= 4u || input >= 4u)
         return false;
     const K22PeripheralId peripheral = (K22PeripheralId)(K22_PERIPHERAL_FTM0 + instance);
@@ -840,9 +822,8 @@ bool k22_timing_get_ftm_output(const K22Timing* timing, uint8_t instance, uint8_
         *high = false;
         return true;
     }
-    bool output = ftm_deadtime_enabled(ftm, channel)
-                      ? ftm->channel_deadtime_output[channel]
-                      : ftm_pre_deadtime_output(ftm, channel);
+    bool output = ftm_deadtime_enabled(ftm, channel) ? ftm->channel_deadtime_output[channel]
+                                                     : ftm_pre_deadtime_output(ftm, channel);
     if ((ftm->registers[3] & (1u << channel)) != 0u)
         output = false;
     if (ftm->fault_output_active && ftm_fault_channel_enabled(ftm, channel))
@@ -859,8 +840,7 @@ static void update_ftm_irq(const K22Timing* timing, uint8_t index) {
     const uint8_t channels = ftm_channel_count(index);
     for (uint8_t channel = 0u; channel < channels; channel++)
         asserted = asserted || (ftm->channel_sc[channel] & 0xc0u) == 0xc0u;
-    asserted = asserted ||
-               ((ftm->registers[0] & 0x80u) != 0u && (ftm->registers[8] & 0x80u) != 0u);
+    asserted = asserted || ((ftm->registers[0] & 0x80u) != 0u && (ftm->registers[8] & 0x80u) != 0u);
     set_irq(timing, ftm_irq(index), asserted);
 }
 
@@ -923,10 +903,9 @@ static void ftm_advance_fault_inputs(K22Timing* timing, uint8_t index, uint32_t 
     K22FtmState* ftm = &timing->ftm[index];
     if (!ftm_gate(timing, index))
         return;
-    const uint64_t ticks = clock_ticks(&ftm->fault_remainder, cycles, timing->bus_clock_hz,
-                                       timing->core_clock_hz);
-    const uint8_t enabled =
-        ftm_fault_mode(ftm) == 0u ? 0u : (uint8_t)ftm->registers[10] & 0x0fu;
+    const uint64_t ticks =
+        clock_ticks(&ftm->fault_remainder, cycles, timing->bus_clock_hz, timing->core_clock_hz);
+    const uint8_t enabled = ftm_fault_mode(ftm) == 0u ? 0u : (uint8_t)ftm->registers[10] & 0x0fu;
     const uint8_t filter_enable = (uint8_t)(ftm->registers[10] >> 4u) & 0x0fu;
     const uint8_t filter_value = (uint8_t)(ftm->registers[10] >> 8u) & 0x0fu;
     for (uint8_t input = 0u; input < 4u; input++) {
@@ -953,8 +932,7 @@ static void ftm_advance_fault_inputs(K22Timing* timing, uint8_t index, uint32_t 
             ftm_detect_fault(timing, index, input);
     }
     ftm_update_fault_status(ftm);
-    if (ftm->fault_output_active && ftm_fault_mode(ftm) == 3u &&
-        ftm_active_fault_mask(ftm) == 0u)
+    if (ftm->fault_output_active && ftm_fault_mode(ftm) == 3u && ftm_active_fault_mask(ftm) == 0u)
         ftm->fault_release_pending = true;
     update_ftm_irq(timing, index);
 }
@@ -1004,8 +982,7 @@ static void ftm_combine_pwm_advance(K22FtmState* ftm, uint8_t channel) {
     const uint32_t first_compare = ftm->channel_value[channel];
     const uint32_t second_compare = ftm->channel_value[channel + 1u];
     const bool first_valid = first_compare >= ftm->initial && first_compare <= ftm->modulo;
-    const bool second_valid =
-        second_compare >= ftm->initial && second_compare <= ftm->modulo;
+    const bool second_valid = second_compare >= ftm->initial && second_compare <= ftm->modulo;
     bool active = false;
     if (first_valid) {
         if (second_valid)
@@ -1051,8 +1028,8 @@ static void ftm_output_compare_match(K22FtmState* ftm, uint8_t channel, uint64_t
     }
 }
 
-static void ftm_edge_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel,
-                                         uint64_t matches, uint64_t overflows) {
+static void ftm_edge_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel, uint64_t matches,
+                                         uint64_t overflows) {
     if (!ftm_edge_aligned_pwm_mode(ftm, channel))
         return;
     const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
@@ -1070,8 +1047,8 @@ static void ftm_edge_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel,
     }
 }
 
-static void ftm_center_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel,
-                                           uint64_t matches, uint64_t ticks) {
+static void ftm_center_aligned_pwm_advance(K22FtmState* ftm, uint8_t channel, uint64_t matches,
+                                           uint64_t ticks) {
     if (ticks == 0u || !ftm_center_aligned_pwm_mode(ftm, channel))
         return;
     const uint8_t edges = (uint8_t)((ftm->channel_sc[channel] >> 2u) & 3u);
@@ -1126,8 +1103,8 @@ static void ftm_apply_legacy_boundary_values(K22FtmState* ftm, uint8_t channels)
         return;
     ftm_apply_modulo(ftm);
     for (uint8_t channel = 0u; channel < channels; channel++) {
-        if (ftm_edge_aligned_pwm_mode(ftm, channel) ||
-            ftm_center_aligned_pwm_mode(ftm, channel) || ftm_combine_mode(ftm, channel))
+        if (ftm_edge_aligned_pwm_mode(ftm, channel) || ftm_center_aligned_pwm_mode(ftm, channel) ||
+            ftm_combine_mode(ftm, channel))
             ftm_apply_channel_value(ftm, channel);
     }
 }
@@ -1172,8 +1149,7 @@ static void advance_ftm_up_down(K22Timing* timing, uint8_t index, uint64_t ticks
             ftm_channel_event(timing, index, channel);
         }
     }
-    const uint64_t maximum_points =
-        ftm_phase_crossing_count(phase, ticks, period, span + 1u);
+    const uint64_t maximum_points = ftm_phase_crossing_count(phase, ticks, period, span + 1u);
     const uint64_t minimum_points = ftm_phase_crossing_count(phase, ticks, period, 0u);
     ftm_overflow(timing, index, maximum_points);
     ftm_fault_cycle_boundary(timing, index, minimum_points != 0u);
@@ -1210,8 +1186,7 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
         source_hz = timing->external_oscillator_hz;
     }
     source_hz >>= ftm->sc & 7u;
-    const uint64_t ticks =
-        clock_ticks(&ftm->remainder, cycles, source_hz, timing->core_clock_hz);
+    const uint64_t ticks = clock_ticks(&ftm->remainder, cycles, source_hz, timing->core_clock_hz);
     if (ticks == 0) {
         return;
     }
@@ -1224,16 +1199,14 @@ static void advance_ftm_counter(K22Timing* timing, uint8_t index, uint32_t cycle
     const uint32_t first = ftm->initial;
     const uint32_t last = ftm->modulo >= first ? ftm->modulo : 0xffffu;
     const uint32_t period = last - first + 1u;
-    const uint32_t start =
-        ftm->counter < first || ftm->counter > last ? first : ftm->counter;
+    const uint32_t start = ftm->counter < first || ftm->counter > last ? first : ftm->counter;
     const uint64_t relative = (uint64_t)(start - first) + ticks;
     const uint64_t overflows = relative / period;
     uint64_t matches[8] = {0};
     uint8_t match_mask = 0u;
     for (uint8_t channel = 0; channel < channels; channel++) {
         const uint32_t compare = ftm->channel_value[channel];
-        const uint32_t distance =
-            compare > start ? compare - start : period - (start - compare);
+        const uint32_t distance = compare > start ? compare - start : period - (start - compare);
         const bool output_compare = ftm_output_compare_mode(ftm, channel);
         const bool edge_aligned = ftm_edge_aligned_pwm_mode(ftm, channel);
         const bool combined = ftm_combine_mode(ftm, channel);
@@ -1277,8 +1250,8 @@ static bool ftm_input_capture_mode(const K22FtmState* ftm, uint8_t channel) {
     const uint8_t pair_shift = (uint8_t)((channel / 2u) * 8u);
     const uint32_t pair = ftm->registers[4] >> pair_shift;
     return !ftm_quadrature_enabled(ftm) && (ftm->sc & (1u << 5u)) == 0u &&
-           (ftm->channel_sc[channel] & 0x30u) == 0u &&
-           (ftm->channel_sc[channel] & 0x0cu) != 0u && (pair & 5u) == 0u;
+           (ftm->channel_sc[channel] & 0x30u) == 0u && (ftm->channel_sc[channel] & 0x0cu) != 0u &&
+           (pair & 5u) == 0u;
 }
 
 static void ftm_quadrature_step(K22Timing* timing, uint8_t index, bool increment) {
@@ -1287,8 +1260,7 @@ static void ftm_quadrature_step(K22Timing* timing, uint8_t index, bool increment
         return;
     const uint16_t first = ftm->initial;
     const uint16_t last = ftm->modulo >= first ? ftm->modulo : UINT16_MAX;
-    const uint16_t counter =
-        ftm->counter < first || ftm->counter > last ? first : ftm->counter;
+    const uint16_t counter = ftm->counter < first || ftm->counter > last ? first : ftm->counter;
     bool overflow = false;
     if (increment) {
         ftm->registers[11] |= 4u;
@@ -1326,10 +1298,8 @@ static void ftm_quadrature_transition(K22Timing* timing, uint8_t index, uint8_t 
     const bool after = current != polarity;
     if (before == after)
         return;
-    const bool phase_a =
-        ftm->channel_filtered_input[0] != ((ftm->registers[11] & 0x20u) != 0u);
-    const bool phase_b =
-        ftm->channel_filtered_input[1] != ((ftm->registers[11] & 0x10u) != 0u);
+    const bool phase_a = ftm->channel_filtered_input[0] != ((ftm->registers[11] & 0x20u) != 0u);
+    const bool phase_b = ftm->channel_filtered_input[1] != ((ftm->registers[11] & 0x10u) != 0u);
     if ((ftm->registers[11] & 8u) != 0u) {
         if (channel == 0u && !before && after)
             ftm_quadrature_step(timing, index, phase_b);
@@ -1339,8 +1309,8 @@ static void ftm_quadrature_transition(K22Timing* timing, uint8_t index, uint8_t 
     ftm_quadrature_step(timing, index, increment);
 }
 
-static void ftm_capture_input(K22Timing* timing, uint8_t index, uint8_t channel,
-                              bool previous, bool current) {
+static void ftm_capture_input(K22Timing* timing, uint8_t index, uint8_t channel, bool previous,
+                              bool current) {
     K22FtmState* ftm = &timing->ftm[index];
     if (ftm_quadrature_enabled(ftm) && channel < 2u) {
         ftm_quadrature_transition(timing, index, channel, previous, current);
@@ -1437,8 +1407,7 @@ static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
     if (ftm->software_sync_pending && (((ftm->registers[1] & 1u) != 0u && minimum) ||
                                        ((ftm->registers[1] & 2u) != 0u && maximum))) {
         const bool enhanced = (ftm->registers[14] & (1u << 7u)) != 0u;
-        const bool write_buffers =
-            enhanced ? (ftm->registers[14] & (1u << 9u)) != 0u : true;
+        const bool write_buffers = enhanced ? (ftm->registers[14] & (1u << 9u)) != 0u : true;
         if (write_buffers)
             ftm_apply_synchronized_write_buffers(ftm, enhanced);
         ftm->registers[1] &= ~0x80u;
@@ -1451,8 +1420,7 @@ static void ftm_loading_point(K22FtmState* ftm, bool minimum, bool maximum,
             ftm_apply_synchronized_write_buffers(ftm, enhanced);
         ftm->hardware_sync_pending = false;
     }
-    const bool intermediate =
-        maximum || (channel_matches & (uint8_t)ftm->registers[17]) != 0u;
+    const bool intermediate = maximum || (channel_matches & (uint8_t)ftm->registers[17]) != 0u;
     if ((ftm->registers[17] & (1u << 9u)) != 0u && intermediate)
         ftm_apply_intermediate_load(ftm);
 }
@@ -1479,8 +1447,8 @@ static void ftm_apply_software_sync(K22FtmState* ftm) {
     if ((enhanced && (synconf & (1u << 10u)) != 0u && (ftm->registers[1] & 8u) != 0u) ||
         (!enhanced && (ftm->registers[0] & 8u) == 0u && (ftm->registers[1] & 8u) != 0u))
         ftm_apply_outmask(ftm);
-    const bool reset_counter = (enhanced && (synconf & (1u << 8u)) != 0u) ||
-                               (!enhanced && (ftm->registers[1] & 4u) != 0u);
+    const bool reset_counter =
+        (enhanced && (synconf & (1u << 8u)) != 0u) || (!enhanced && (ftm->registers[1] & 4u) != 0u);
     if (reset_counter) {
         const bool write_buffers = enhanced ? (synconf & (1u << 9u)) != 0u : true;
         if (write_buffers)
@@ -1566,9 +1534,8 @@ static void ftm_advance_deadtime(K22Timing* timing, uint8_t index, uint32_t cycl
         return;
     const uint8_t divider = (uint8_t)(ftm->registers[5] >> 6u);
     const uint8_t shift = divider < 2u ? 0u : divider == 2u ? 2u : 4u;
-    const uint64_t ticks =
-        clock_ticks(&ftm->deadtime_remainder, cycles, timing->bus_clock_hz >> shift,
-                    timing->core_clock_hz);
+    const uint64_t ticks = clock_ticks(&ftm->deadtime_remainder, cycles,
+                                       timing->bus_clock_hz >> shift, timing->core_clock_hz);
     for (uint8_t channel = 0u; channel < channels; channel++) {
         const bool raw = ftm_pre_deadtime_output(ftm, channel);
         if (!ftm_deadtime_enabled(ftm, channel)) {
@@ -1600,8 +1567,7 @@ static void advance_ftm(K22Timing* timing, uint8_t index, uint32_t cycles) {
     uint32_t remaining = cycles;
     while (remaining != 0u) {
         uint32_t segment =
-            ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u
-                                                                                : remaining;
+            ftm_has_deadtime(ftm, channels) || ftm_fault_processing_active(ftm) ? 1u : remaining;
         for (uint8_t channel = 0u; channel < channels; channel++) {
             if (ftm->channel_input[channel] == ftm->channel_filtered_input[channel])
                 continue;
@@ -1690,8 +1656,7 @@ static void wdog_apply_update(K22Timing* timing) {
 }
 
 static bool wdog_process_bus_time(K22Timing* timing) {
-    if (timing->wdog_reset_pending &&
-        timing->wdog_bus_cycles >= timing->wdog_reset_deadline) {
+    if (timing->wdog_reset_pending && timing->wdog_bus_cycles >= timing->wdog_reset_deadline) {
         signal_reset(timing, 0x20u, 0u);
         return true;
     }
@@ -1706,13 +1671,11 @@ static bool wdog_process_bus_time(K22Timing* timing) {
         return wdog_exception(timing);
     }
     if (timing->wdog_initial_unlock_required && !timing->wdog_initial_debug_pause &&
-        timing->wdog_unlock_stage == 0u &&
-        timing->wdog_bus_cycles > timing->wdog_update_deadline) {
+        timing->wdog_unlock_stage == 0u && timing->wdog_bus_cycles > timing->wdog_update_deadline) {
         timing->wdog_initial_unlock_required = false;
         return wdog_exception(timing);
     }
-    if (timing->wdog_update_open &&
-        timing->wdog_bus_cycles >= timing->wdog_update_deadline) {
+    if (timing->wdog_update_open && timing->wdog_bus_cycles >= timing->wdog_update_deadline) {
         if (!timing->wdog_update_written) {
             timing->wdog_update_open = false;
             return wdog_exception(timing);
@@ -1770,12 +1733,11 @@ static void advance_wdog(K22Timing* timing, uint32_t cycles) {
         !wdog_running(timing))
         return;
     const bool test = (timing->wdog[0] & 0x4400u) == 0x0400u;
-    const uint32_t source_hz = test || (timing->wdog[0] & (1u << 13u)) != 0u
-                                   ? timing->bus_clock_hz
-                                   : timing->lpo_hz;
+    const uint32_t source_hz =
+        test || (timing->wdog[0] & (1u << 13u)) != 0u ? timing->bus_clock_hz : timing->lpo_hz;
     const uint32_t divider = ((timing->wdog[11] & 0x700u) >> 8u) + 1u;
-    const uint64_t ticks = clock_ticks(&timing->wdog_remainder, cycles, source_hz / divider,
-                                       timing->core_clock_hz);
+    const uint64_t ticks =
+        clock_ticks(&timing->wdog_remainder, cycles, source_hz / divider, timing->core_clock_hz);
     k22_timing_watchdog_advance(timing, ticks > UINT32_MAX ? UINT32_MAX : (uint32_t)ticks);
 }
 
@@ -1785,8 +1747,8 @@ static void assert_ewm_output(K22Timing* timing) {
 }
 
 static void advance_ewm(K22Timing* timing, uint32_t cycles) {
-    if (!has(timing, K22_PERIPHERAL_EWM) || (timing->ewm_ctrl & 1u) == 0u ||
-        timing->ewm_output || timing->cpu_sleeping)
+    if (!has(timing, K22_PERIPHERAL_EWM) || (timing->ewm_ctrl & 1u) == 0u || timing->ewm_output ||
+        timing->cpu_sleeping)
         return;
     const uint32_t source_hz = timing->lpo_hz / ((uint32_t)timing->ewm_prescaler + 1u);
     const uint64_t ticks =
@@ -1799,10 +1761,9 @@ static void advance_ewm(K22Timing* timing, uint32_t cycles) {
         assert_ewm_output(timing);
 }
 
-static bool read_wdog(const K22Timing* timing, uint32_t address, uint8_t size,
-                      uint32_t* value) {
-    if ((size != 1u && size != 2u) || address < WDOG_BASE ||
-        address + size > WDOG_BASE + 0x18u || (size == 2u && (address & 1u) != 0u)) {
+static bool read_wdog(const K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value) {
+    if ((size != 1u && size != 2u) || address < WDOG_BASE || address + size > WDOG_BASE + 0x18u ||
+        (size == 2u && (address & 1u) != 0u)) {
         return false;
     }
     const uint8_t index = (uint8_t)((address - WDOG_BASE) / 2u);
@@ -1819,8 +1780,7 @@ static bool read_wdog(const K22Timing* timing, uint32_t address, uint8_t size,
     return true;
 }
 
-static bool sequence_byte_allowed(uint8_t lane, uint8_t value, uint16_t first,
-                                  uint16_t second) {
+static bool sequence_byte_allowed(uint8_t lane, uint8_t value, uint16_t first, uint16_t second) {
     const uint8_t shift = lane * 8u;
     return value == ((first >> shift) & 0xffu) || value == ((second >> shift) & 0xffu);
 }
@@ -1877,8 +1837,8 @@ static void accept_wdog_refresh(K22Timing* timing, uint16_t value) {
 }
 
 static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32_t value) {
-    if ((size != 1u && size != 2u) || address < WDOG_BASE ||
-        address + size > WDOG_BASE + 0x18u || (size == 2u && (address & 1u) != 0u)) {
+    if ((size != 1u && size != 2u) || address < WDOG_BASE || address + size > WDOG_BASE + 0x18u ||
+        (size == 2u && (address & 1u) != 0u)) {
         return false;
     }
     if (wdog_advance_bus(timing, 1u))
@@ -1893,8 +1853,7 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
         timing->wdog[index] = merge_wdog_write(timing->wdog[index], address, size, value);
         if (size == 1u && !sequence_byte_allowed(lane, (uint8_t)value, 0xc520u, 0xd928u)) {
             (void)wdog_exception(timing);
-        } else if (size == 2u || timing->wdog[index] == 0xc520u ||
-                   timing->wdog[index] == 0xd928u) {
+        } else if (size == 2u || timing->wdog[index] == 0xc520u || timing->wdog[index] == 0xd928u) {
             accept_wdog_unlock(timing, timing->wdog[index]);
         }
         return true;
@@ -1905,8 +1864,7 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
         timing->wdog[index] = merge_wdog_write(timing->wdog[index], address, size, value);
         if (size == 1u && !sequence_byte_allowed(lane, (uint8_t)value, 0xa602u, 0xb480u)) {
             (void)wdog_exception(timing);
-        } else if (size == 2u || timing->wdog[index] == 0xa602u ||
-                   timing->wdog[index] == 0xb480u) {
+        } else if (size == 2u || timing->wdog[index] == 0xa602u || timing->wdog[index] == 0xb480u) {
             accept_wdog_refresh(timing, timing->wdog[index]);
         }
         return true;
@@ -1918,8 +1876,7 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
             timing->wdog[1] &= (uint16_t)~0x8000u;
             update_watchdog_irq(timing);
         }
-        if (timing->wdog_update_open &&
-            timing->wdog_bus_cycles >= timing->wdog_update_ready)
+        if (timing->wdog_update_open && timing->wdog_bus_cycles >= timing->wdog_update_ready)
             timing->wdog_update_written = true;
         return true;
     }
@@ -1932,8 +1889,7 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
     if (index == 8u || index == 9u)
         return true;
     const uint8_t byte = (uint8_t)(index * 2u + lane);
-    const uint32_t update_bits =
-        size == 2u ? UINT32_C(3) << (index * 2u) : UINT32_C(1) << byte;
+    const uint32_t update_bits = size == 2u ? UINT32_C(3) << (index * 2u) : UINT32_C(1) << byte;
     if (!timing->wdog_update_open || timing->wdog_bus_cycles < timing->wdog_update_ready ||
         index >= 12u || (timing->wdog_update_mask & update_bits) != 0u) {
         return true;
@@ -1944,16 +1900,14 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
     timing->wdog_update_written = true;
     if (index == 0u) {
         const uint16_t immediate = 0x00e4u;
-        timing->wdog[0] = (timing->wdog[0] & (uint16_t)~immediate) |
-                          (timing->wdog_pending[0] & immediate);
+        timing->wdog[0] =
+            (timing->wdog[0] & (uint16_t)~immediate) | (timing->wdog_pending[0] & immediate);
     }
     return true;
 }
 
-static bool read_ewm(const K22Timing* timing, uint32_t address, uint8_t size,
-                     uint32_t* value) {
-    if (size != 1 || address < EWM_BASE || address > EWM_BASE + 5u ||
-        address == EWM_BASE + 4u) {
+static bool read_ewm(const K22Timing* timing, uint32_t address, uint8_t size, uint32_t* value) {
+    if (size != 1 || address < EWM_BASE || address > EWM_BASE + 5u || address == EWM_BASE + 4u) {
         return false;
     }
     switch (address - EWM_BASE) {
@@ -2005,11 +1959,10 @@ static bool write_ewm(K22Timing* timing, uint32_t address, uint8_t size, uint32_
         } else if (value == 0x2cu && timing->ewm_service_stage == 1u &&
                    !timing->ewm_service_paused &&
                    timing->wdog_bus_cycles <= timing->ewm_service_deadline) {
-            const bool input_asserted =
-                (timing->ewm_ctrl & 4u) != 0u &&
-                timing->ewm_input == ((timing->ewm_ctrl & 2u) != 0u);
-            if (timing->ewm_counter > timing->ewm_cmpl &&
-                timing->ewm_counter < timing->ewm_cmph && !input_asserted)
+            const bool input_asserted = (timing->ewm_ctrl & 4u) != 0u &&
+                                        timing->ewm_input == ((timing->ewm_ctrl & 2u) != 0u);
+            if (timing->ewm_counter > timing->ewm_cmpl && timing->ewm_counter < timing->ewm_cmph &&
+                !input_asserted)
                 timing->ewm_counter = 0u;
             else
                 assert_ewm_output(timing);
@@ -2115,9 +2068,8 @@ static uint32_t ftm_register_mask(uint8_t index, uint8_t register_index) {
 
 static uint32_t ftm_write_protected_mask(uint8_t register_index) {
     static const uint32_t masks[18] = {
-        0x00000071u, 0u,          0u, 0u, 0x57575757u, 0x000000ffu,
-        0u,          0x000000ffu, 0u, 0u, 0x000000ffu, 0x00000001u,
-        0u,          0x0000000fu, 0u, 0u, 0u,          0u,
+        0x00000071u, 0u,          0u,          0u, 0x57575757u, 0x000000ffu, 0u, 0x000000ffu, 0u,
+        0u,          0x000000ffu, 0x00000001u, 0u, 0x0000000fu, 0u,          0u, 0u,          0u,
     };
     return masks[register_index];
 }
@@ -2214,8 +2166,7 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             if ((value & 2u) != 0u) {
                 const uint8_t channels = ftm_channel_count(index);
                 for (uint8_t channel = 0u; channel < channels; channel++)
-                    ftm->channel_output[channel] =
-                        (ftm->registers[2] & (1u << channel)) != 0u;
+                    ftm->channel_output[channel] = (ftm->registers[2] & (1u << channel)) != 0u;
             }
         } else if (offset == 0x58u) {
             ftm->registers[1] = value;
@@ -2263,8 +2214,7 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
             ftm->registers[register_index] = (value & ~6u) | (current & 6u);
         } else if (offset == 0x6cu) {
             const uint32_t mask = index == 0u || index == 3u ? 0xffu : 0xf0u;
-            uint32_t next =
-                (ftm->registers[register_index] & 0x80u) | (value & mask & 0x7fu);
+            uint32_t next = (ftm->registers[register_index] & 0x80u) | (value & mask & 0x7fu);
             if ((value & 0x80u) == 0u && ftm->trigger_flag_read)
                 next &= ~0x80u;
             ftm->registers[register_index] = next;
@@ -2280,8 +2230,8 @@ static bool ftm_write(K22Timing* timing, uint8_t index, uint32_t offset, uint8_t
         } else {
             const uint32_t protected_mask = ftm_write_protected_mask(register_index);
             if ((ftm->registers[0] & 4u) == 0u)
-                value = (value & ~protected_mask) |
-                        (ftm->registers[register_index] & protected_mask);
+                value =
+                    (value & ~protected_mask) | (ftm->registers[register_index] & protected_mask);
             ftm->registers[register_index] = value;
         }
         if (offset == 0x54u || offset == 0x7cu || offset == 0x88u) {
@@ -2325,8 +2275,7 @@ static void rtc_software_reset(K22Timing* timing) {
 }
 
 static bool rtc_read(K22Timing* timing, uint32_t offset, uint32_t* value) {
-    if (offset != 0x800u && offset != 0x804u &&
-        !rtc_access_allowed(timing->rtc_rar, offset)) {
+    if (offset != 0x800u && offset != 0x804u && !rtc_access_allowed(timing->rtc_rar, offset)) {
         *value = 0u;
         return true;
     }
@@ -2430,8 +2379,7 @@ static bool rtc_write(K22Timing* timing, uint32_t offset, uint32_t value) {
 
 static bool read_timed_register(K22Timing* timing, uint32_t address, uint8_t size,
                                 uint32_t* value) {
-    if (address >= PIT_BASE && address < PIT_BASE + 0x140u &&
-        has(timing, K22_PERIPHERAL_PIT))
+    if (address >= PIT_BASE && address < PIT_BASE + 0x140u && has(timing, K22_PERIPHERAL_PIT))
         return pit_read(timing, address, size, value);
     if (address >= LPTMR_BASE && address < LPTMR_BASE + 0x10u && size == 4 &&
         has(timing, K22_PERIPHERAL_LPTMR0)) {
@@ -2480,8 +2428,7 @@ static bool read_timed_register(K22Timing* timing, uint32_t address, uint8_t siz
 
 static bool write_timed_register(K22Timing* timing, uint32_t address, uint8_t size,
                                  uint32_t value) {
-    if (address >= PIT_BASE && address < PIT_BASE + 0x140u &&
-        has(timing, K22_PERIPHERAL_PIT))
+    if (address >= PIT_BASE && address < PIT_BASE + 0x140u && has(timing, K22_PERIPHERAL_PIT))
         return pit_write(timing, address, size, value);
     if (address >= LPTMR_BASE && address < LPTMR_BASE + 0x10u && size == 4 &&
         has(timing, K22_PERIPHERAL_LPTMR0)) {
@@ -2557,9 +2504,8 @@ static bool write_timed_register(K22Timing* timing, uint32_t address, uint8_t si
            ftm_write(timing, index, offset, size, value);
 }
 
-bool k22_timing_init(K22Timing* timing, const K22Profile* profile,
-                     uint32_t external_oscillator_hz, uint32_t rtc_oscillator_hz,
-                     K22TimingSignals signals) {
+bool k22_timing_init(K22Timing* timing, const K22Profile* profile, uint32_t external_oscillator_hz,
+                     uint32_t rtc_oscillator_hz, K22TimingSignals signals) {
     if (timing == NULL || profile == NULL) {
         return false;
     }
@@ -2727,12 +2673,11 @@ bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t
     if (timing == NULL || timing->profile == NULL || value == NULL) {
         return false;
     }
-    if (address >= SIM_BASE && address < SIM_BASE + 0x2000u &&
-        has(timing, K22_PERIPHERAL_SIM)) {
+    if (address >= SIM_BASE && address < SIM_BASE + 0x2000u && has(timing, K22_PERIPHERAL_SIM)) {
         return read_sim(timing, address, size, value);
     }
-    if (address >= MCG_BASE && address < MCG_BASE + 14u &&
-        mcg_register(address - MCG_BASE) && has(timing, K22_PERIPHERAL_MCG)) {
+    if (address >= MCG_BASE && address < MCG_BASE + 14u && mcg_register(address - MCG_BASE) &&
+        has(timing, K22_PERIPHERAL_MCG)) {
         return read_byte_block(timing->mcg, MCG_BASE, 14u, address, size, value);
     }
     if (address == OSC_BASE && size == 1 && has(timing, K22_PERIPHERAL_OSC)) {
@@ -2751,8 +2696,7 @@ bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t
         return read_byte_block(timing->smc, SMC_BASE, 4u, address, size, value);
     if (contains(timing, K22_PERIPHERAL_RCM, address, size))
         return read_byte_block(timing->rcm, RCM_BASE, 10u, address, size, value);
-    if (address >= WDOG_BASE && address < WDOG_BASE + 0x18u &&
-        has(timing, K22_PERIPHERAL_WDOG))
+    if (address >= WDOG_BASE && address < WDOG_BASE + 0x18u && has(timing, K22_PERIPHERAL_WDOG))
         return read_wdog(timing, address, size, value);
     if (address >= EWM_BASE && address < EWM_BASE + 6u && has(timing, K22_PERIPHERAL_EWM))
         return read_ewm(timing, address, size, value);
@@ -2761,8 +2705,8 @@ bool k22_timing_read(K22Timing* timing, uint32_t address, uint8_t size, uint32_t
 
 static bool write_control_register(K22Timing* timing, uint32_t address, uint8_t size,
                                    uint32_t value) {
-    if (address >= MCG_BASE && address < MCG_BASE + 14u &&
-        mcg_register(address - MCG_BASE) && size == 1 && has(timing, K22_PERIPHERAL_MCG)) {
+    if (address >= MCG_BASE && address < MCG_BASE + 14u && mcg_register(address - MCG_BASE) &&
+        size == 1 && has(timing, K22_PERIPHERAL_MCG)) {
         if (address != MCG_BASE + 6u)
             timing->mcg[address - MCG_BASE] = (uint8_t)value;
         update_clocks(timing);
@@ -2850,13 +2794,11 @@ bool k22_timing_write(K22Timing* timing, uint32_t address, uint8_t size, uint32_
     if (timing == NULL || timing->profile == NULL) {
         return false;
     }
-    if (address >= SIM_BASE && address < SIM_BASE + 0x2000u &&
-        has(timing, K22_PERIPHERAL_SIM))
+    if (address >= SIM_BASE && address < SIM_BASE + 0x2000u && has(timing, K22_PERIPHERAL_SIM))
         return write_sim(timing, address, size, value);
     if (write_control_register(timing, address, size, value))
         return true;
-    if (address >= WDOG_BASE && address < WDOG_BASE + 0x18u &&
-        has(timing, K22_PERIPHERAL_WDOG))
+    if (address >= WDOG_BASE && address < WDOG_BASE + 0x18u && has(timing, K22_PERIPHERAL_WDOG))
         return write_wdog(timing, address, size, value);
     if (address >= EWM_BASE && address < EWM_BASE + 6u && has(timing, K22_PERIPHERAL_EWM))
         return write_ewm(timing, address, size, value);
@@ -2952,8 +2894,7 @@ bool k22_timing_set_llwu_pin(K22Timing* timing, uint8_t pin, bool high) {
     }
     for (uint8_t filter = 0u; filter < 2u; filter++) {
         const uint8_t control = timing->llwu[8u + filter];
-        if ((control & 15u) == pin &&
-            llwu_edge_detected((control >> 5u) & 3u, previous, high)) {
+        if ((control & 15u) == pin && llwu_edge_detected((control >> 5u) & 3u, previous, high)) {
             timing->llwu[8u + filter] |= 0x80u;
             wake = true;
         }
@@ -2980,12 +2921,10 @@ void k22_timing_set_cpu_sleeping(K22Timing* timing, bool sleeping, bool deep_sle
         return;
     if (sleeping && !timing->cpu_sleeping && timing->ewm_service_stage == 1u &&
         timing->wdog_bus_cycles <= timing->ewm_service_deadline) {
-        timing->ewm_service_remaining =
-            timing->ewm_service_deadline - timing->wdog_bus_cycles;
+        timing->ewm_service_remaining = timing->ewm_service_deadline - timing->wdog_bus_cycles;
         timing->ewm_service_paused = true;
     } else if (!sleeping && timing->ewm_service_paused) {
-        timing->ewm_service_deadline =
-            timing->wdog_bus_cycles + timing->ewm_service_remaining;
+        timing->ewm_service_deadline = timing->wdog_bus_cycles + timing->ewm_service_remaining;
         timing->ewm_service_paused = false;
     }
     timing->cpu_sleeping = sleeping;
@@ -3022,8 +2961,7 @@ bool k22_timing_ewm_output(const K22Timing* timing) {
            timing->ewm_output;
 }
 
-bool k22_timing_copy(K22Timing* destination, const K22Timing* source,
-                     K22TimingSignals signals) {
+bool k22_timing_copy(K22Timing* destination, const K22Timing* source, K22TimingSignals signals) {
     if (destination == NULL || source == NULL || source->profile == NULL) {
         return false;
     }

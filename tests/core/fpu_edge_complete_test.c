@@ -30,8 +30,7 @@ static KinetisK22* create_device(TestState* state) {
     return device;
 }
 
-static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first,
-                         uint16_t second) {
+static CortexM4* prepare(TestState* state, KinetisK22* device, uint16_t first, uint16_t second) {
     const uint16_t program[] = {first, second, 0xbe00u};
     expect(state, kinetis_k22_load(device, 0x100u, program, sizeof(program)),
            "kinetis_k22_load(device, 0x100u, program, sizeof(program))");
@@ -84,14 +83,11 @@ static uint32_t convert_rounded(TestState* state, KinetisK22* device, uint32_t s
 }
 
 static void test_integer_rounding(TestState* state, KinetisK22* device) {
-    expect(state,
-           convert_rounded(state, device, 0x3f99999au, FPSCR_ROUND_PLUS_INFINITY) == 2u,
+    expect(state, convert_rounded(state, device, 0x3f99999au, FPSCR_ROUND_PLUS_INFINITY) == 2u,
            "convert_rounded(state, device, 0x3f99999au, FPSCR_ROUND_PLUS_INFINITY) == 2u");
-    expect(state,
-           convert_rounded(state, device, 0x3fe66666u, FPSCR_ROUND_MINUS_INFINITY) == 1u,
+    expect(state, convert_rounded(state, device, 0x3fe66666u, FPSCR_ROUND_MINUS_INFINITY) == 1u,
            "convert_rounded(state, device, 0x3fe66666u, FPSCR_ROUND_MINUS_INFINITY) == 1u");
-    expect(state,
-           convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) == 0xffffffffu,
+    expect(state, convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) == 0xffffffffu,
            "convert_rounded(state, device, 0xbfe66666u, FPSCR_ROUND_ZERO) == 0xffffffffu");
     expect(state, convert_rounded(state, device, 0x40100000u, 0u) == 2u,
            "convert_rounded(state, device, 0x40100000u, 0u) == 2u");
@@ -158,22 +154,14 @@ static void test_half_precision(TestState* state, KinetisK22* device) {
            "single_to_half(state, device, 0x3f801000u, 0u) == 0x3c00u");
     expect(state, single_to_half(state, device, 0x3f803000u, 0u) == 0x3c02u,
            "single_to_half(state, device, 0x3f803000u, 0u) == 0x3c02u");
-    expect(
-        state,
-        single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u,
-        "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u");
-    expect(
-        state,
-        single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u,
-        "single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u");
-    expect(state,
-           single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_MINUS_INFINITY) ==
-               0x3c00u,
+    expect(state, single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u,
+           "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0x3c01u");
+    expect(state, single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u,
+           "single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_PLUS_INFINITY) == 0xbc00u");
+    expect(state, single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_MINUS_INFINITY) == 0x3c00u,
            "single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_MINUS_INFINITY) == "
            "0x3c00u");
-    expect(state,
-           single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_MINUS_INFINITY) ==
-               0xbc01u,
+    expect(state, single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_MINUS_INFINITY) == 0xbc01u,
            "single_to_half(state, device, 0xbf80068eu, FPSCR_ROUND_MINUS_INFINITY) == "
            "0xbc01u");
     expect(state, single_to_half(state, device, 0x3f80068eu, FPSCR_ROUND_ZERO) == 0x3c00u,
@@ -193,8 +181,8 @@ static void multiply(TestState* state, KinetisK22* device, uint32_t left, uint32
            "cortex_m4_get_fp_register(cpu, 14u) == expected");
 }
 
-static void add(TestState* state, KinetisK22* device, uint32_t left, uint32_t right,
-                uint32_t fpscr, uint32_t expected) {
+static void add(TestState* state, KinetisK22* device, uint32_t left, uint32_t right, uint32_t fpscr,
+                uint32_t expected) {
     CortexM4* cpu = prepare(state, device, 0xee37u, 0x7a27u);
     cortex_m4_set_fp_register(cpu, 14u, left);
     cortex_m4_set_fp_register(cpu, 15u, right);
@@ -205,11 +193,9 @@ static void add(TestState* state, KinetisK22* device, uint32_t left, uint32_t ri
 }
 
 static void test_float_rounding(TestState* state, KinetisK22* device) {
-    multiply(state, device, 0xff7fffffu, 0x40000000u, FPSCR_ROUND_PLUS_INFINITY,
-             0xff7fffffu);
+    multiply(state, device, 0xff7fffffu, 0x40000000u, FPSCR_ROUND_PLUS_INFINITY, 0xff7fffffu);
     multiply(state, device, 1u, 0x3f000000u, FPSCR_ROUND_PLUS_INFINITY, 1u);
-    multiply(state, device, 0x80000001u, 0x3f000000u, FPSCR_ROUND_MINUS_INFINITY,
-             0x80000001u);
+    multiply(state, device, 0x80000001u, 0x3f000000u, FPSCR_ROUND_MINUS_INFINITY, 0x80000001u);
     multiply(state, device, 1u, 0x3fc00000u, 0u, 2u);
     add(state, device, 0x3f800000u, 0x33c00000u, FPSCR_ROUND_MINUS_INFINITY, 0x3f800000u);
     add(state, device, 0xbf800000u, 0xb3c00000u, FPSCR_ROUND_ZERO, 0xbf800000u);

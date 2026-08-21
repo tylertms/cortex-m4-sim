@@ -12,8 +12,7 @@ typedef struct {
 } Fixture;
 
 static void execute(Fixture* fixture, uint16_t opcode) {
-    expect(fixture->state,
-           kinetis_k22_load(fixture->device, 0x100u, &opcode, sizeof(opcode)),
+    expect(fixture->state, kinetis_k22_load(fixture->device, 0x100u, &opcode, sizeof(opcode)),
            "kinetis_k22_load(fixture->device, 0x100u, &opcode, sizeof(opcode))");
     cortex_m4_set_register(fixture->cpu, 15u, 0x100u);
     const CortexM4Result result = cortex_m4_step(fixture->cpu);
@@ -42,8 +41,7 @@ static void test_immediate_and_high_register(Fixture* fixture) {
 
     cortex_m4_set_register(fixture->cpu, 0u, 0x12345678u);
     execute(fixture, 0x4680u);
-    expect(fixture->state, reg(fixture, 8u) == 0x12345678u,
-           "reg(fixture, 8u) == 0x12345678u");
+    expect(fixture->state, reg(fixture, 8u) == 0x12345678u, "reg(fixture, 8u) == 0x12345678u");
 
     cortex_m4_set_register(fixture->cpu, 0u, 0x121u);
     execute(fixture, 0x4700u);
@@ -80,25 +78,21 @@ static void test_stack_and_addresses(Fixture* fixture) {
     execute(fixture, 0x9000u);
     cortex_m4_set_register(fixture->cpu, 1u, 0u);
     execute(fixture, 0x9900u);
-    expect(fixture->state, reg(fixture, 1u) == 0xa55ac33cu,
-           "reg(fixture, 1u) == 0xa55ac33cu");
+    expect(fixture->state, reg(fixture, 1u) == 0xa55ac33cu, "reg(fixture, 1u) == 0xa55ac33cu");
 
     execute(fixture, 0xa001u);
     expect(fixture->state, reg(fixture, 0u) == 0x108u, "reg(fixture, 0u) == 0x108u");
     execute(fixture, 0xa801u);
-    expect(fixture->state, reg(fixture, 0u) == stack + 4u,
-           "reg(fixture, 0u) == stack + 4u");
+    expect(fixture->state, reg(fixture, 0u) == stack + 4u, "reg(fixture, 0u) == stack + 4u");
 
     cortex_m4_set_register(fixture->cpu, 13u, stack);
     execute(fixture, 0xb001u);
-    expect(fixture->state, reg(fixture, 13u) == stack + 4u,
-           "reg(fixture, 13u) == stack + 4u");
+    expect(fixture->state, reg(fixture, 13u) == stack + 4u, "reg(fixture, 13u) == stack + 4u");
     execute(fixture, 0xb081u);
     expect(fixture->state, reg(fixture, 13u) == stack, "reg(fixture, 13u) == stack");
 
     const uint32_t literal = 0x76543210u;
-    expect(fixture->state,
-           kinetis_k22_load(fixture->device, 0x104u, &literal, sizeof(literal)),
+    expect(fixture->state, kinetis_k22_load(fixture->device, 0x104u, &literal, sizeof(literal)),
            "kinetis_k22_load(fixture->device, 0x104u, &literal, sizeof(literal))");
     execute(fixture, 0x4800u);
     expect(fixture->state, reg(fixture, 0u) == literal, "reg(fixture, 0u) == literal");
@@ -111,15 +105,12 @@ static void test_stack_lifecycle(Fixture* fixture) {
     cortex_m4_set_register(fixture->cpu, 1u, 0x55667788u);
     cortex_m4_set_register(fixture->cpu, 14u, 0x181u);
     execute(fixture, 0xb503u);
-    expect(fixture->state, reg(fixture, 13u) == stack - 12u,
-           "reg(fixture, 13u) == stack - 12u");
+    expect(fixture->state, reg(fixture, 13u) == stack - 12u, "reg(fixture, 13u) == stack - 12u");
     cortex_m4_set_register(fixture->cpu, 0u, 0u);
     cortex_m4_set_register(fixture->cpu, 1u, 0u);
     execute(fixture, 0xbd03u);
-    expect(fixture->state, reg(fixture, 0u) == 0x11223344u,
-           "reg(fixture, 0u) == 0x11223344u");
-    expect(fixture->state, reg(fixture, 1u) == 0x55667788u,
-           "reg(fixture, 1u) == 0x55667788u");
+    expect(fixture->state, reg(fixture, 0u) == 0x11223344u, "reg(fixture, 0u) == 0x11223344u");
+    expect(fixture->state, reg(fixture, 1u) == 0x55667788u, "reg(fixture, 1u) == 0x55667788u");
     expect(fixture->state, reg(fixture, 13u) == stack, "reg(fixture, 13u) == stack");
     expect(fixture->state, reg(fixture, 15u) == 0x180u, "reg(fixture, 15u) == 0x180u");
 
@@ -131,15 +122,13 @@ static void test_stack_lifecycle(Fixture* fixture) {
     fixture->cpu->ici_address = stack - 4u;
     execute(fixture, 0xb403u);
     uint32_t stored = 0u;
-    expect(fixture->state,
-           kinetis_k22_read(fixture->device, stack - 4u, &stored, sizeof(stored)),
+    expect(fixture->state, kinetis_k22_read(fixture->device, stack - 4u, &stored, sizeof(stored)),
            "kinetis_k22_read(fixture->device, stack - 4u, &stored, sizeof(stored))");
     expect(fixture->state, stored == 0x01020304u, "stored == 0x01020304u");
     expect(fixture->state, !fixture->cpu->ici_valid, "!fixture->cpu->ici_valid");
 
     stored = 0xcafebabeu;
-    expect(fixture->state,
-           kinetis_k22_write(fixture->device, stack - 4u, &stored, sizeof(stored)),
+    expect(fixture->state, kinetis_k22_write(fixture->device, stack - 4u, &stored, sizeof(stored)),
            "kinetis_k22_write(fixture->device, stack - 4u, &stored, sizeof(stored))");
     cortex_m4_set_register(fixture->cpu, 13u, stack - 8u);
     cortex_m4_set_register(fixture->cpu, 1u, 0u);
@@ -147,8 +136,7 @@ static void test_stack_lifecycle(Fixture* fixture) {
     fixture->cpu->ici_register = 1u;
     fixture->cpu->ici_address = stack - 4u;
     execute(fixture, 0xbc03u);
-    expect(fixture->state, reg(fixture, 1u) == 0xcafebabeu,
-           "reg(fixture, 1u) == 0xcafebabeu");
+    expect(fixture->state, reg(fixture, 1u) == 0xcafebabeu, "reg(fixture, 1u) == 0xcafebabeu");
     expect(fixture->state, !fixture->cpu->ici_valid, "!fixture->cpu->ici_valid");
 
     cortex_m4_set_register(fixture->cpu, 13u, 0x60000000u);
@@ -175,16 +163,13 @@ static void test_multiple_lifecycle(Fixture* fixture) {
     cortex_m4_set_register(fixture->cpu, 1u, 0x10203040u);
     cortex_m4_set_register(fixture->cpu, 2u, 0x50607080u);
     execute(fixture, 0xc006u);
-    expect(fixture->state, reg(fixture, 0u) == address + 8u,
-           "reg(fixture, 0u) == address + 8u");
+    expect(fixture->state, reg(fixture, 0u) == address + 8u, "reg(fixture, 0u) == address + 8u");
     cortex_m4_set_register(fixture->cpu, 0u, address);
     cortex_m4_set_register(fixture->cpu, 1u, 0u);
     cortex_m4_set_register(fixture->cpu, 2u, 0u);
     execute(fixture, 0xc806u);
-    expect(fixture->state, reg(fixture, 1u) == 0x10203040u,
-           "reg(fixture, 1u) == 0x10203040u");
-    expect(fixture->state, reg(fixture, 2u) == 0x50607080u,
-           "reg(fixture, 2u) == 0x50607080u");
+    expect(fixture->state, reg(fixture, 1u) == 0x10203040u, "reg(fixture, 1u) == 0x10203040u");
+    expect(fixture->state, reg(fixture, 2u) == 0x50607080u, "reg(fixture, 2u) == 0x50607080u");
 
     cortex_m4_set_register(fixture->cpu, 0u, 0x60000000u);
     fixture->cpu->cfsr = 0u;

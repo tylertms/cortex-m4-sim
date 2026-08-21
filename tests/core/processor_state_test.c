@@ -45,28 +45,24 @@ int main(void) {
     cortex_m4_set_register(cpu, 15, 0x180u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 0) == 1,
-           "cortex_m4_get_register(cpu, 0) == 1");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 1, "cortex_m4_get_register(cpu, 0) == 1");
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 1) == 1,
-           "cortex_m4_get_register(cpu, 1) == 1");
+    expect(&state, cortex_m4_get_register(cpu, 1) == 1, "cortex_m4_get_register(cpu, 1) == 1");
     cortex_m4_set_register(cpu, 15, 0x102u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
     cortex_m4_set_register(cpu, 15, 0x180u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 0) == 1,
-           "cortex_m4_get_register(cpu, 0) == 1");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 1, "cortex_m4_get_register(cpu, 0) == 1");
     cortex_m4_set_register(cpu, 15, 0x104u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
     cortex_m4_set_register(cpu, 15, 0x184u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 1) == 0,
-           "cortex_m4_get_register(cpu, 1) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 1) == 0, "cortex_m4_get_register(cpu, 1) == 0");
 
     const uint16_t unprivileged_program[] = {0xb673u, 0xbe00u};
     load_program(&state, device, unprivileged_program, sizeof(unprivileged_program));
@@ -76,12 +72,10 @@ int main(void) {
     cortex_m4_set_register(cpu, 15, 0x180u);
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 0) == 0,
-           "cortex_m4_get_register(cpu, 0) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 0, "cortex_m4_get_register(cpu, 0) == 0");
     expect(&state, cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING,
            "cortex_m4_step(cpu).stop == CORTEX_M4_STOP_RUNNING");
-    expect(&state, cortex_m4_get_register(cpu, 1) == 0,
-           "cortex_m4_get_register(cpu, 1) == 0");
+    expect(&state, cortex_m4_get_register(cpu, 1) == 0, "cortex_m4_get_register(cpu, 1) == 0");
 
     kinetis_k22_destroy(device);
     return test_finish(&state);

@@ -33,8 +33,7 @@ static uint32_t saturating_add(uint32_t left, uint32_t right) {
     return UINT32_MAX - left < right ? UINT32_MAX : left + right;
 }
 
-uint32_t cortex_m4_timing_divide_cycles(uint32_t dividend, uint32_t divisor,
-                                        bool signed_divide) {
+uint32_t cortex_m4_timing_divide_cycles(uint32_t dividend, uint32_t divisor, bool signed_divide) {
     if (signed_divide) {
         dividend = signed_magnitude(dividend);
         divisor = signed_magnitude(divisor);
@@ -42,8 +41,7 @@ uint32_t cortex_m4_timing_divide_cycles(uint32_t dividend, uint32_t divisor,
     if (divisor == 0 || dividend < divisor) {
         return 2;
     }
-    const uint32_t leading_difference =
-        leading_zero_count(divisor) - leading_zero_count(dividend);
+    const uint32_t leading_difference = leading_zero_count(divisor) - leading_zero_count(dividend);
     const uint32_t cycles = 2u + leading_difference / 3u;
     return cycles > 12u ? 12u : cycles;
 }
@@ -73,8 +71,7 @@ static CortexM4TimingBus access_bus(uint32_t address, CortexM4Access access) {
         return CORTEX_M4_TIMING_BUS_PPB;
     }
     if (access == CORTEX_M4_ACCESS_INSTRUCTION) {
-        return address < 0x20000000u ? CORTEX_M4_TIMING_BUS_ICODE
-                                     : CORTEX_M4_TIMING_BUS_SYSTEM;
+        return address < 0x20000000u ? CORTEX_M4_TIMING_BUS_ICODE : CORTEX_M4_TIMING_BUS_SYSTEM;
     }
     return address < 0x20000000u ? CORTEX_M4_TIMING_BUS_DCODE : CORTEX_M4_TIMING_BUS_SYSTEM;
 }
@@ -138,8 +135,7 @@ static bool multiple16(uint16_t opcode, uint32_t* transfers, bool* loads_pc) {
     return false;
 }
 
-static bool multiple32(uint16_t first, uint16_t second, uint32_t* transfers,
-                       bool* loads_pc) {
+static bool multiple32(uint16_t first, uint16_t second, uint32_t* transfers, bool* loads_pc) {
     if ((((first & 0xffd0u) == 0xe880u || (first & 0xffd0u) == 0xe890u) ||
          (first & 0xffc0u) == 0xe900u) &&
         second != 0) {
@@ -191,8 +187,8 @@ static bool load32(uint16_t first) {
     return (first & 0x0010u) != 0;
 }
 
-static uint32_t instruction_cycles(const CortexM4* cpu, uint16_t first, uint16_t second,
-                                   bool wide, bool executed, uint32_t sequential_pc) {
+static uint32_t instruction_cycles(const CortexM4* cpu, uint16_t first, uint16_t second, bool wide,
+                                   bool executed, uint32_t sequential_pc) {
     if (!executed) {
         return 1;
     }
@@ -218,8 +214,7 @@ static uint32_t instruction_cycles(const CortexM4* cpu, uint16_t first, uint16_t
         const uint8_t divisor_register = (uint8_t)(second & 15u);
         return cortex_m4_timing_divide_cycles(
             cortex_m4_read_register_internal(cpu, dividend_register),
-            cortex_m4_read_register_internal(cpu, divisor_register),
-            (first & 0x0020u) == 0);
+            cortex_m4_read_register_internal(cpu, divisor_register), (first & 0x0020u) == 0);
     }
     if (wide && exclusive32(first, second)) {
         return 2;
@@ -240,8 +235,7 @@ static uint32_t instruction_cycles(const CortexM4* cpu, uint16_t first, uint16_t
     return 1;
 }
 
-void cortex_m4_set_wait_states(CortexM4* cpu, CortexM4WaitStates wait_states,
-                               void* context) {
+void cortex_m4_set_wait_states(CortexM4* cpu, CortexM4WaitStates wait_states, void* context) {
     if (cpu == NULL) {
         return;
     }
@@ -250,9 +244,8 @@ void cortex_m4_set_wait_states(CortexM4* cpu, CortexM4WaitStates wait_states,
 }
 
 bool cortex_m4_set_exclusive_granule(CortexM4* cpu, uint32_t bytes) {
-    if (cpu == NULL ||
-        (bytes != 0 && (bytes < 4 || bytes > CORTEX_M4_MAXIMUM_EXCLUSIVE_GRANULE ||
-                        (bytes & (bytes - 1u)) != 0))) {
+    if (cpu == NULL || (bytes != 0 && (bytes < 4 || bytes > CORTEX_M4_MAXIMUM_EXCLUSIVE_GRANULE ||
+                                       (bytes & (bytes - 1u)) != 0))) {
         return false;
     }
     cpu->exclusive_granule = bytes;
@@ -324,20 +317,19 @@ void cortex_m4_timing_prepare_instruction(CortexM4* cpu, uint16_t first, uint16_
     cpu->timing_prepared = true;
 }
 
-void cortex_m4_timing_access(CortexM4* cpu, uint32_t address, uint8_t size,
-                             CortexM4Access access, bool write) {
+void cortex_m4_timing_access(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                             bool write) {
     if (cpu == NULL || !cpu->timing_instruction_active || size == 0) {
         return;
     }
-    const bool sequential = cpu->timing_last_access_valid &&
-                            cpu->timing_last_access_write == write &&
-                            cpu->timing_last_access_type == access &&
-                            cpu->timing_last_access_address == address;
+    const bool sequential =
+        cpu->timing_last_access_valid && cpu->timing_last_access_write == write &&
+        cpu->timing_last_access_type == access && cpu->timing_last_access_address == address;
     uint32_t wait_cycles = 0;
     const CortexM4TimingBus bus = access_bus(address, access);
     if (cpu->wait_states != NULL) {
-        wait_cycles = cpu->wait_states(cpu->wait_state_context, address, size, access,
-                                       write, sequential);
+        wait_cycles =
+            cpu->wait_states(cpu->wait_state_context, address, size, access, write, sequential);
     }
     if (write && (cpu->timing_exception_active || bus == CORTEX_M4_TIMING_BUS_PPB)) {
         cpu->timing_instruction_wait_cycles =
@@ -375,23 +367,20 @@ void cortex_m4_timing_barrier(CortexM4* cpu, CortexM4Barrier barrier) {
     if (cpu == NULL) {
         return;
     }
-    if (barrier == CORTEX_M4_TIMING_BARRIER_DMB ||
-        barrier == CORTEX_M4_TIMING_BARRIER_DSB) {
-        cpu->timing_instruction_wait_cycles = saturating_add(
-            cpu->timing_instruction_wait_cycles, cpu->timing_pending_store_cycles);
+    if (barrier == CORTEX_M4_TIMING_BARRIER_DMB || barrier == CORTEX_M4_TIMING_BARRIER_DSB) {
+        cpu->timing_instruction_wait_cycles =
+            saturating_add(cpu->timing_instruction_wait_cycles, cpu->timing_pending_store_cycles);
         cpu->timing_pending_store_cycles = 0;
         cpu->timing_memory_epoch++;
         return;
     }
     cpu->timing_last_access_valid = false;
-    cpu->timing_instruction_wait_cycles =
-        saturating_add(cpu->timing_instruction_wait_cycles, 2);
+    cpu->timing_instruction_wait_cycles = saturating_add(cpu->timing_instruction_wait_cycles, 2);
     cpu->timing_context_epoch++;
 }
 
 void cortex_m4_timing_complete_instruction(CortexM4* cpu, uint16_t first, uint16_t second,
-                                           bool wide, bool executed,
-                                           uint32_t sequential_pc) {
+                                           bool wide, bool executed, uint32_t sequential_pc) {
     if (cpu == NULL) {
         return;
     }
@@ -410,8 +399,7 @@ void cortex_m4_timing_complete_instruction(CortexM4* cpu, uint16_t first, uint16
     }
     const uint32_t base_cycles =
         instruction_cycles(cpu, first, second, wide, executed, sequential_pc);
-    const uint32_t elapsed =
-        saturating_add(base_cycles, cpu->timing_instruction_wait_cycles);
+    const uint32_t elapsed = saturating_add(base_cycles, cpu->timing_instruction_wait_cycles);
     advance_timed(cpu, elapsed);
     if (cpu->timing_instruction_store_cycles > cpu->timing_pending_store_cycles) {
         cpu->timing_pending_store_cycles = cpu->timing_instruction_store_cycles;
@@ -441,8 +429,8 @@ void cortex_m4_timing_exception(CortexM4* cpu, CortexM4ExceptionTiming transitio
     if (transition == CORTEX_M4_TIMING_EXCEPTION_TAIL_CHAIN) {
         cycles = 6;
     }
-    cpu->timing_instruction_wait_cycles = saturating_add(
-        cpu->timing_instruction_wait_cycles, cpu->timing_pending_store_cycles);
+    cpu->timing_instruction_wait_cycles =
+        saturating_add(cpu->timing_instruction_wait_cycles, cpu->timing_pending_store_cycles);
     cpu->timing_pending_store_cycles = 0;
     cpu->timing_memory_epoch++;
     cpu->exclusive_valid = false;
@@ -474,10 +462,8 @@ bool cortex_m4_timing_consume_reservation(CortexM4* cpu, uint32_t address, uint8
     if (cpu == NULL) {
         return false;
     }
-    const bool address_matched =
-        cpu->exclusive_granule == 0 || cpu->exclusive_address == address;
-    const bool matched =
-        cpu->exclusive_valid && address_matched && cpu->exclusive_size == size;
+    const bool address_matched = cpu->exclusive_granule == 0 || cpu->exclusive_address == address;
+    const bool matched = cpu->exclusive_valid && address_matched && cpu->exclusive_size == size;
     cpu->exclusive_valid = false;
     return matched;
 }

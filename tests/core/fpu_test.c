@@ -18,18 +18,13 @@ static KinetisK22* create_device(TestState* state) {
 
 static void load_instruction(TestState* state, KinetisK22* device, uint16_t first,
                              uint16_t second) {
-    const uint8_t program[] = {(uint8_t)first,
-                               (uint8_t)(first >> 8),
-                               (uint8_t)second,
-                               (uint8_t)(second >> 8),
-                               0x00,
-                               0xbe};
+    const uint8_t program[] = {
+        (uint8_t)first, (uint8_t)(first >> 8), (uint8_t)second, (uint8_t)(second >> 8), 0x00, 0xbe};
     expect(state, kinetis_k22_load(device, 0x100, program, sizeof(program)),
            "kinetis_k22_load(device, 0x100, program, sizeof(program))");
     expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     test_connect_debugger(state, kinetis_k22_cpu(device));
-    expect(state,
-           cortex_m4_write_memory(kinetis_k22_cpu(device), 0xe000ed88u, 4, 0x00f00000u),
+    expect(state, cortex_m4_write_memory(kinetis_k22_cpu(device), 0xe000ed88u, 4, 0x00f00000u),
            "cortex_m4_write_memory(kinetis_k22_cpu(device), 0xe000ed88u, 4, 0x00f00000u)");
 }
 
@@ -158,16 +153,14 @@ int main(void) {
     execute(&state, device);
     expect(&state, cortex_m4_get_fp_register(cpu, 15) == 0x80000000u,
            "cortex_m4_get_fp_register(cpu, 15) == 0x80000000u");
-    expect(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0,
-           "(cortex_m4_get_fpscr(cpu) & 1u) != 0");
+    expect(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0, "(cortex_m4_get_fpscr(cpu) & 1u) != 0");
 
     load_instruction(&state, device, 0xeefcu, 0x7ae7u);
     cortex_m4_set_fp_register(cpu, 15, 0xbf800000u);
     execute(&state, device);
     expect(&state, cortex_m4_get_fp_register(cpu, 15) == 0,
            "cortex_m4_get_fp_register(cpu, 15) == 0");
-    expect(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0,
-           "(cortex_m4_get_fpscr(cpu) & 1u) != 0");
+    expect(&state, (cortex_m4_get_fpscr(cpu) & 1u) != 0, "(cortex_m4_get_fpscr(cpu) & 1u) != 0");
 
     load_instruction(&state, device, 0xee37u, 0x7a27u);
     expect(&state, cortex_m4_write_memory(cpu, 0xe000ed88u, 4, 0),

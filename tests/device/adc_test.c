@@ -20,8 +20,7 @@ static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }

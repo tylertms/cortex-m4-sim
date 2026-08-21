@@ -10,12 +10,9 @@ static void expect_cpu(TestState* state, const K22Profile* profile,
                        const K22ExpectedProfile* expected) {
     expect(state, profile->cpu.architecture == K22_CPU_ARCHITECTURE_ARMV7E_M,
            "profile->cpu.architecture == K22_CPU_ARCHITECTURE_ARMV7E_M");
-    expect(state, profile->cpu.core_revision_major == 0,
-           "profile->cpu.core_revision_major == 0");
-    expect(state, profile->cpu.core_revision_minor == 1,
-           "profile->cpu.core_revision_minor == 1");
-    expect(state, profile->cpu.nvic_priority_bits == 4,
-           "profile->cpu.nvic_priority_bits == 4");
+    expect(state, profile->cpu.core_revision_major == 0, "profile->cpu.core_revision_major == 0");
+    expect(state, profile->cpu.core_revision_minor == 1, "profile->cpu.core_revision_minor == 1");
+    expect(state, profile->cpu.nvic_priority_bits == 4, "profile->cpu.nvic_priority_bits == 4");
     expect(state, profile->cpu.external_irq_count == expected->external_irq_count,
            "profile->cpu.external_irq_count == expected->external_irq_count");
     expect(state, profile->cpu.little_endian, "profile->cpu.little_endian");
@@ -66,15 +63,13 @@ static void expect_block(TestState* state, const K22Profile* profile,
     expect(state, location.id == expected->id, "location.id == expected->id");
     expect(state, location.block_address == expected->address,
            "location.block_address == expected->address");
-    expect(state, location.block_size == expected->size,
-           "location.block_size == expected->size");
+    expect(state, location.block_size == expected->size, "location.block_size == expected->size");
     expect(state, location.offset == 0, "location.offset == 0");
 
     uint32_t last = expected->address + expected->size - 1;
     expect(state, k22_profile_resolve_peripheral(profile, last, 1, &location),
            "k22_profile_resolve_peripheral(profile, last, 1, &location)");
-    expect(state, location.offset == expected->size - 1,
-           "location.offset == expected->size - 1");
+    expect(state, location.offset == expected->size - 1, "location.offset == expected->size - 1");
     expect(state, !k22_profile_resolve_peripheral(profile, last, 2, NULL),
            "!k22_profile_resolve_peripheral(profile, last, 2, NULL)");
     if (expected->size >= 4) {
@@ -109,10 +104,8 @@ static void expect_profile(TestState* state, const K22ExpectedProfile* expected)
         expect_block(state, profile, &expected->blocks[index]);
     }
     for (int id = 0; id < K22_PERIPHERAL_COUNT; id++) {
-        expect(
-            state,
-            k22_profile_has_peripheral(profile, (K22PeripheralId)id) == expected_ids[id],
-            "k22_profile_has_peripheral(profile, (K22PeripheralId)id) == expected_ids[id]");
+        expect(state, k22_profile_has_peripheral(profile, (K22PeripheralId)id) == expected_ids[id],
+               "k22_profile_has_peripheral(profile, (K22PeripheralId)id) == expected_ids[id]");
     }
 }
 

@@ -36,8 +36,8 @@ static void io_write(TestState* state, KinetisK22* device, uint32_t address, uin
            "k22_io_write(&device->io, address, size, value)");
 }
 
-static void serial_write(TestState* state, KinetisK22* device, uint32_t address,
-                         uint8_t size, uint32_t value) {
+static void serial_write(TestState* state, KinetisK22* device, uint32_t address, uint8_t size,
+                         uint32_t value) {
     expect(state, k22_serial_write(&device->serial, address, size, value),
            "k22_serial_write(&device->serial, address, size, value)");
 }
@@ -150,10 +150,8 @@ static void test_serial_api(TestState* state, KinetisK22* device) {
     expect(state, kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART0, &value),
            "kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART0, &value)");
     expect(state, value == 0x44u, "value == 0x44u");
-    expect(
-        state,
-        !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_ENDPOINT_COUNT, &value),
-        "!kinetis_k22_serial_transmit( device, KINETIS_K22_SERIAL_ENDPOINT_COUNT, &value)");
+    expect(state, !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_ENDPOINT_COUNT, &value),
+           "!kinetis_k22_serial_transmit( device, KINETIS_K22_SERIAL_ENDPOINT_COUNT, &value)");
 
     expect(state, k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_SPI0, true),
            "k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_SPI0, true)");
@@ -227,10 +225,8 @@ static void test_io_api(TestState* state, KinetisK22* device) {
     KinetisK22CanFrame frame = {0x123u, 2u, {1u, 2u}, false, false};
     expect(state, kinetis_k22_can_receive(device, &frame),
            "kinetis_k22_can_receive(device, &frame)");
-    expect(state, !kinetis_k22_can_receive(device, NULL),
-           "!kinetis_k22_can_receive(device, NULL)");
-    expect(state, !kinetis_k22_can_receive(NULL, &frame),
-           "!kinetis_k22_can_receive(NULL, &frame)");
+    expect(state, !kinetis_k22_can_receive(device, NULL), "!kinetis_k22_can_receive(device, NULL)");
+    expect(state, !kinetis_k22_can_receive(NULL, &frame), "!kinetis_k22_can_receive(NULL, &frame)");
 
     k22_io_set_clock(&device->io, K22_PERIPHERAL_I2S0, true);
     io_write(state, device, I2S0, 4u, UINT32_C(0x80000000));
@@ -272,10 +268,8 @@ static void test_guards(TestState* state, KinetisK22* device) {
     }
     expect(state, !kinetis_k22_next_event(device, &event),
            "!kinetis_k22_next_event(device, &event)");
-    expect(state, !kinetis_k22_next_event(NULL, &event),
-           "!kinetis_k22_next_event(NULL, &event)");
-    expect(state, !kinetis_k22_next_event(device, NULL),
-           "!kinetis_k22_next_event(device, NULL)");
+    expect(state, !kinetis_k22_next_event(NULL, &event), "!kinetis_k22_next_event(NULL, &event)");
+    expect(state, !kinetis_k22_next_event(device, NULL), "!kinetis_k22_next_event(device, NULL)");
 }
 
 int main(void) {

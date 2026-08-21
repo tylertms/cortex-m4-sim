@@ -108,8 +108,7 @@ bool k22_io_can_receive(K22Io* io, const K22CanFrame* frame);
 bool k22_io_i2s_receive(K22Io* io, uint32_t sample);
 bool k22_io_i2s_transmit(K22Io* io, uint32_t* sample);
 bool k22_io_irq_asserted(const K22Io* io, uint8_t irq);
-bool k22_io_flexbus_transfer(K22Io* io, uint32_t address, uint8_t size, bool write,
-                             uint32_t value);
+bool k22_io_flexbus_transfer(K22Io* io, uint32_t address, uint8_t size, bool write, uint32_t value);
 bool k22_io_sysmpu_access(K22Io* io, uint32_t address, uint8_t master, bool supervisor,
                           K22SysMpuAccess access);
 

@@ -26,8 +26,7 @@ static void write8(TestState* state, KinetisK22* device, uint32_t address, uint8
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -39,8 +38,8 @@ static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void expect_transfer(TestState* state, KinetisK22* device,
-                            KinetisK22I2cTransferType type, uint8_t value) {
+static void expect_transfer(TestState* state, KinetisK22* device, KinetisK22I2cTransferType type,
+                            uint8_t value) {
     KinetisK22I2cTransfer transfer = {0};
     expect(state, kinetis_k22_i2c0_transfer(device, &transfer),
            "kinetis_k22_i2c0_transfer(device, &transfer)");

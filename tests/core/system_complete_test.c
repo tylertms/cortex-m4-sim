@@ -80,8 +80,7 @@ static CortexM4 create_cpu(TestBus* bus) {
     return cpu;
 }
 
-static uint32_t system_read(TestState* state, CortexM4* cpu, uint32_t address,
-                            uint8_t size) {
+static uint32_t system_read(TestState* state, CortexM4* cpu, uint32_t address, uint8_t size) {
     uint32_t value = 0;
     const CortexM4SystemAccess result =
         cortex_m4_system_read(cpu, address, size, CORTEX_M4_ACCESS_DATA, &value);
@@ -104,71 +103,50 @@ static void test_registers(TestState* state, CortexM4* cpu) {
            "system_read(state, cpu, 0xe000ed40u, 4) == 0x30u");
     expect(state, system_read(state, cpu, 0xe000ef40u, 4) == 0x10110021u,
            "system_read(state, cpu, 0xe000ef40u, 4) == 0x10110021u");
-    expect(
-        state,
-        system_write(cpu, SCB_SCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_SCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_SCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_SCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, system_read(state, cpu, SCB_SCR, 4) == 0x16u,
            "system_read(state, cpu, SCB_SCR, 4) == 0x16u");
-    expect(
-        state,
-        system_write(cpu, SCB_CCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_CCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_CCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_CCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, system_read(state, cpu, SCB_CCR, 4) == 0x31bu,
            "system_read(state, cpu, SCB_CCR, 4) == 0x31bu");
-    expect(
-        state,
-        system_write(cpu, SCB_SHCSR, 4, 0x0007f000u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_SHCSR, 4, 0x0007f000u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_SHCSR, 4, 0x0007f000u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_SHCSR, 4, 0x0007f000u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, system_read(state, cpu, SCB_SHCSR, 4) == 0x0007f000u,
            "system_read(state, cpu, SCB_SHCSR, 4) == 0x0007f000u");
     cpu->cfsr = 0xffffffffu;
     cpu->hfsr = 0xc0000002u;
-    expect(
-        state,
-        system_write(cpu, SCB_CFSR + 1u, 1, 0x55u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_CFSR + 1u, 1, 0x55u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_CFSR + 1u, 1, 0x55u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_CFSR + 1u, 1, 0x55u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->cfsr == 0xffffaaffu, "cpu->cfsr == 0xffffaaffu");
     expect(state, system_read(state, cpu, SCB_CFSR + 1u, 1u) == 0xaau,
            "system_read(state, cpu, SCB_CFSR + 1u, 1u) == 0xaau");
     expect(state, system_read(state, cpu, SCB_CFSR + 2u, 2u) == 0xffffu,
            "system_read(state, cpu, SCB_CFSR + 2u, 2u) == 0xffffu");
-    expect(state,
-           system_write(cpu, SCB_CFSR + 2u, 2u, 0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+    expect(state, system_write(cpu, SCB_CFSR + 2u, 2u, 0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, SCB_CFSR + 2u, 2u, 0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, SCB_HFSR, 4, 0x40000002u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_HFSR, 4, 0x40000002u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_HFSR, 4, 0x40000002u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_HFSR, 4, 0x40000002u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->hfsr == 0x80000000u, "cpu->hfsr == 0x80000000u");
-    expect(
-        state,
-        system_write(cpu, SCB_MMFAR, 4, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_MMFAR, 4, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, SCB_BFAR, 4, 0x89abcdefu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_BFAR, 4, 0x89abcdefu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_MMFAR, 4, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_MMFAR, 4, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_BFAR, 4, 0x89abcdefu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_BFAR, 4, 0x89abcdefu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->mmfar == 0x12345678u, "cpu->mmfar == 0x12345678u");
     expect(state, cpu->bfar == 0x89abcdefu, "cpu->bfar == 0x89abcdefu");
     cpu->dfsr = 0x1fu;
     cpu->afsr = 0x13579bdfu;
-    expect(
-        state,
-        system_write(cpu, SCB_CPACR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_CPACR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_CPACR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_CPACR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->cpacr == 0x00f00000u, "cpu->cpacr == 0x00f00000u");
     expect(state, system_write(cpu, FPU_FPCCR, 4, 0) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, FPU_FPCCR, 4, 0) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->fpccr == 0, "cpu->fpccr == 0");
-    expect(
-        state,
-        system_write(cpu, FPU_FPCAR, 4, 0x20001237u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, FPU_FPCAR, 4, 0x20001237u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, FPU_FPCAR, 4, 0x20001237u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, FPU_FPCAR, 4, 0x20001237u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->fpcar == 0x20001230u, "cpu->fpcar == 0x20001230u");
-    expect(state,
-           system_write(cpu, FPU_FPDSCR, 4, 0xffffffffu) ==
-               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+    expect(state, system_write(cpu, FPU_FPDSCR, 4, 0xffffffffu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, FPU_FPDSCR, 4, 0xffffffffu) == "
            "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->fpdscr == 0x07c00000u, "cpu->fpdscr == 0x07c00000u");
@@ -234,32 +212,22 @@ static void test_registers(TestState* state, CortexM4* cpu) {
                CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, SCB_ICSR, 4, (1u << 31) | (1u << 28) | (1u << 26)) == "
            "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        (system_read(state, cpu, SCB_ICSR, 4) & ((1u << 31) | (1u << 28) | (1u << 26))) ==
-            ((1u << 31) | (1u << 28) | (1u << 26)),
-        "(system_read(state, cpu, SCB_ICSR, 4) & ((1u << 31) | (1u << 28) | (1u << 26))) "
-        "== ((1u << 31) | (1u << 28) | (1u << 26))");
-    expect(
-        state,
-        system_write(cpu, NVIC_ICER, 4u, UINT32_MAX) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, NVIC_ICER, 4u, UINT32_MAX) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, SCB_ICSR, 4u, 1u << 27u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_ICSR, 4u, 1u << 27u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, SCB_VTOR, 4u, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_VTOR, 4u, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(state, cpu->vtor == 0x12345600u, "cpu->vtor == 0x12345600u");
     expect(state,
-           system_write(cpu, SCB_DFSR, 4u, 0x1fu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           (system_read(state, cpu, SCB_ICSR, 4) & ((1u << 31) | (1u << 28) | (1u << 26))) ==
+               ((1u << 31) | (1u << 28) | (1u << 26)),
+           "(system_read(state, cpu, SCB_ICSR, 4) & ((1u << 31) | (1u << 28) | (1u << 26))) "
+           "== ((1u << 31) | (1u << 28) | (1u << 26))");
+    expect(state, system_write(cpu, NVIC_ICER, 4u, UINT32_MAX) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, NVIC_ICER, 4u, UINT32_MAX) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_ICSR, 4u, 1u << 27u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_ICSR, 4u, 1u << 27u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_VTOR, 4u, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_VTOR, 4u, 0x12345678u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, cpu->vtor == 0x12345600u, "cpu->vtor == 0x12345600u");
+    expect(state, system_write(cpu, SCB_DFSR, 4u, 0x1fu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, SCB_DFSR, 4u, 0x1fu) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, SCB_AFSR, 4u, 0x2468ace0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_AFSR, 4u, 0x2468ace0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_AFSR, 4u, 0x2468ace0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_AFSR, 4u, 0x2468ace0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cpu->afsr == 0x2468ace0u, "cpu->afsr == 0x2468ace0u");
 }
 
@@ -267,26 +235,20 @@ static void test_priorities(TestState* state, CortexM4* cpu) {
     const CortexM4Priority null_priority = cortex_m4_system_priority(NULL, 0xffu);
     expect(state, null_priority.preemption == 0u, "null_priority.preemption == 0u");
     expect(state, null_priority.subpriority == 0u, "null_priority.subpriority == 0u");
-    expect(
-        state,
-        system_write(cpu, SCB_AIRCR, 4, 0x05fa0500u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, SCB_AIRCR, 4, 0x05fa0500u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, SCB_AIRCR, 4, 0x05fa0500u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, SCB_AIRCR, 4, 0x05fa0500u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     CortexM4Priority priority = cortex_m4_system_priority(cpu, 0xb0u);
     expect(state, priority.preemption == 2, "priority.preemption == 2");
     expect(state, priority.subpriority == 3, "priority.subpriority == 3");
     expect(state, system_write(cpu, NVIC_IPR, 1, 0xb0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, NVIC_IPR, 1, 0xb0u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
-    expect(
-        state,
-        system_write(cpu, NVIC_IPR + 1u, 1, 0x90u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
-        "system_write(cpu, NVIC_IPR + 1u, 1, 0x90u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state, system_write(cpu, NVIC_IPR + 1u, 1, 0x90u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "system_write(cpu, NVIC_IPR + 1u, 1, 0x90u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, system_read(state, cpu, NVIC_IPR + 1u, 1u) == 0x90u,
            "system_read(state, cpu, NVIC_IPR + 1u, 1u) == 0x90u");
     expect(state, system_read(state, cpu, NVIC_IPR, 2u) == 0x90b0u,
            "system_read(state, cpu, NVIC_IPR, 2u) == 0x90b0u");
-    expect(state,
-           system_write(cpu, NVIC_IPR + 2u, 2u, 0x7050u) ==
-               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+    expect(state, system_write(cpu, NVIC_IPR + 2u, 2u, 0x7050u) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, NVIC_IPR + 2u, 2u, 0x7050u) == "
            "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, cortex_m4_system_exception_before(cpu, 17, 16),
@@ -330,8 +292,7 @@ static void test_waiting(TestState* state, CortexM4* cpu) {
            "system_write(cpu, NVIC_ISER, 4, 1) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     expect(state, !cpu->sleeping, "!cpu->sleeping");
     cortex_m4_system_set_pending(cpu, 16, false);
-    expect(state,
-           system_write(cpu, SCB_SCR, 4, 1u << 4) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+    expect(state, system_write(cpu, SCB_SCR, 4, 1u << 4) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
            "system_write(cpu, SCB_SCR, 4, 1u << 4) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
     cpu->event_register = false;
     cortex_m4_system_set_pending(cpu, 17, true);
@@ -367,8 +328,7 @@ static void test_basic_frame(TestState* state, CortexM4* cpu) {
     cpu->registers[15] = 0x100u;
     uint32_t stack_pointer = 0x20001004u;
     uint32_t return_value = 0;
-    expect(state,
-           cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
+    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
            "cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value)");
     expect(state, stack_pointer == 0x20000fe0u, "stack_pointer == 0x20000fe0u");
     expect(state, return_value == 0xfffffff9u, "return_value == 0xfffffff9u");
@@ -376,11 +336,9 @@ static void test_basic_frame(TestState* state, CortexM4* cpu) {
     expect(state, cpu->exception_frames[0].it_state == 0x88u,
            "cpu->exception_frames[0].it_state == 0x88u");
     uint32_t stacked_xpsr = 0;
-    expect(
-        state,
-        bus_read(cpu->bus.context, 0x20000ffcu, 4, CORTEX_M4_ACCESS_DEBUG, &stacked_xpsr),
-        "bus_read(cpu->bus.context, 0x20000ffcu, 4, CORTEX_M4_ACCESS_DEBUG, "
-        "&stacked_xpsr)");
+    expect(state, bus_read(cpu->bus.context, 0x20000ffcu, 4, CORTEX_M4_ACCESS_DEBUG, &stacked_xpsr),
+           "bus_read(cpu->bus.context, 0x20000ffcu, 4, CORTEX_M4_ACCESS_DEBUG, "
+           "&stacked_xpsr)");
     expect(state, (stacked_xpsr & 0x0600fc00u) == 0x00008800u,
            "(stacked_xpsr & 0x0600fc00u) == 0x00008800u");
     expect(state, (stacked_xpsr & (1u << 9)) != 0, "(stacked_xpsr & (1u << 9)) != 0");
@@ -389,10 +347,8 @@ static void test_basic_frame(TestState* state, CortexM4* cpu) {
     cpu->active_exceptions[0] = 16u;
     cpu->faultmask = 1;
     memset(cpu->registers, 0, sizeof(cpu->registers));
-    expect(
-        state,
-        cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 16),
-        "cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 16)");
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 16),
+           "cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 16)");
     cortex_m4_exception_advanced_commit_return(cpu, 16u, true);
     expect(state, stack_pointer == 0x20001004u, "stack_pointer == 0x20001004u");
     expect(state, cpu->registers[0] == 0x10u, "cpu->registers[0] == 0x10u");
@@ -413,23 +369,20 @@ static void test_extended_frame(TestState* state, CortexM4* cpu) {
     cpu->registers[15] = 0x200u;
     uint32_t stack_pointer = 0x20002000u;
     uint32_t return_value = 0;
-    expect(state,
-           cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
+    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
            "cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value)");
     expect(state, stack_pointer == 0x20001f98u, "stack_pointer == 0x20001f98u");
     expect(state, return_value == 0xffffffedu, "return_value == 0xffffffedu");
     expect(state, cpu->fpcar == stack_pointer, "cpu->fpcar == stack_pointer");
     expect(state, (cpu->fpccr & 1u) != 0, "(cpu->fpccr & 1u) != 0");
     uint32_t word = 0;
-    expect(state,
-           bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word),
+    expect(state, bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word),
            "bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word)");
     expect(state, word == 0, "word == 0");
     expect(state, cortex_m4_system_materialize_lazy_fp(cpu),
            "cortex_m4_system_materialize_lazy_fp(cpu)");
     expect(state, (cpu->fpccr & 1u) == 0, "(cpu->fpccr & 1u) == 0");
-    expect(state,
-           bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word),
+    expect(state, bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word),
            "bus_read(cpu->bus.context, stack_pointer, 4, CORTEX_M4_ACCESS_DEBUG, &word)");
     expect(state, word == 0x3f800000u, "word == 0x3f800000u");
     cpu->fp_registers[0] = 0;
@@ -438,16 +391,12 @@ static void test_extended_frame(TestState* state, CortexM4* cpu) {
     cpu->xpsr = CORTEX_M4_XPSR_T | 17u;
     cpu->exception_depth = 1;
     cpu->active_exceptions[0] = 17u;
-    expect(
-        state,
-        cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 17),
-        "cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 17)");
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 17),
+           "cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 17)");
     cortex_m4_exception_advanced_commit_return(cpu, 17u, true);
     expect(state, stack_pointer == 0x20002000u, "stack_pointer == 0x20002000u");
-    expect(state, cpu->fp_registers[0] == 0x3f800000u,
-           "cpu->fp_registers[0] == 0x3f800000u");
-    expect(state, cpu->fp_registers[15] == 0x40000000u,
-           "cpu->fp_registers[15] == 0x40000000u");
+    expect(state, cpu->fp_registers[0] == 0x3f800000u, "cpu->fp_registers[0] == 0x3f800000u");
+    expect(state, cpu->fp_registers[15] == 0x40000000u, "cpu->fp_registers[15] == 0x40000000u");
     expect(state, cpu->fpscr == 0x01000000u, "cpu->fpscr == 0x01000000u");
     expect(state, (cpu->control & CORTEX_M4_CONTROL_FPCA) != 0,
            "(cpu->control & CORTEX_M4_CONTROL_FPCA) != 0");
@@ -468,12 +417,9 @@ static void test_extended_unstack_failure(TestState* state, CortexM4* cpu, TestB
     bus->reject_read = true;
     bus->rejected_read = SRAM_START + 0x100u;
     uint32_t stack_pointer = SRAM_START + 0x100u;
-    expect(
-        state,
-        !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xffffffe9u, 16u),
-        "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xffffffe9u, 16u)");
-    expect(state, cpu->exception_unstack_memory_fault,
-           "cpu->exception_unstack_memory_fault");
+    expect(state, !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xffffffe9u, 16u),
+           "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xffffffe9u, 16u)");
+    expect(state, cpu->exception_unstack_memory_fault, "cpu->exception_unstack_memory_fault");
     bus->reject_read = false;
 }
 
@@ -486,10 +432,8 @@ static void test_invalid_return(TestState* state, CortexM4* cpu) {
     expect(state, cortex_m4_system_valid_exception_return(cpu, 0xfffffff9u),
            "cortex_m4_system_valid_exception_return(cpu, 0xfffffff9u)");
     uint32_t stack_pointer = 0x20001000u;
-    expect(
-        state,
-        !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff5u, 16),
-        "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff5u, 16)");
+    expect(state, !cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff5u, 16),
+           "!cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, 0xfffffff5u, 16)");
     expect(state, (cpu->cfsr & (1u << 18)) != 0, "(cpu->cfsr & (1u << 18)) != 0");
     cpu->exception_depth = 2;
     expect(state, cortex_m4_system_valid_exception_return(cpu, 0xfffffff1u),
@@ -507,23 +451,19 @@ static void test_copy_implementation(TestState* state) {
     CortexM4 source = create_cpu(&source_bus);
     CortexM4 destination = create_cpu(&destination_bus);
     source.registers[0] = 0x12345678u;
-    expect(state, cortex_m4_copy(&destination, &source),
-           "cortex_m4_copy(&destination, &source)");
+    expect(state, cortex_m4_copy(&destination, &source), "cortex_m4_copy(&destination, &source)");
     expect(state, destination.registers[0] == 0x12345678u,
            "destination.registers[0] == 0x12345678u");
     expect(state, destination.bus.context == &destination_bus,
            "destination.bus.context == &destination_bus");
     destination.external_irq_count--;
-    expect(state, !cortex_m4_copy(&destination, &source),
-           "!cortex_m4_copy(&destination, &source)");
+    expect(state, !cortex_m4_copy(&destination, &source), "!cortex_m4_copy(&destination, &source)");
     destination.external_irq_count = source.external_irq_count;
     destination.priority_bits--;
-    expect(state, !cortex_m4_copy(&destination, &source),
-           "!cortex_m4_copy(&destination, &source)");
+    expect(state, !cortex_m4_copy(&destination, &source), "!cortex_m4_copy(&destination, &source)");
     destination.priority_bits = source.priority_bits;
     destination.mpu_region_count--;
-    expect(state, !cortex_m4_copy(&destination, &source),
-           "!cortex_m4_copy(&destination, &source)");
+    expect(state, !cortex_m4_copy(&destination, &source), "!cortex_m4_copy(&destination, &source)");
 }
 
 static void test_configure_implementation(TestState* state) {
@@ -542,18 +482,16 @@ static void test_configure_implementation(TestState* state) {
            "!cortex_m4_configure_implementation(NULL, 86u, 4u, 0u)");
     expect(state, !cortex_m4_configure_implementation(&cpu, 0u, 4u, 0u),
            "!cortex_m4_configure_implementation(&cpu, 0u, 4u, 0u)");
-    expect(state,
-           !cortex_m4_configure_implementation(&cpu, CORTEX_M4_IRQ_COUNT + 1u, 4u, 0u),
+    expect(state, !cortex_m4_configure_implementation(&cpu, CORTEX_M4_IRQ_COUNT + 1u, 4u, 0u),
            "!cortex_m4_configure_implementation(&cpu, CORTEX_M4_IRQ_COUNT + 1u, 4u, 0u)");
     expect(state, !cortex_m4_configure_implementation(&cpu, 86u, 2u, 0u),
            "!cortex_m4_configure_implementation(&cpu, 86u, 2u, 0u)");
     expect(state, !cortex_m4_configure_implementation(&cpu, 86u, 9u, 0u),
            "!cortex_m4_configure_implementation(&cpu, 86u, 9u, 0u)");
-    expect(
-        state,
-        !cortex_m4_configure_implementation(&cpu, 86u, 4u, CORTEX_M4_MPU_REGION_COUNT + 1u),
-        "!cortex_m4_configure_implementation( &cpu, 86u, 4u, CORTEX_M4_MPU_REGION_COUNT + "
-        "1u)");
+    expect(state,
+           !cortex_m4_configure_implementation(&cpu, 86u, 4u, CORTEX_M4_MPU_REGION_COUNT + 1u),
+           "!cortex_m4_configure_implementation( &cpu, 86u, 4u, CORTEX_M4_MPU_REGION_COUNT + "
+           "1u)");
     expect(state, cortex_m4_configure_implementation(&cpu, 86u, 4u, 0u),
            "cortex_m4_configure_implementation(&cpu, 86u, 4u, 0u)");
     expect(state, cpu.external_irq_count == 86u, "cpu.external_irq_count == 86u");
@@ -576,69 +514,52 @@ static void test_configure_implementation(TestState* state) {
 static void test_public_ppb_access(TestState* state) {
     TestBus bus = {0};
     CortexM4 cpu = create_cpu(&bus);
-    expect(
-        state,
-        cortex_m4_bus_write(&cpu, ITM_LOCK_ACCESS, 4u, CORTEX_M4_ACCESS_DATA, 0xc5acce55u),
-        "cortex_m4_bus_write(&cpu, ITM_LOCK_ACCESS, 4u, CORTEX_M4_ACCESS_DATA, "
-        "0xc5acce55u)");
     expect(state,
-           cortex_m4_bus_write(&cpu, ITM_TRACE_ENABLE, 4u, CORTEX_M4_ACCESS_DATA, 1u),
+           cortex_m4_bus_write(&cpu, ITM_LOCK_ACCESS, 4u, CORTEX_M4_ACCESS_DATA, 0xc5acce55u),
+           "cortex_m4_bus_write(&cpu, ITM_LOCK_ACCESS, 4u, CORTEX_M4_ACCESS_DATA, "
+           "0xc5acce55u)");
+    expect(state, cortex_m4_bus_write(&cpu, ITM_TRACE_ENABLE, 4u, CORTEX_M4_ACCESS_DATA, 1u),
            "cortex_m4_bus_write(&cpu, ITM_TRACE_ENABLE, 4u, CORTEX_M4_ACCESS_DATA, 1u)");
-    expect(state,
-           cortex_m4_bus_write(&cpu, ITM_TRACE_PRIVILEGE, 4u, CORTEX_M4_ACCESS_DATA, 1u),
+    expect(state, cortex_m4_bus_write(&cpu, ITM_TRACE_PRIVILEGE, 4u, CORTEX_M4_ACCESS_DATA, 1u),
            "cortex_m4_bus_write(&cpu, ITM_TRACE_PRIVILEGE, 4u, CORTEX_M4_ACCESS_DATA, 1u)");
-    expect(state,
-           cortex_m4_bus_write(&cpu, ITM_TRACE_CONTROL, 4u, CORTEX_M4_ACCESS_DATA, 1u),
+    expect(state, cortex_m4_bus_write(&cpu, ITM_TRACE_CONTROL, 4u, CORTEX_M4_ACCESS_DATA, 1u),
            "cortex_m4_bus_write(&cpu, ITM_TRACE_CONTROL, 4u, CORTEX_M4_ACCESS_DATA, 1u)");
     expect(state, cortex_m4_bus_write(&cpu, DEMCR, 4u, CORTEX_M4_ACCESS_DATA, 1u << 24u),
            "cortex_m4_bus_write(&cpu, DEMCR, 4u, CORTEX_M4_ACCESS_DATA, 1u << 24u)");
     expect(state, cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA, 0x5au),
            "cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA, 0x5au)");
     expect(state, cpu.debug.itm_stimulus[0] == 0x5au, "cpu.debug.itm_stimulus[0] == 0x5au");
-    expect(state,
-           cortex_m4_bus_write(&cpu, ITM_STIMULUS + 1u, 1u,
-                               CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0xa5u),
-           "cortex_m4_bus_write(&cpu, ITM_STIMULUS + 1u, 1u, "
-           "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0xa5u)");
-    expect(state, cpu.debug.itm_stimulus[0] == 0xa55au,
-           "cpu.debug.itm_stimulus[0] == 0xa55au");
-    cpu.control = CORTEX_M4_CONTROL_NPRIV;
     expect(
         state,
-        cortex_m4_bus_write(&cpu, ITM_STIMULUS + 2u, 1u, CORTEX_M4_ACCESS_DATA, 0x3cu),
-        "cortex_m4_bus_write(&cpu, ITM_STIMULUS + 2u, 1u, CORTEX_M4_ACCESS_DATA, 0x3cu)");
-    expect(state, cpu.debug.itm_stimulus[0] == 0x3ca55au,
-           "cpu.debug.itm_stimulus[0] == 0x3ca55au");
+        cortex_m4_bus_write(&cpu, ITM_STIMULUS + 1u, 1u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0xa5u),
+        "cortex_m4_bus_write(&cpu, ITM_STIMULUS + 1u, 1u, "
+        "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 0xa5u)");
+    expect(state, cpu.debug.itm_stimulus[0] == 0xa55au, "cpu.debug.itm_stimulus[0] == 0xa55au");
+    cpu.control = CORTEX_M4_CONTROL_NPRIV;
+    expect(state, cortex_m4_bus_write(&cpu, ITM_STIMULUS + 2u, 1u, CORTEX_M4_ACCESS_DATA, 0x3cu),
+           "cortex_m4_bus_write(&cpu, ITM_STIMULUS + 2u, 1u, CORTEX_M4_ACCESS_DATA, 0x3cu)");
+    expect(state, cpu.debug.itm_stimulus[0] == 0x3ca55au, "cpu.debug.itm_stimulus[0] == 0x3ca55au");
     cpu.debug.itm_trace_privilege = 0u;
     const uint32_t stimulus = cpu.debug.itm_stimulus[0];
     expect(state, !cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA, 0u),
            "!cortex_m4_bus_write(&cpu, ITM_STIMULUS, 1u, CORTEX_M4_ACCESS_DATA, 0u)");
-    expect(state, cpu.debug.itm_stimulus[0] == stimulus,
-           "cpu.debug.itm_stimulus[0] == stimulus");
+    expect(state, cpu.debug.itm_stimulus[0] == stimulus, "cpu.debug.itm_stimulus[0] == stimulus");
     expect(state, !cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u),
            "!cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u)");
     cpu.ccr |= 1u << 1u;
     expect(state, cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u),
            "cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_DATA, 1u)");
-    expect(state, cortex_m4_get_irq_pending(&cpu, 1u),
-           "cortex_m4_get_irq_pending(&cpu, 1u)");
-    expect(state, !cortex_m4_get_irq_pending(&cpu, 2u),
-           "!cortex_m4_get_irq_pending(&cpu, 2u)");
-    expect(
-        state,
-        cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u),
-        "cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u)");
-    expect(state, cortex_m4_get_irq_pending(&cpu, 2u),
-           "cortex_m4_get_irq_pending(&cpu, 2u)");
-    expect(state, !cortex_m4_get_irq_pending(&cpu, 3u),
-           "!cortex_m4_get_irq_pending(&cpu, 3u)");
+    expect(state, cortex_m4_get_irq_pending(&cpu, 1u), "cortex_m4_get_irq_pending(&cpu, 1u)");
+    expect(state, !cortex_m4_get_irq_pending(&cpu, 2u), "!cortex_m4_get_irq_pending(&cpu, 2u)");
+    expect(state, cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u),
+           "cortex_m4_bus_write(&cpu, NVIC_STIR, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 2u)");
+    expect(state, cortex_m4_get_irq_pending(&cpu, 2u), "cortex_m4_get_irq_pending(&cpu, 2u)");
+    expect(state, !cortex_m4_get_irq_pending(&cpu, 3u), "!cortex_m4_get_irq_pending(&cpu, 3u)");
     expect(state,
-           !cortex_m4_bus_write(&cpu, NVIC_STIR + 1u, 4u,
-                                CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 3u),
+           !cortex_m4_bus_write(&cpu, NVIC_STIR + 1u, 4u, CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 3u),
            "!cortex_m4_bus_write(&cpu, NVIC_STIR + 1u, 4u, "
            "CORTEX_M4_ACCESS_UNPRIVILEGED_DATA, 3u)");
-    expect(state, !cortex_m4_get_irq_pending(&cpu, 3u),
-           "!cortex_m4_get_irq_pending(&cpu, 3u)");
+    expect(state, !cortex_m4_get_irq_pending(&cpu, 3u), "!cortex_m4_get_irq_pending(&cpu, 3u)");
     uint32_t value = 0u;
     cpu.control = 0u;
     expect(state,

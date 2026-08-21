@@ -28,8 +28,7 @@ static void record_dma(void* context, uint8_t source) {
     recorder->requests[source]++;
 }
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     expect(state, k22_timing_write(timing, address, 4u, value),
            "k22_timing_write(timing, address, 4u, value)");
 }
@@ -59,9 +58,9 @@ static void initialize(TestState* state, K22Timing* timing, DmaRecorder* recorde
     write_register(state, timing, SIM_SCGC6, timing->sim_scgc6 | (1u << 24u));
 }
 
-static void configure(TestState* state, K22Timing* timing, DmaRecorder* recorder,
-                      uint32_t first_sc, uint32_t second_sc, uint16_t first_compare,
-                      uint16_t second_compare, uint16_t modulo, uint32_t combine) {
+static void configure(TestState* state, K22Timing* timing, DmaRecorder* recorder, uint32_t first_sc,
+                      uint32_t second_sc, uint16_t first_compare, uint16_t second_compare,
+                      uint16_t modulo, uint32_t combine) {
     initialize(state, timing, recorder);
     write_register(state, timing, FTM0_MODE, 5u);
     write_register(state, timing, FTM0_CNTIN, 0u);
@@ -77,12 +76,11 @@ static void configure(TestState* state, K22Timing* timing, DmaRecorder* recorder
 
 static void expect_outputs(TestState* state, K22Timing* timing, bool first, bool second) {
     expect(state, output(state, timing, 0u) == first, "output(state, timing, 0u) == first");
-    expect(state, output(state, timing, 1u) == second,
-           "output(state, timing, 1u) == second");
+    expect(state, output(state, timing, 1u) == second, "output(state, timing, 1u) == second");
 }
 
-static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cycles,
-                               bool first, bool second) {
+static void advance_and_expect(TestState* state, K22Timing* timing, uint32_t cycles, bool first,
+                               bool second) {
     k22_timing_advance(timing, cycles);
     expect_outputs(state, timing, first, second);
 }
@@ -129,13 +127,11 @@ static void test_complementary_control(TestState* state) {
     advance_and_expect(state, &timing, 2u, true, false);
 }
 
-static void expect_active_at(TestState* state, uint16_t first_compare,
-                             uint16_t second_compare, uint16_t modulo, uint32_t counter,
-                             bool expected) {
+static void expect_active_at(TestState* state, uint16_t first_compare, uint16_t second_compare,
+                             uint16_t modulo, uint32_t counter, bool expected) {
     K22Timing timing;
     DmaRecorder recorder = {0};
-    configure(state, &timing, &recorder, 0x28u, 0x08u, first_compare, second_compare,
-              modulo, 1u);
+    configure(state, &timing, &recorder, 0x28u, 0x08u, first_compare, second_compare, modulo, 1u);
     advance_and_expect(state, &timing, counter, expected, expected);
 }
 

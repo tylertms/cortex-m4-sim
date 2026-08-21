@@ -36,10 +36,8 @@ int main(void) {
     expect(&state, cortex_m4_set_breakpoint(cpu, 0, 0x100u, false),
            "cortex_m4_set_breakpoint(cpu, 0, 0x100u, false)");
     CortexM4Result result = cortex_m4_run(cpu, (CortexM4RunLimits){4, 20});
-    expect(&state, result.stop == CORTEX_M4_STOP_LIMIT,
-           "result.stop == CORTEX_M4_STOP_LIMIT");
-    expect(&state, cortex_m4_get_register(cpu, 0) == 1,
-           "cortex_m4_get_register(cpu, 0) == 1");
+    expect(&state, result.stop == CORTEX_M4_STOP_LIMIT, "result.stop == CORTEX_M4_STOP_LIMIT");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 1, "cortex_m4_get_register(cpu, 0) == 1");
     expect(&state, cortex_m4_get_register(cpu, 15) == 0x108u,
            "cortex_m4_get_register(cpu, 15) == 0x108u");
     result = cortex_m4_step(cpu);
@@ -52,8 +50,7 @@ int main(void) {
     result = cortex_m4_run(cpu, (CortexM4RunLimits){8, 40});
     expect(&state, result.stop == CORTEX_M4_STOP_BREAKPOINT,
            "result.stop == CORTEX_M4_STOP_BREAKPOINT");
-    expect(&state, cortex_m4_get_register(cpu, 0) == 2,
-           "cortex_m4_get_register(cpu, 0) == 2");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 2, "cortex_m4_get_register(cpu, 0) == 2");
     kinetis_k22_destroy(device);
     return test_finish(&state);
 }

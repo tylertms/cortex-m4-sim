@@ -31,8 +31,7 @@ static void record_irq(void* context, uint8_t irq, bool asserted) {
     }
 }
 
-static void write_register(TestState* state, K22Timing* timing, uint32_t address,
-                           uint32_t value) {
+static void write_register(TestState* state, K22Timing* timing, uint32_t address, uint32_t value) {
     expect(state, k22_timing_write(timing, address, 4u, value),
            "k22_timing_write(timing, address, 4u, value)");
 }
@@ -44,9 +43,8 @@ static uint32_t read_register(TestState* state, K22Timing* timing, uint32_t addr
     return value;
 }
 
-static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorder,
-                       uint8_t instance, uint16_t initial, uint16_t modulo,
-                       uint32_t qdctrl) {
+static void initialize(TestState* state, K22Timing* timing, IrqRecorder* recorder, uint8_t instance,
+                       uint16_t initial, uint16_t modulo, uint32_t qdctrl) {
     const K22Profile* profile = k22_profile_get(K22_PROFILE_MK22FN51212);
     const K22TimingSignals signals = {
         .context = recorder,

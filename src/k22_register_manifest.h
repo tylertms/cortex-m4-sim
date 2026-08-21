@@ -38,8 +38,8 @@ typedef struct {
 } K22RegisterManifest;
 
 const K22RegisterManifest* k22_register_manifest_get(K22ProfileId profile);
-const K22RegisterDescriptor* k22_register_manifest_lookup(K22ProfileId profile,
-                                                          uint32_t address, uint8_t width);
+const K22RegisterDescriptor* k22_register_manifest_lookup(K22ProfileId profile, uint32_t address,
+                                                          uint8_t width);
 bool k22_register_manifest_reset(K22ProfileId profile, uint32_t address, uint8_t width,
                                  uint32_t* value, uint32_t* mask);
 bool k22_register_manifest_has_peripheral(K22ProfileId profile, const char* name);

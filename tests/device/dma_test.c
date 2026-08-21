@@ -71,11 +71,10 @@ int main(void) {
     write(&state, device, DMA_TCD0 + 0x16, &iterations, sizeof(iterations));
     write(&state, device, DMA_TCD0 + 0x1c, &control, sizeof(control));
     write(&state, device, DMAMUX_CHCFG0, &mux, sizeof(mux));
-    expect(
-        &state,
-        cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), channel),
-        "cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), "
-        "channel)");
+    expect(&state,
+           cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), channel),
+           "cortex_m4_write_memory(kinetis_k22_cpu(device), DMA_SERQ, sizeof(channel), "
+           "channel)");
     uint16_t output = 0;
     expect(&state, !kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output),
            "!kinetis_k22_serial_transmit(device, KINETIS_K22_SERIAL_UART1, &output)");

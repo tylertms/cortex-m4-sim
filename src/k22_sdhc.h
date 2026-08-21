@@ -5,10 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef bool (*K22SdhcBusRead)(void* context, uint32_t address, uint8_t size,
-                               uint32_t* value);
-typedef bool (*K22SdhcBusWrite)(void* context, uint32_t address, uint8_t size,
-                                uint32_t value);
+typedef bool (*K22SdhcBusRead)(void* context, uint32_t address, uint8_t size, uint32_t* value);
+typedef bool (*K22SdhcBusWrite)(void* context, uint32_t address, uint8_t size, uint32_t value);
 
 typedef struct {
     void* context;

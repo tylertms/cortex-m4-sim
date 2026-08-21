@@ -354,8 +354,8 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
 
     static const uint16_t half_long_opcodes[] = {0x0382u, 0x0392u, 0x03a2u, 0x03b2u};
     static const uint32_t half_long_results[] = {15u, 12u, 10u, 8u};
-    for (uint32_t index = 0;
-         index < sizeof(half_long_opcodes) / sizeof(half_long_opcodes[0]); index++) {
+    for (uint32_t index = 0; index < sizeof(half_long_opcodes) / sizeof(half_long_opcodes[0]);
+         index++) {
         reset_cpu(cpu);
         cpu->registers[1] = 0x00020003u;
         cpu->registers[2] = 0x00040005u;
@@ -385,8 +385,7 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
                                                        0xf012u, 0x3002u, 0x3012u};
     static const uint32_t most_significant_results[] = {0u, 1u, 0xffffffffu, 0u, 1u, 2u};
     for (uint32_t index = 0;
-         index < sizeof(most_significant_first) / sizeof(most_significant_first[0]);
-         index++) {
+         index < sizeof(most_significant_first) / sizeof(most_significant_first[0]); index++) {
         reset_cpu(cpu);
         cpu->registers[1] = 1u;
         cpu->registers[2] = 0x80000000u;
@@ -399,13 +398,11 @@ static void test_long_multiply(TestState* state, CortexM4* cpu) {
 
 static void test_invalid_encodings(TestState* state, CortexM4* cpu) {
     static const uint16_t cases[][2] = {
-        {0xeacdu, 0x2002u},       {0xeac1u, 0x2d02u}, {0xeac1u, 0x2012u},
-        {0xfa4du, 0xf082u},       {0xfa9du, 0xf002u}, {0xfa91u, 0xfd02u},
-        {0xfa91u, 0xf002u | 13u}, {0xfa71u, 0xf002u}, {0xf30du, 0x0007u},
-        {0xf32du, 0x0007u},       {0xfa82u, 0xf08du}, {0xfaadu, 0xf082u},
-        {0xfb7du, 0xf002u},       {0xfb1du, 0x3002u}, {0xfb2du, 0x3002u},
-        {0xfb11u, 0xd002u},       {0xfb31u, 0xf022u}, {0xfbc1u, 0x00c2u},
-        {0xfb61u, 0xf002u},       {0xfb01u, 0xf012u},
+        {0xeacdu, 0x2002u}, {0xeac1u, 0x2d02u}, {0xeac1u, 0x2012u},       {0xfa4du, 0xf082u},
+        {0xfa9du, 0xf002u}, {0xfa91u, 0xfd02u}, {0xfa91u, 0xf002u | 13u}, {0xfa71u, 0xf002u},
+        {0xf30du, 0x0007u}, {0xf32du, 0x0007u}, {0xfa82u, 0xf08du},       {0xfaadu, 0xf082u},
+        {0xfb7du, 0xf002u}, {0xfb1du, 0x3002u}, {0xfb2du, 0x3002u},       {0xfb11u, 0xd002u},
+        {0xfb31u, 0xf022u}, {0xfbc1u, 0x00c2u}, {0xfb61u, 0xf002u},       {0xfb01u, 0xf012u},
     };
     for (uint32_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
         reset_cpu(cpu);

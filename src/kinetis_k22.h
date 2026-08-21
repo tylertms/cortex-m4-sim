@@ -141,8 +141,7 @@ bool kinetis_k22_next_event(KinetisK22* device, KinetisK22Event* event);
 bool kinetis_k22_set_adc_channel(KinetisK22* device, uint8_t instance, uint8_t channel,
                                  uint16_t value);
 void kinetis_k22_set_adc0_channel(KinetisK22* device, uint8_t channel, uint16_t value);
-bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t input,
-                               uint8_t value);
+bool kinetis_k22_set_cmp_input(KinetisK22* device, uint8_t instance, uint8_t input, uint8_t value);
 bool kinetis_k22_set_lptmr_input(KinetisK22* device, uint8_t input, bool high);
 bool kinetis_k22_trigger_low_voltage_warning(KinetisK22* device);
 bool kinetis_k22_trigger_low_voltage_detect(KinetisK22* device);
@@ -151,16 +150,12 @@ bool kinetis_k22_trigger_llwu_module(KinetisK22* device, uint8_t module);
 bool kinetis_k22_set_ewm_input(KinetisK22* device, bool high);
 bool kinetis_k22_ewm_output(const KinetisK22* device);
 bool kinetis_k22_get_cmt_output(const KinetisK22* device, bool* driven, bool* high);
-bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel,
-                               bool high);
-bool kinetis_k22_set_ftm_fault(KinetisK22* device, uint8_t instance, uint8_t input,
-                               bool high);
-bool kinetis_k22_trigger_ftm_hardware(KinetisK22* device, uint8_t instance,
-                                      uint8_t trigger);
+bool kinetis_k22_set_ftm_input(KinetisK22* device, uint8_t instance, uint8_t channel, bool high);
+bool kinetis_k22_set_ftm_fault(KinetisK22* device, uint8_t instance, uint8_t input, bool high);
+bool kinetis_k22_trigger_ftm_hardware(KinetisK22* device, uint8_t instance, uint8_t trigger);
 bool kinetis_k22_get_ftm_output(const KinetisK22* device, uint8_t instance, uint8_t channel,
                                 bool* high);
-bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance,
-                                uint16_t* value);
+bool kinetis_k22_get_dac_output(const KinetisK22* device, uint8_t instance, uint16_t* value);
 void kinetis_k22_rng_seed(KinetisK22* device, uint32_t seed);
 bool kinetis_k22_gpio_drive(KinetisK22* device, uint8_t port, uint8_t pin, bool high);
 bool kinetis_k22_gpio_release(KinetisK22* device, uint8_t port, uint8_t pin);
@@ -175,25 +170,20 @@ bool kinetis_k22_i2c_transfer(KinetisK22* device, KinetisK22SerialEndpoint endpo
                               KinetisK22I2cTransfer* transfer);
 bool kinetis_k22_i2c_acknowledge(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
                                  bool acknowledge);
-bool kinetis_k22_i2c_lose_arbitration(KinetisK22* device,
-                                      KinetisK22SerialEndpoint endpoint);
-bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint,
-                             uint8_t value);
-bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token,
-                           bool transmit);
+bool kinetis_k22_i2c_lose_arbitration(KinetisK22* device, KinetisK22SerialEndpoint endpoint);
+bool kinetis_k22_i2c_receive(KinetisK22* device, KinetisK22SerialEndpoint endpoint, uint8_t value);
+bool kinetis_k22_usb_token(KinetisK22* device, uint8_t endpoint, uint8_t token, bool transmit);
 bool kinetis_k22_can_receive(KinetisK22* device, const KinetisK22CanFrame* frame);
 bool kinetis_k22_i2s_receive(KinetisK22* device, uint32_t sample);
 bool kinetis_k22_i2s_transmit(KinetisK22* device, uint32_t* sample);
 bool kinetis_k22_sdhc_insert(KinetisK22* device, const void* data, size_t size,
                              bool write_protected);
 void kinetis_k22_sdhc_eject(KinetisK22* device);
-bool kinetis_k22_sdhc_read_card(const KinetisK22* device, size_t offset, void* data,
-                                size_t size);
-bool kinetis_k22_flexbus_attach(KinetisK22* device, uint32_t address, const void* data,
-                                size_t size, bool read_only);
+bool kinetis_k22_sdhc_read_card(const KinetisK22* device, size_t offset, void* data, size_t size);
+bool kinetis_k22_flexbus_attach(KinetisK22* device, uint32_t address, const void* data, size_t size,
+                                bool read_only);
 void kinetis_k22_flexbus_detach(KinetisK22* device);
-bool kinetis_k22_flexbus_read(const KinetisK22* device, size_t offset, void* data,
-                              size_t size);
+bool kinetis_k22_flexbus_read(const KinetisK22* device, size_t offset, void* data, size_t size);
 bool kinetis_k22_set_usb_charger(KinetisK22* device, KinetisK22UsbCharger charger);
 bool kinetis_k22_set_usb_pullup(KinetisK22* device, bool enabled);
 bool kinetis_k22_uart1_receive(KinetisK22* device, uint8_t value, uint8_t status);

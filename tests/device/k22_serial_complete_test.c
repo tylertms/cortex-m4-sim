@@ -13,16 +13,15 @@ enum {
     UART_S1 = 4u,
 };
 
-static uint32_t read_register(TestState* state, K22Serial* serial, uint32_t address,
-                              uint8_t size) {
+static uint32_t read_register(TestState* state, K22Serial* serial, uint32_t address, uint8_t size) {
     uint32_t value = 0;
     expect(state, k22_serial_read(serial, address, size, &value),
            "k22_serial_read(serial, address, size, &value)");
     return value;
 }
 
-static void write_register(TestState* state, K22Serial* serial, uint32_t address,
-                           uint8_t size, uint32_t value) {
+static void write_register(TestState* state, K22Serial* serial, uint32_t address, uint8_t size,
+                           uint32_t value) {
     expect(state, k22_serial_write(serial, address, size, value),
            "k22_serial_write(serial, address, size, value)");
 }
@@ -37,8 +36,7 @@ static K22Serial create_serial(TestState* state, K22ProfileId profile_id) {
 static void expect_event(TestState* state, K22Serial* serial, K22SerialEndpoint endpoint,
                          K22SerialEventType type, uint16_t value) {
     K22SerialEvent event;
-    expect(state, k22_serial_pop_event(serial, &event),
-           "k22_serial_pop_event(serial, &event)");
+    expect(state, k22_serial_pop_event(serial, &event), "k22_serial_pop_event(serial, &event)");
     expect(state, event.endpoint == endpoint, "event.endpoint == endpoint");
     expect(state, event.type == type, "event.type == type");
     expect(state, event.value == value, "event.value == value");
@@ -65,8 +63,7 @@ static void test_profiles_and_gates(TestState* state) {
     expect(state, k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_UART1, true),
            "k22_serial_set_clock_gate(&serial, K22_PERIPHERAL_UART1, true)");
     expect(state,
-           !k22_serial_read(&serial, serial.uart[1].base + serial.uart[1].block_size, 1,
-                            &value),
+           !k22_serial_read(&serial, serial.uart[1].base + serial.uart[1].block_size, 1, &value),
            "!k22_serial_read(&serial, serial.uart[1].base + serial.uart[1].block_size, 1, "
            "&value)");
 
@@ -180,22 +177,18 @@ static void test_lpuart(TestState* state) {
     expect(state, read_register(state, &serial, LPUART0_BASE + 4, 4) == 0x00c00000u,
            "read_register(state, &serial, LPUART0_BASE + 4, 4) == 0x00c00000u");
     write_register(state, &serial, LPUART0_BASE, 4, 0x0f200001u);
-    write_register(state, &serial, LPUART0_BASE + 8, 4,
-                   (1u << 18) | (1u << 19) | (1u << 21));
+    write_register(state, &serial, LPUART0_BASE + 8, 4, (1u << 18) | (1u << 19) | (1u << 21));
     expect(state, k22_serial_push_receive(&serial, K22_SERIAL_LPUART0, 0x155u, 1),
            "k22_serial_push_receive(&serial, K22_SERIAL_LPUART0, 0x155u, 1)");
     k22_serial_advance(&serial, 160);
-    expect(state,
-           (read_register(state, &serial, LPUART0_BASE + 4, 4) & 0x00210000u) ==
-               0x00210000u,
+    expect(state, (read_register(state, &serial, LPUART0_BASE + 4, 4) & 0x00210000u) == 0x00210000u,
            "(read_register(state, &serial, LPUART0_BASE + 4, 4) & 0x00210000u) == "
            "0x00210000u");
     expect(state, k22_serial_irq(&serial, K22_SERIAL_IRQ_LPUART0),
            "k22_serial_irq(&serial, K22_SERIAL_IRQ_LPUART0)");
     expect(state, k22_serial_dma_request(&serial, K22_SERIAL_DMA_LPUART0_RECEIVE),
            "k22_serial_dma_request(&serial, K22_SERIAL_DMA_LPUART0_RECEIVE)");
-    expect(state,
-           (read_register(state, &serial, LPUART0_BASE + 0x0c, 4) & 0x3ffu) == 0x155u,
+    expect(state, (read_register(state, &serial, LPUART0_BASE + 0x0c, 4) & 0x3ffu) == 0x155u,
            "(read_register(state, &serial, LPUART0_BASE + 0x0c, 4) & 0x3ffu) == 0x155u");
     write_register(state, &serial, LPUART0_BASE + 4, 4, 0x00010000u);
     expect(state, (read_register(state, &serial, LPUART0_BASE + 4, 4) & 0x00010000u) == 0,
@@ -479,8 +472,7 @@ static void test_event_capacity(TestState* state) {
     expect(state, serial.event_count == K22_SERIAL_EVENT_CAPACITY,
            "serial.event_count == K22_SERIAL_EVENT_CAPACITY");
     K22SerialEvent event;
-    expect(state, k22_serial_pop_event(&serial, &event),
-           "k22_serial_pop_event(&serial, &event)");
+    expect(state, k22_serial_pop_event(&serial, &event), "k22_serial_pop_event(&serial, &event)");
     expect(state, event.type == K22_SERIAL_EVENT_I2C_START,
            "event.type == K22_SERIAL_EVENT_I2C_START");
 }
@@ -554,8 +546,7 @@ static void test_invalid_operations(TestState* state) {
     K22Serial serial = create_serial(state, K22_PROFILE_MK22FN51212);
     uint32_t value;
     uint16_t output;
-    expect(state, !k22_serial_init(NULL, serial.profile),
-           "!k22_serial_init(NULL, serial.profile)");
+    expect(state, !k22_serial_init(NULL, serial.profile), "!k22_serial_init(NULL, serial.profile)");
     expect(state, !k22_serial_init(&serial, NULL), "!k22_serial_init(&serial, NULL)");
     expect(state, !k22_serial_copy(NULL, &serial), "!k22_serial_copy(NULL, &serial)");
     expect(state, !k22_serial_copy(&serial, NULL), "!k22_serial_copy(&serial, NULL)");
@@ -582,11 +573,9 @@ static void test_invalid_operations(TestState* state) {
            "!k22_serial_pop_spi_transfer(&serial, K22_SERIAL_SPI0, NULL)");
     expect(state, !k22_serial_pop_spi_transfer(&serial, K22_SERIAL_UART0, &transfer),
            "!k22_serial_pop_spi_transfer(&serial, K22_SERIAL_UART0, &transfer)");
-    expect(state, !k22_serial_pop_event(&serial, NULL),
-           "!k22_serial_pop_event(&serial, NULL)");
+    expect(state, !k22_serial_pop_event(&serial, NULL), "!k22_serial_pop_event(&serial, NULL)");
     K22SerialEvent event;
-    expect(state, !k22_serial_pop_event(&serial, &event),
-           "!k22_serial_pop_event(&serial, &event)");
+    expect(state, !k22_serial_pop_event(&serial, &event), "!k22_serial_pop_event(&serial, &event)");
     expect(state, !k22_serial_i2c_set_acknowledge(NULL, K22_SERIAL_I2C0, true),
            "!k22_serial_i2c_set_acknowledge(NULL, K22_SERIAL_I2C0, true)");
     expect(state, !k22_serial_i2c_lose_arbitration(NULL, K22_SERIAL_I2C0),

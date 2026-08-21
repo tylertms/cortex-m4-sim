@@ -25,8 +25,8 @@ static bool memory_region(uint32_t address, uint8_t size, uint32_t base, uint32_
     return true;
 }
 
-static bool memory_read(void* context, uint32_t address, uint8_t size,
-                        CortexM4Access access, uint32_t* value) {
+static bool memory_read(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                        uint32_t* value) {
     TestMemory* memory = context;
     uint32_t offset = 0;
     const uint8_t* source = NULL;
@@ -45,8 +45,8 @@ static bool memory_read(void* context, uint32_t address, uint8_t size,
     return true;
 }
 
-static bool memory_write(void* context, uint32_t address, uint8_t size,
-                         CortexM4Access access, uint32_t value) {
+static bool memory_write(void* context, uint32_t address, uint8_t size, CortexM4Access access,
+                         uint32_t value) {
     TestMemory* memory = context;
     uint32_t offset = 0;
     uint8_t* destination = NULL;
@@ -203,8 +203,7 @@ static void write_value(TestState* state, CortexM4* cpu, uint32_t address, uint8
            "cortex_m4_write_memory(cpu, address, size, value)");
 }
 
-static void expect_negative_literal_forms(TestState* state, CortexM4* cpu,
-                                          TestMemory* memory) {
+static void expect_negative_literal_forms(TestState* state, CortexM4* cpu, TestMemory* memory) {
     const uint32_t address = 0x20000000u;
 
     reset_cpu(state, cpu, memory);
@@ -213,8 +212,7 @@ static void expect_negative_literal_forms(TestState* state, CortexM4* cpu,
     cortex_m4_set_register(cpu, 15, address + 6u);
     expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u),
            "cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u)");
-    expect(state, cortex_m4_get_register(cpu, 0) == word,
-           "cortex_m4_get_register(cpu, 0) == word");
+    expect(state, cortex_m4_get_register(cpu, 0) == word, "cortex_m4_get_register(cpu, 0) == word");
 
     reset_cpu(state, cpu, memory);
     write_value(state, cpu, address, 1, 0x80u);
@@ -275,8 +273,7 @@ static void expect_negative_literal_forms(TestState* state, CortexM4* cpu,
     cortex_m4_set_register(cpu, 15, 0x60000006u);
     expect(state, cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u),
            "cortex_m4_execute_remaining(cpu, 0xf85fu, 0x0004u)");
-    expect(state, cortex_m4_get_fault_status(cpu) != 0,
-           "cortex_m4_get_fault_status(cpu) != 0");
+    expect(state, cortex_m4_get_fault_status(cpu) != 0, "cortex_m4_get_fault_status(cpu) != 0");
 }
 
 int main(void) {

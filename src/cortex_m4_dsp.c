@@ -104,10 +104,9 @@ static bool execute_extend(CortexM4* cpu, uint16_t first, uint16_t second) {
             operation == 0u ? (uint32_t)(int32_t)(int16_t)rotated : rotated & 0xffffu;
         result = base + extension;
     } else if (operation == 2u || operation == 3u) {
-        const uint32_t low =
-            operation == 2u ? (uint32_t)(int32_t)(int8_t)rotated : rotated & 0xffu;
-        const uint32_t high = operation == 2u ? (uint32_t)(int32_t)(int8_t)(rotated >> 16)
-                                              : (rotated >> 16) & 0xffu;
+        const uint32_t low = operation == 2u ? (uint32_t)(int32_t)(int8_t)rotated : rotated & 0xffu;
+        const uint32_t high =
+            operation == 2u ? (uint32_t)(int32_t)(int8_t)(rotated >> 16) : (rotated >> 16) & 0xffu;
         result = pack_lane(result, (base & 0xffffu) + low, 0, 16);
         result = pack_lane(result, (base >> 16) + high, 1, 16);
     } else {
@@ -178,8 +177,7 @@ static bool execute_parallel(CortexM4* cpu, uint16_t first, uint16_t second) {
                 lane_result = (uint32_t)(((uint64_t)arithmetic & mask) >> 1);
             } else {
                 lane_result = (uint32_t)arithmetic;
-                const bool passed =
-                    subtract ? a >= b : (uint64_t)a + b >= (UINT64_C(1) << width);
+                const bool passed = subtract ? a >= b : (uint64_t)a + b >= (UINT64_C(1) << width);
                 if (passed) {
                     ge |= width == 8 ? (uint8_t)(1u << lane) : (uint8_t)(3u << (lane * 2u));
                 }
@@ -210,8 +208,7 @@ static bool execute_parallel(CortexM4* cpu, uint16_t first, uint16_t second) {
 }
 
 static bool execute_scalar_saturation(CortexM4* cpu, uint16_t first, uint16_t second) {
-    if (((first & 0xfbd0u) != 0xf300u && (first & 0xfbd0u) != 0xf380u) ||
-        (second & 0x8000u) != 0) {
+    if (((first & 0xfbd0u) != 0xf300u && (first & 0xfbd0u) != 0xf380u) || (second & 0x8000u) != 0) {
         return false;
     }
     const bool unsigned_result = (first & 0x80u) != 0;
@@ -227,9 +224,9 @@ static bool execute_scalar_saturation(CortexM4* cpu, uint16_t first, uint16_t se
     const uint8_t width =
         unsigned_result ? (uint8_t)(second & 31u) : (uint8_t)((second & 31u) + 1u);
     bool saturated = false;
-    cpu->registers[destination] =
-        unsigned_result ? unsigned_saturate((int32_t)shifted, width, &saturated)
-                        : signed_saturate((int32_t)shifted, width, &saturated);
+    cpu->registers[destination] = unsigned_result
+                                      ? unsigned_saturate((int32_t)shifted, width, &saturated)
+                                      : signed_saturate((int32_t)shifted, width, &saturated);
     if (saturated) {
         cpu->xpsr |= CORTEX_M4_XPSR_Q;
     }
@@ -253,9 +250,8 @@ static bool execute_lane_saturation(CortexM4* cpu, uint16_t first, uint16_t seco
     uint32_t result = 0;
     for (uint8_t lane = 0; lane < 2; lane++) {
         const int32_t value = signed_lane(cpu->registers[source], lane, 16);
-        const uint32_t lane_result = unsigned_result
-                                         ? unsigned_saturate(value, width, &saturated)
-                                         : signed_saturate(value, width, &saturated);
+        const uint32_t lane_result = unsigned_result ? unsigned_saturate(value, width, &saturated)
+                                                     : signed_saturate(value, width, &saturated);
         result = pack_lane(result, lane_result, lane, 16);
     }
     cpu->registers[destination] = result;
@@ -283,8 +279,7 @@ static bool execute_scalar_q(CortexM4* cpu, uint16_t first, uint16_t second) {
     if (operation == 1u || operation == 3u) {
         right = (int32_t)signed_saturate(right * 2, 32, &saturated);
     }
-    const int64_t arithmetic =
-        operation == 2u || operation == 3u ? left - right : left + right;
+    const int64_t arithmetic = operation == 2u || operation == 3u ? left - right : left + right;
     cpu->registers[destination] = signed_saturate(arithmetic, 32, &saturated);
     if (saturated) {
         cpu->xpsr |= CORTEX_M4_XPSR_Q;
@@ -322,8 +317,7 @@ static bool execute_absolute_difference(CortexM4* cpu, uint16_t first, uint16_t 
     const uint8_t accumulator = (uint8_t)(second >> 12);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t right_register = (uint8_t)(second & 15u);
-    if (!valid_register(left_register) ||
-        (!valid_register(accumulator) && accumulator != 15u) ||
+    if (!valid_register(left_register) || (!valid_register(accumulator) && accumulator != 15u) ||
         !valid_register(destination) || !valid_register(right_register)) {
         return false;
     }
@@ -357,16 +351,14 @@ static bool execute_half_multiply(CortexM4* cpu, uint16_t first, uint16_t second
     const uint8_t accumulator = (uint8_t)(second >> 12);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t right_register = (uint8_t)(second & 15u);
-    if (!valid_register(left_register) ||
-        (!valid_register(accumulator) && accumulator != 15u) ||
+    if (!valid_register(left_register) || (!valid_register(accumulator) && accumulator != 15u) ||
         !valid_register(destination) || !valid_register(right_register)) {
         return false;
     }
     int64_t product = 0;
     if (operation == 0xfb10u) {
-        product =
-            (int64_t)selected_half(cpu->registers[left_register], (second & 0x20u) != 0) *
-            selected_half(cpu->registers[right_register], (second & 0x10u) != 0);
+        product = (int64_t)selected_half(cpu->registers[left_register], (second & 0x20u) != 0) *
+                  selected_half(cpu->registers[right_register], (second & 0x10u) != 0);
     } else {
         const int64_t wide_product =
             (int64_t)(int32_t)cpu->registers[left_register] *
@@ -391,8 +383,7 @@ static bool execute_dual_multiply(CortexM4* cpu, uint16_t first, uint16_t second
     const uint8_t accumulator = (uint8_t)(second >> 12);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t right_register = (uint8_t)(second & 15u);
-    if (!valid_register(left_register) ||
-        (!valid_register(accumulator) && accumulator != 15u) ||
+    if (!valid_register(left_register) || (!valid_register(accumulator) && accumulator != 15u) ||
         !valid_register(destination) || !valid_register(right_register)) {
         return false;
     }
@@ -415,12 +406,9 @@ static bool execute_dual_multiply(CortexM4* cpu, uint16_t first, uint16_t second
 static bool execute_long_dsp_multiply(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     const uint8_t suboperation = (uint8_t)((second >> 4) & 15u);
-    const bool half_product =
-        operation == 0xfbc0u && suboperation >= 8u && suboperation <= 11u;
-    const bool dual_add =
-        operation == 0xfbc0u && (suboperation == 12u || suboperation == 13u);
-    const bool dual_subtract =
-        operation == 0xfbd0u && (suboperation == 12u || suboperation == 13u);
+    const bool half_product = operation == 0xfbc0u && suboperation >= 8u && suboperation <= 11u;
+    const bool dual_add = operation == 0xfbc0u && (suboperation == 12u || suboperation == 13u);
+    const bool dual_subtract = operation == 0xfbd0u && (suboperation == 12u || suboperation == 13u);
     const bool umaal = operation == 0xfbe0u && suboperation == 6u;
     if (!half_product && !dual_add && !dual_subtract && !umaal) {
         return false;
@@ -442,8 +430,7 @@ static bool execute_long_dsp_multiply(CortexM4* cpu, uint16_t first, uint16_t se
         int64_t product = 0;
         if (half_product) {
             product =
-                (int64_t)selected_half(cpu->registers[left_register],
-                                       (suboperation & 2u) != 0) *
+                (int64_t)selected_half(cpu->registers[left_register], (suboperation & 2u) != 0) *
                 selected_half(cpu->registers[right_register], (suboperation & 1u) != 0);
         } else {
             uint32_t right = cpu->registers[right_register];
@@ -453,13 +440,11 @@ static bool execute_long_dsp_multiply(CortexM4* cpu, uint16_t first, uint16_t se
             const int64_t low_product =
                 (int64_t)(int16_t)cpu->registers[left_register] * (int16_t)right;
             const int64_t high_product =
-                (int64_t)(int16_t)(cpu->registers[left_register] >> 16) *
-                (int16_t)(right >> 16);
-            product =
-                dual_subtract ? low_product - high_product : low_product + high_product;
+                (int64_t)(int16_t)(cpu->registers[left_register] >> 16) * (int16_t)(right >> 16);
+            product = dual_subtract ? low_product - high_product : low_product + high_product;
         }
-        const uint64_t accumulator = ((uint64_t)cpu->registers[high_destination] << 32) |
-                                     cpu->registers[low_destination];
+        const uint64_t accumulator =
+            ((uint64_t)cpu->registers[high_destination] << 32) | cpu->registers[low_destination];
         result = accumulator + (uint64_t)product;
     }
     cpu->registers[low_destination] = (uint32_t)result;
@@ -467,8 +452,7 @@ static bool execute_long_dsp_multiply(CortexM4* cpu, uint16_t first, uint16_t se
     return true;
 }
 
-static bool execute_most_significant_multiply(CortexM4* cpu, uint16_t first,
-                                              uint16_t second) {
+static bool execute_most_significant_multiply(CortexM4* cpu, uint16_t first, uint16_t second) {
     const uint16_t operation = first & 0xfff0u;
     if ((operation != 0xfb50u && operation != 0xfb60u) || (second & 0x00e0u) != 0) {
         return false;
@@ -477,8 +461,7 @@ static bool execute_most_significant_multiply(CortexM4* cpu, uint16_t first,
     const uint8_t accumulator = (uint8_t)(second >> 12);
     const uint8_t destination = (uint8_t)((second >> 8) & 15u);
     const uint8_t right_register = (uint8_t)(second & 15u);
-    if (!valid_register(left_register) ||
-        (!valid_register(accumulator) && accumulator != 15u) ||
+    if (!valid_register(left_register) || (!valid_register(accumulator) && accumulator != 15u) ||
         !valid_register(destination) || !valid_register(right_register) ||
         (operation == 0xfb60u && accumulator == 15u)) {
         return false;
@@ -508,21 +491,17 @@ static bool execute_multiply_subtract(CortexM4* cpu, uint16_t first, uint16_t se
         !valid_register(destination) || !valid_register(right_register)) {
         return false;
     }
-    cpu->registers[destination] =
-        cpu->registers[accumulator] -
-        cpu->registers[left_register] * cpu->registers[right_register];
+    cpu->registers[destination] = cpu->registers[accumulator] -
+                                  cpu->registers[left_register] * cpu->registers[right_register];
     return true;
 }
 
 bool cortex_m4_execute_dsp(CortexM4* cpu, uint16_t first, uint16_t second) {
     return execute_pack(cpu, first, second) || execute_extend(cpu, first, second) ||
-           execute_parallel(cpu, first, second) ||
-           execute_lane_saturation(cpu, first, second) ||
-           execute_scalar_saturation(cpu, first, second) ||
-           execute_scalar_q(cpu, first, second) || execute_select(cpu, first, second) ||
-           execute_absolute_difference(cpu, first, second) ||
-           execute_half_multiply(cpu, first, second) ||
-           execute_dual_multiply(cpu, first, second) ||
+           execute_parallel(cpu, first, second) || execute_lane_saturation(cpu, first, second) ||
+           execute_scalar_saturation(cpu, first, second) || execute_scalar_q(cpu, first, second) ||
+           execute_select(cpu, first, second) || execute_absolute_difference(cpu, first, second) ||
+           execute_half_multiply(cpu, first, second) || execute_dual_multiply(cpu, first, second) ||
            execute_long_dsp_multiply(cpu, first, second) ||
            execute_most_significant_multiply(cpu, first, second) ||
            execute_multiply_subtract(cpu, first, second);

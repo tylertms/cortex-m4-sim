@@ -21,8 +21,7 @@ static void execute(TestState* state, KinetisK22* device, uint16_t opcode) {
            "kinetis_k22_load(device, 0x100, &opcode, sizeof(opcode))");
     cortex_m4_set_register(kinetis_k22_cpu(device), 15, 0x100);
     const CortexM4Result result = cortex_m4_step(kinetis_k22_cpu(device));
-    expect(state, result.stop == CORTEX_M4_STOP_RUNNING,
-           "result.stop == CORTEX_M4_STOP_RUNNING");
+    expect(state, result.stop == CORTEX_M4_STOP_RUNNING, "result.stop == CORTEX_M4_STOP_RUNNING");
 }
 
 int main(void) {
@@ -45,16 +44,14 @@ int main(void) {
     expect(&state, cortex_m4_get_register(cpu, 0) == 0x7f01u,
            "cortex_m4_get_register(cpu, 0) == 0x7f01u");
     execute(&state, device, 0x5c88u);
-    expect(&state, cortex_m4_get_register(cpu, 0) == 1,
-           "cortex_m4_get_register(cpu, 0) == 1");
+    expect(&state, cortex_m4_get_register(cpu, 0) == 1, "cortex_m4_get_register(cpu, 0) == 1");
     cortex_m4_set_register(cpu, 2, 2);
     execute(&state, device, 0x5688u);
     expect(&state, cortex_m4_get_register(cpu, 0) == 0xffffffffu,
            "cortex_m4_get_register(cpu, 0) == 0xffffffffu");
     const int16_t negative_halfword = -128;
     expect(&state,
-           kinetis_k22_write(device, address + 4, &negative_halfword,
-                             sizeof(negative_halfword)),
+           kinetis_k22_write(device, address + 4, &negative_halfword, sizeof(negative_halfword)),
            "kinetis_k22_write(device, address + 4, &negative_halfword, "
            "sizeof(negative_halfword))");
     cortex_m4_set_register(cpu, 2, 4);

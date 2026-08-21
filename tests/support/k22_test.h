@@ -20,8 +20,7 @@ static inline bool k22_test_write16(KinetisK22* device, uint32_t address, uint16
 static inline bool k22_test_disable_watchdog(KinetisK22* device) {
     const uint32_t control = 0x40052000u;
     const uint32_t unlock = 0x4005200eu;
-    if (!k22_test_write16(device, unlock, 0xc520u) ||
-        !k22_test_write16(device, unlock, 0xd928u) ||
+    if (!k22_test_write16(device, unlock, 0xc520u) || !k22_test_write16(device, unlock, 0xd928u) ||
         !k22_test_write16(device, control, 0u))
         return false;
     kinetis_k22_advance(device, k22_test_core_cycles_for_bus_cycles(device, 260u));

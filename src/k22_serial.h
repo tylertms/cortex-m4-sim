@@ -177,8 +177,7 @@ typedef struct {
 bool k22_serial_init(K22Serial* serial, const K22Profile* profile);
 void k22_serial_reset(K22Serial* serial);
 bool k22_serial_copy(K22Serial* destination, const K22Serial* source);
-void k22_serial_set_clocks(K22Serial* serial, uint32_t core_clock_hz,
-                           uint32_t bus_clock_hz);
+void k22_serial_set_clocks(K22Serial* serial, uint32_t core_clock_hz, uint32_t bus_clock_hz);
 bool k22_serial_set_clock_gate(K22Serial* serial, K22PeripheralId peripheral, bool enabled);
 bool k22_serial_read(K22Serial* serial, uint32_t address, uint8_t size, uint32_t* value);
 bool k22_serial_write(K22Serial* serial, uint32_t address, uint8_t size, uint32_t value);
@@ -186,15 +185,14 @@ void k22_serial_advance(K22Serial* serial, uint32_t bus_cycles);
 void k22_serial_advance_endpoint(K22Serial* serial, K22SerialEndpoint endpoint);
 bool k22_serial_push_receive(K22Serial* serial, K22SerialEndpoint endpoint, uint16_t value,
                              uint8_t errors);
-bool k22_serial_pop_transmit(K22Serial* serial, K22SerialEndpoint endpoint,
-                             uint16_t* value);
+bool k22_serial_pop_transmit(K22Serial* serial, K22SerialEndpoint endpoint, uint16_t* value);
 bool k22_serial_pop_spi_transfer(K22Serial* serial, K22SerialEndpoint endpoint,
                                  K22SerialSpiTransfer* transfer);
 bool k22_serial_i2c_set_acknowledge(K22Serial* serial, K22SerialEndpoint endpoint,
                                     bool acknowledge);
 bool k22_serial_i2c_lose_arbitration(K22Serial* serial, K22SerialEndpoint endpoint);
-bool k22_serial_i2c_slave_address(K22Serial* serial, K22SerialEndpoint endpoint,
-                                  uint16_t address, bool read);
+bool k22_serial_i2c_slave_address(K22Serial* serial, K22SerialEndpoint endpoint, uint16_t address,
+                                  bool read);
 bool k22_serial_pop_event(K22Serial* serial, K22SerialEvent* event);
 bool k22_serial_irq(const K22Serial* serial, K22SerialIrq irq);
 bool k22_serial_dma_request(const K22Serial* serial, K22SerialDmaRequest request);

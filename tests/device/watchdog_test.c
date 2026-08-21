@@ -26,8 +26,7 @@ enum {
     SCB_AIRCR = 0xe000ed0cu,
 };
 
-static void write16(TestState* state, KinetisK22* device, uint32_t address,
-                    uint16_t value) {
+static void write16(TestState* state, KinetisK22* device, uint32_t address, uint16_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -53,8 +52,7 @@ static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -78,14 +76,11 @@ static void expect_reset_peripherals(TestState* state, KinetisK22* device) {
            "read32(state, device, SIM_REGISTER) == 0x80000000u");
     expect(state, read32(state, device, PORTA_PCR0) == 0x702u,
            "read32(state, device, PORTA_PCR0) == 0x702u");
-    expect(state, read32(state, device, PIT0_LDVAL) == 0,
-           "read32(state, device, PIT0_LDVAL) == 0");
-    expect(state, read32(state, device, ADC0_CFG1) == 0,
-           "read32(state, device, ADC0_CFG1) == 0");
+    expect(state, read32(state, device, PIT0_LDVAL) == 0, "read32(state, device, PIT0_LDVAL) == 0");
+    expect(state, read32(state, device, ADC0_CFG1) == 0, "read32(state, device, ADC0_CFG1) == 0");
     expect(state, read32(state, device, DMA_TCD0_SADDR) == 0,
            "read32(state, device, DMA_TCD0_SADDR) == 0");
-    expect(state, read8(state, device, UART1_C2) == 0,
-           "read8(state, device, UART1_C2) == 0");
+    expect(state, read8(state, device, UART1_C2) == 0, "read8(state, device, UART1_C2) == 0");
     expect(state, read8(state, device, I2C0_C1) == 0, "read8(state, device, I2C0_C1) == 0");
     expect(state, read32(state, device, SPI0_MCR) == 0x00004001u,
            "read32(state, device, SPI0_MCR) == 0x00004001u");
@@ -93,8 +88,7 @@ static void expect_reset_peripherals(TestState* state, KinetisK22* device) {
            "(read32(state, device, GPIOA_PDIR) & 1u) != 0");
 }
 
-static void configure(TestState* state, KinetisK22* device, uint16_t timeout,
-                      bool enabled) {
+static void configure(TestState* state, KinetisK22* device, uint16_t timeout, bool enabled) {
     write16(state, device, WDOG_UNLOCK, 0xc520u);
     write16(state, device, WDOG_UNLOCK, 0xd928u);
     write16(state, device, WDOG_TOVALH, 0);
@@ -116,8 +110,7 @@ int main(void) {
     expect(&state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     expect(&state, read8(&state, device, RCM_SRS0) == 0x82u,
            "read8(&state, device, RCM_SRS0) == 0x82u");
-    expect(&state, read8(&state, device, RCM_SRS1) == 0,
-           "read8(&state, device, RCM_SRS1) == 0");
+    expect(&state, read8(&state, device, RCM_SRS1) == 0, "read8(&state, device, RCM_SRS1) == 0");
     expect(&state, read16(&state, device, WDOG_STCTRLH) == 0x01d3u,
            "read16(&state, device, WDOG_STCTRLH) == 0x01d3u");
     expect(&state, read16(&state, device, WDOG_TOVALH) == 0x004cu,
@@ -144,8 +137,7 @@ int main(void) {
     kinetis_k22_watchdog_advance(device, 1);
     expect(&state, read8(&state, device, RCM_SRS0) == 0x20u,
            "read8(&state, device, RCM_SRS0) == 0x20u");
-    expect(&state, read8(&state, device, RCM_SRS1) == 0,
-           "read8(&state, device, RCM_SRS1) == 0");
+    expect(&state, read8(&state, device, RCM_SRS1) == 0, "read8(&state, device, RCM_SRS1) == 0");
     uint32_t retained = 0;
     expect(&state, kinetis_k22_read(device, address, &retained, sizeof(retained)),
            "kinetis_k22_read(device, address, &retained, sizeof(retained))");
@@ -157,12 +149,10 @@ int main(void) {
            "read32(&state, device, RTC_TSR) == 0x12345678u");
 
     dirty_peripherals(&state, device);
-    expect(&state,
-           cortex_m4_write_memory(kinetis_k22_cpu(device), SCB_AIRCR, 4, 0x05fa0004u),
+    expect(&state, cortex_m4_write_memory(kinetis_k22_cpu(device), SCB_AIRCR, 4, 0x05fa0004u),
            "cortex_m4_write_memory(kinetis_k22_cpu(device), SCB_AIRCR, 4, 0x05fa0004u)");
     cortex_m4_step(kinetis_k22_cpu(device));
-    expect(&state, read8(&state, device, RCM_SRS0) == 0,
-           "read8(&state, device, RCM_SRS0) == 0");
+    expect(&state, read8(&state, device, RCM_SRS0) == 0, "read8(&state, device, RCM_SRS0) == 0");
     expect(&state, read8(&state, device, RCM_SRS1) == 0x04u,
            "read8(&state, device, RCM_SRS1) == 0x04u");
     expect_reset_peripherals(&state, device);
@@ -174,8 +164,7 @@ int main(void) {
 
     configure(&state, device, 1, false);
     kinetis_k22_watchdog_advance(device, UINT32_MAX);
-    expect(&state, read8(&state, device, RCM_SRS0) == 0,
-           "read8(&state, device, RCM_SRS0) == 0");
+    expect(&state, read8(&state, device, RCM_SRS0) == 0, "read8(&state, device, RCM_SRS0) == 0");
     expect(&state, read8(&state, device, RCM_SRS1) == 0x04u,
            "read8(&state, device, RCM_SRS1) == 0x04u");
     kinetis_k22_destroy(device);

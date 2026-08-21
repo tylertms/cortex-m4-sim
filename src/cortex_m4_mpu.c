@@ -121,8 +121,7 @@ CortexM4SystemAccess cortex_m4_mpu_write(CortexM4* cpu, uint32_t address, uint8_
     if (address < MPU_TYPE || address > MPU_RASR_A3) {
         return CORTEX_M4_SYSTEM_ACCESS_OUTSIDE;
     }
-    if (cpu == NULL || !valid_register_access(address, size) ||
-        !privileged_access(cpu, access)) {
+    if (cpu == NULL || !valid_register_access(address, size) || !privileged_access(cpu, access)) {
         return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
     }
     if (address == MPU_TYPE) {
@@ -157,8 +156,7 @@ static bool mpu_active(const CortexM4* cpu) {
         return false;
     }
     const uint16_t exception = (uint16_t)(cpu->xpsr & 0x1ffu);
-    return (exception != 2u && exception != 3u) ||
-           (cpu->mpu_control & MPU_CTRL_HFNMIENA) != 0u;
+    return (exception != 2u && exception != 3u) || (cpu->mpu_control & MPU_CTRL_HFNMIENA) != 0u;
 }
 
 static bool region_contains(const CortexM4* cpu, uint8_t region, uint32_t address) {
@@ -192,8 +190,7 @@ static int8_t matching_region(const CortexM4* cpu, uint32_t address) {
     return -1;
 }
 
-static bool region_permission(uint32_t attributes, bool privileged, bool write,
-                              bool instruction) {
+static bool region_permission(uint32_t attributes, bool privileged, bool write, bool instruction) {
     if (instruction && (attributes & MPU_RASR_XN) != 0u) {
         return false;
     }
@@ -222,14 +219,14 @@ static bool background_permission(uint32_t address, bool instruction) {
     return address < 0x40000000u || (address >= 0x60000000u && address < 0xa0000000u);
 }
 
-static bool byte_access_permitted(const CortexM4* cpu, uint32_t address,
-                                  CortexM4Access access, bool write) {
+static bool byte_access_permitted(const CortexM4* cpu, uint32_t address, CortexM4Access access,
+                                  bool write) {
     const bool instruction = access == CORTEX_M4_ACCESS_INSTRUCTION;
     const bool privileged = privileged_access(cpu, access);
     const int8_t region = matching_region(cpu, address);
     if (region >= 0) {
-        return region_permission(cpu->mpu_region_attributes[(uint8_t)region], privileged,
-                                 write, instruction);
+        return region_permission(cpu->mpu_region_attributes[(uint8_t)region], privileged, write,
+                                 instruction);
     }
     return privileged && (cpu->mpu_control & MPU_CTRL_PRIVDEFENA) != 0u &&
            background_permission(address, instruction);
@@ -252,8 +249,8 @@ bool cortex_m4_mpu_access_permitted(const CortexM4* cpu, uint32_t address, uint8
     return true;
 }
 
-bool cortex_m4_mpu_check(CortexM4* cpu, uint32_t address, uint8_t size,
-                         CortexM4Access access, bool write) {
+bool cortex_m4_mpu_check(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                         bool write) {
     if (cortex_m4_mpu_access_permitted(cpu, address, size, access, write)) {
         return true;
     }

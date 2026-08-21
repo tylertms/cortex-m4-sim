@@ -21,14 +21,10 @@ static const char* const mk22f12_peripherals[] = {
 };
 #undef K22_EXPECTED_PERIPHERAL
 
-#define K22_EXPECTED_REGISTER(address, reset_value, reset_mask, implemented_mask,          \
-                              read_mask, write_mask, w1c_mask, peripheral_index, width,    \
-                              access)                                                      \
-    {address,    reset_value,                                                              \
-     reset_mask, implemented_mask,                                                         \
-     read_mask,  write_mask,                                                               \
-     w1c_mask,   peripheral_index,                                                         \
-     width,      (K22RegisterAccess)access},
+#define K22_EXPECTED_REGISTER(address, reset_value, reset_mask, implemented_mask, read_mask,       \
+                              write_mask, w1c_mask, peripheral_index, width, access)               \
+    {address,  reset_value,      reset_mask, implemented_mask,         read_mask, write_mask,      \
+     w1c_mask, peripheral_index, width,      (K22RegisterAccess)access},
 static const K22RegisterDescriptor mk22f12810_registers[] = {
 #include "expected/mk22f12810_registers.inc"
 };
@@ -52,9 +48,9 @@ typedef struct {
     uint64_t peripheral_digest;
 } ExpectedManifest;
 
-#define K22_EXPECTED_MANIFEST(family, register_count, peripheral_count, register_digest,   \
-                              peripheral_digest)                                           \
-    {family##_registers, register_count,  family##_peripherals,                            \
+#define K22_EXPECTED_MANIFEST(family, register_count, peripheral_count, register_digest,           \
+                              peripheral_digest)                                                   \
+    {family##_registers, register_count,  family##_peripherals,                                    \
      peripheral_count,   register_digest, peripheral_digest},
 static const ExpectedManifest expected_manifests[] = {
 #include "expected/k22_register_manifest_constants.inc"
@@ -109,8 +105,7 @@ static void expect_descriptor(TestState* state, const K22RegisterManifest* manif
     const K22RegisterDescriptor* actual =
         k22_register_manifest_lookup(manifest->profile, expected->address, expected->width);
     expect(state, actual != NULL, "actual != NULL");
-    expect(state, actual->address == expected->address,
-           "actual->address == expected->address");
+    expect(state, actual->address == expected->address, "actual->address == expected->address");
     expect(state, actual->reset_value == expected->reset_value,
            "actual->reset_value == expected->reset_value");
     expect(state, actual->reset_mask == expected->reset_mask,
@@ -121,8 +116,7 @@ static void expect_descriptor(TestState* state, const K22RegisterManifest* manif
            "actual->read_mask == expected->read_mask");
     expect(state, actual->write_mask == expected->write_mask,
            "actual->write_mask == expected->write_mask");
-    expect(state, actual->w1c_mask == expected->w1c_mask,
-           "actual->w1c_mask == expected->w1c_mask");
+    expect(state, actual->w1c_mask == expected->w1c_mask, "actual->w1c_mask == expected->w1c_mask");
     expect(state, actual->peripheral_index == expected->peripheral_index,
            "actual->peripheral_index == expected->peripheral_index");
     expect(state, actual->width == expected->width, "actual->width == expected->width");
@@ -154,14 +148,10 @@ static void expect_manifest(TestState* state, K22ProfileId profile,
            "calculate_peripheral_digest(manifest) == expected->peripheral_digest");
 
     for (size_t index = 0; index < expected->peripheral_count; index++) {
-        expect(
-            state,
-            strcmp(manifest->peripheral_names[index], expected->peripherals[index]) == 0,
-            "strcmp(manifest->peripheral_names[index], expected->peripherals[index]) == 0");
-        expect(
-            state,
-            k22_register_manifest_has_peripheral(profile, expected->peripherals[index]),
-            "k22_register_manifest_has_peripheral( profile, expected->peripherals[index])");
+        expect(state, strcmp(manifest->peripheral_names[index], expected->peripherals[index]) == 0,
+               "strcmp(manifest->peripheral_names[index], expected->peripherals[index]) == 0");
+        expect(state, k22_register_manifest_has_peripheral(profile, expected->peripherals[index]),
+               "k22_register_manifest_has_peripheral( profile, expected->peripherals[index])");
         expect(state,
                strcmp(k22_register_manifest_peripheral_name(manifest, index),
                       expected->peripherals[index]) == 0,
@@ -185,9 +175,8 @@ static void expect_manifest(TestState* state, K22ProfileId profile,
                "(descriptor->write_mask & ~descriptor->implemented_mask) == 0u");
         expect(state, (descriptor->w1c_mask & ~descriptor->write_mask) == 0u,
                "(descriptor->w1c_mask & ~descriptor->write_mask) == 0u");
-        K22RegisterAccess access =
-            (descriptor->read_mask != 0u ? K22_REGISTER_ACCESS_READ : 0) |
-            (descriptor->write_mask != 0u ? K22_REGISTER_ACCESS_WRITE : 0);
+        K22RegisterAccess access = (descriptor->read_mask != 0u ? K22_REGISTER_ACCESS_READ : 0) |
+                                   (descriptor->write_mask != 0u ? K22_REGISTER_ACCESS_WRITE : 0);
         expect(state, descriptor->access == access, "descriptor->access == access");
         expect(state, descriptor->peripheral_index < expected->peripheral_count,
                "descriptor->peripheral_index < expected->peripheral_count");
@@ -205,29 +194,22 @@ static void expect_manifest(TestState* state, K22ProfileId profile,
     uint32_t value = UINT32_C(0x55555555);
     uint32_t mask = UINT32_C(0xaaaaaaaa);
     const K22RegisterDescriptor* first = &expected->registers[0];
-    expect(
-        state,
-        k22_register_manifest_reset(profile, first->address, first->width, &value, &mask),
-        "k22_register_manifest_reset(profile, first->address, first->width, &value, "
-        "&mask)");
+    expect(state, k22_register_manifest_reset(profile, first->address, first->width, &value, &mask),
+           "k22_register_manifest_reset(profile, first->address, first->width, &value, "
+           "&mask)");
     expect(state, value == first->reset_value, "value == first->reset_value");
     expect(state, mask == first->reset_mask, "mask == first->reset_mask");
     expect(state, k22_register_manifest_lookup(profile, first->address, 0u) == NULL,
            "k22_register_manifest_lookup(profile, first->address, 0u) == NULL");
     expect(state, k22_register_manifest_lookup(profile, first->address, 64u) == NULL,
            "k22_register_manifest_lookup(profile, first->address, 64u) == NULL");
-    expect(
-        state,
-        !k22_register_manifest_reset(profile, first->address, first->width, NULL, &mask),
-        "!k22_register_manifest_reset(profile, first->address, first->width, NULL, &mask)");
-    expect(
-        state,
-        !k22_register_manifest_reset(profile, first->address, first->width, &value, NULL),
-        "!k22_register_manifest_reset(profile, first->address, first->width, &value, "
-        "NULL)");
+    expect(state, !k22_register_manifest_reset(profile, first->address, first->width, NULL, &mask),
+           "!k22_register_manifest_reset(profile, first->address, first->width, NULL, &mask)");
+    expect(state, !k22_register_manifest_reset(profile, first->address, first->width, &value, NULL),
+           "!k22_register_manifest_reset(profile, first->address, first->width, &value, "
+           "NULL)");
     expect(state,
-           k22_register_manifest_peripheral_name(manifest, manifest->peripheral_count) ==
-               NULL,
+           k22_register_manifest_peripheral_name(manifest, manifest->peripheral_count) == NULL,
            "k22_register_manifest_peripheral_name( manifest, manifest->peripheral_count) "
            "== NULL");
     expect(state, !k22_register_manifest_has_peripheral(profile, "UNKNOWN"),
@@ -246,8 +228,7 @@ int main(void) {
            "k22_register_manifest_get((K22ProfileId)-1) == NULL");
     expect(&state, k22_register_manifest_get(K22_PROFILE_COUNT) == NULL,
            "k22_register_manifest_get(K22_PROFILE_COUNT) == NULL");
-    expect(&state,
-           k22_register_manifest_lookup(K22_PROFILE_COUNT, 0x40000000u, 32u) == NULL,
+    expect(&state, k22_register_manifest_lookup(K22_PROFILE_COUNT, 0x40000000u, 32u) == NULL,
            "k22_register_manifest_lookup(K22_PROFILE_COUNT, 0x40000000u, 32u) == NULL");
     expect(&state, !k22_register_manifest_has_peripheral(K22_PROFILE_COUNT, "SIM"),
            "!k22_register_manifest_has_peripheral(K22_PROFILE_COUNT, \"SIM\")");

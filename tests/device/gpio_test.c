@@ -22,8 +22,7 @@ static uint32_t read32(TestState* state, KinetisK22* device, uint32_t address) {
     return value;
 }
 
-static void write32(TestState* state, KinetisK22* device, uint32_t address,
-                    uint32_t value) {
+static void write32(TestState* state, KinetisK22* device, uint32_t address, uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, sizeof(value)),
            "kinetis_k22_write(device, address, &value, sizeof(value))");
 }
@@ -83,8 +82,7 @@ int main(void) {
     expect(&state, read32(&state, copy, GPIOA_PDIR) == (1u << 3),
            "read32(&state, copy, GPIOA_PDIR) == (1u << 3)");
     kinetis_k22_gpio_release(copy, 0, 3);
-    expect(&state, read32(&state, copy, GPIOA_PDIR) == 0,
-           "read32(&state, copy, GPIOA_PDIR) == 0");
+    expect(&state, read32(&state, copy, GPIOA_PDIR) == 0, "read32(&state, copy, GPIOA_PDIR) == 0");
     expect(&state, read32(&state, device, GPIOA_PDIR) == (1u << 3),
            "read32(&state, device, GPIOA_PDIR) == (1u << 3)");
     kinetis_k22_destroy(copy);

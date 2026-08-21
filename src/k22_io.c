@@ -49,8 +49,7 @@ static uint32_t width_mask(uint8_t size) {
     return size == 4 ? UINT32_MAX : (1u << (size * 8u)) - 1u;
 }
 
-static uint32_t merge_value(uint32_t previous, uint32_t offset, uint8_t size,
-                            uint32_t value) {
+static uint32_t merge_value(uint32_t previous, uint32_t offset, uint8_t size, uint32_t value) {
     const uint32_t shift = (offset & 3u) * 8u;
     const uint32_t mask = width_mask(size) << shift;
     return (previous & ~mask) | ((value << shift) & mask);
@@ -144,14 +143,12 @@ static uint32_t pin_level_unfiltered(const K22Io* io, uint8_t port) {
 
 static uint32_t pin_level(const K22Io* io, uint8_t port) {
     uint32_t value = pin_level_unfiltered(io, port);
-    const uint32_t filtered =
-        io->port_dfer[port] & io->configuration.package_pin_mask[port];
+    const uint32_t filtered = io->port_dfer[port] & io->configuration.package_pin_mask[port];
     value = (value & ~filtered) | (io->gpio_filtered[port] & filtered);
     return value;
 }
 
-static void update_pin_event(K22Io* io, uint8_t port, uint8_t pin, bool previous,
-                             bool current) {
+static void update_pin_event(K22Io* io, uint8_t port, uint8_t pin, bool previous, bool current) {
     if (previous == current)
         return;
     const uint32_t irqc = (io->port_pcr[port][pin] >> 16) & 15u;
@@ -179,8 +176,8 @@ static void update_pin_event(K22Io* io, uint8_t port, uint8_t pin, bool previous
 
 static void update_output_events(K22Io* io, uint8_t port, uint32_t previous) {
     const uint32_t current = pin_level(io, port);
-    uint32_t changed = (previous ^ current) & io->gpio_pddr[port] &
-                       io->configuration.package_pin_mask[port];
+    uint32_t changed =
+        (previous ^ current) & io->gpio_pddr[port] & io->configuration.package_pin_mask[port];
     while (changed != 0) {
         const uint8_t pin = first_set_bit(changed);
         const uint32_t bit = 1u << pin;
@@ -190,8 +187,7 @@ static void update_output_events(K22Io* io, uint8_t port, uint32_t previous) {
     }
 }
 
-static void commit_pin_level(K22Io* io, uint8_t port, uint8_t pin, bool previous,
-                             bool high) {
+static void commit_pin_level(K22Io* io, uint8_t port, uint8_t pin, bool previous, bool high) {
     const uint32_t bit = 1u << pin;
     if (high)
         io->gpio_filtered[port] |= bit;
@@ -212,8 +208,7 @@ K22IoConfiguration k22_io_default_configuration(const K22Profile* profile) {
     configuration.profile = profile;
     for (uint8_t port = 0; port < K22_IO_PORT_COUNT; port++)
         configuration.package_pin_mask[port] = UINT32_MAX;
-    memset(configuration.flash_configuration, 0xff,
-           sizeof(configuration.flash_configuration));
+    memset(configuration.flash_configuration, 0xff, sizeof(configuration.flash_configuration));
     configuration.flash_configuration[0x0c] = 0xfeu;
     return configuration;
 }
@@ -231,8 +226,7 @@ static void reset_peripheral_registers(const K22IoConfiguration* configuration,
                                        K22PeripheralId peripheral, uint8_t* registers,
                                        size_t capacity) {
     K22PeripheralBlock block;
-    const K22RegisterManifest* manifest =
-        k22_register_manifest_get(configuration->profile->id);
+    const K22RegisterManifest* manifest = k22_register_manifest_get(configuration->profile->id);
     if (manifest == NULL ||
         !k22_profile_peripheral_block(configuration->profile, peripheral, &block)) {
         return;
@@ -260,8 +254,7 @@ void k22_io_reset(K22Io* io) {
     io->configuration = configuration;
     for (uint8_t port = 0u; port < K22_IO_PORT_COUNT; port++) {
         for (uint8_t pin = 0u; pin < K22_IO_PIN_COUNT; pin++) {
-            const uint32_t address =
-                0x40049000u + (uint32_t)port * 0x1000u + (uint32_t)pin * 4u;
+            const uint32_t address = 0x40049000u + (uint32_t)port * 0x1000u + (uint32_t)pin * 4u;
             const K22RegisterDescriptor* descriptor =
                 k22_register_manifest_lookup(configuration.profile->id, address, 32u);
             if (descriptor != NULL) {
@@ -271,8 +264,7 @@ void k22_io_reset(K22Io* io) {
     }
     io->clock_enabled[K22_PERIPHERAL_FLASH_CONFIG] = true;
     io->clock_enabled[K22_PERIPHERAL_MCM] = true;
-    reset_peripheral_registers(&configuration, K22_PERIPHERAL_USB0, io->usb,
-                               sizeof(io->usb));
+    reset_peripheral_registers(&configuration, K22_PERIPHERAL_USB0, io->usb, sizeof(io->usb));
     reset_peripheral_registers(&configuration, K22_PERIPHERAL_CAN0, (uint8_t*)io->can,
                                sizeof(io->can));
     reset_peripheral_registers(&configuration, K22_PERIPHERAL_I2S0, (uint8_t*)io->i2s,
@@ -318,15 +310,13 @@ bool k22_io_clock_enabled(const K22Io* io, K22PeripheralId peripheral) {
            module_clocked(io, peripheral);
 }
 
-static bool read_port(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                      uint32_t* value) {
+static bool read_port(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t* value) {
     const uint8_t port = port_index(location.id);
     if (location.offset < 0x80u) {
         const uint8_t pin = (uint8_t)(location.offset / 4u);
         if (!pin_exists(io, port, pin) || location.offset % 4u + size > 4u)
             return false;
-        *value =
-            (io->port_pcr[port][pin] >> ((location.offset & 3u) * 8u)) & width_mask(size);
+        *value = (io->port_pcr[port][pin] >> ((location.offset & 3u) * 8u)) & width_mask(size);
         return true;
     }
     if (location.offset == 0x80u || location.offset == 0x84u) {
@@ -354,8 +344,7 @@ static bool read_port(K22Io* io, K22PeripheralLocation location, uint8_t size,
     return false;
 }
 
-static void write_pcr(K22Io* io, uint8_t port, uint8_t pin, uint32_t requested,
-                      bool clear_isf) {
+static void write_pcr(K22Io* io, uint8_t port, uint8_t pin, uint32_t requested, bool clear_isf) {
     const uint32_t previous = io->port_pcr[port][pin];
     if ((previous & K22_PORT_PCR_LK) != 0) {
         if (clear_isf) {
@@ -372,8 +361,7 @@ static void write_pcr(K22Io* io, uint8_t port, uint8_t pin, uint32_t requested,
     io->port_pcr[port][pin] = value;
 }
 
-static bool write_port(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                       uint32_t value) {
+static bool write_port(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t value) {
     const uint8_t port = port_index(location.id);
     const uint32_t before = pin_level(io, port);
     if (location.offset < 0x80u) {
@@ -383,8 +371,7 @@ static bool write_port(K22Io* io, K22PeripheralLocation location, uint8_t size,
         const uint8_t register_byte = (uint8_t)(location.offset & 3u);
         const bool clear_isf = register_byte <= 3u && register_byte + size > 3u &&
                                (value & (1u << ((3u - register_byte) * 8u))) != 0;
-        write_pcr(io, port, pin,
-                  merge_value(io->port_pcr[port][pin], location.offset, size, value),
+        write_pcr(io, port, pin, merge_value(io->port_pcr[port][pin], location.offset, size, value),
                   clear_isf);
         update_output_events(io, port, before);
         return true;
@@ -425,8 +412,7 @@ static bool write_port(K22Io* io, K22PeripheralLocation location, uint8_t size,
     return false;
 }
 
-static bool read_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                      uint32_t* value) {
+static bool read_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t* value) {
     const uint32_t register_offset = location.offset & ~3u;
     const uint32_t byte_offset = location.offset & 3u;
     if (byte_offset + size > 4u)
@@ -443,8 +429,7 @@ static bool read_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size,
     return true;
 }
 
-static bool write_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                       uint32_t value) {
+static bool write_gpio(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t value) {
     const uint32_t register_offset = location.offset & ~3u;
     const uint32_t byte_offset = location.offset & 3u;
     if (byte_offset + size > 4u)
@@ -484,22 +469,19 @@ static bool usb_offset_valid(uint32_t offset) {
            offset == 0x15cu;
 }
 
-static bool read_usb(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                     uint32_t* value) {
+static bool read_usb(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t* value) {
     if (size != 1 || !usb_offset_valid(location.offset))
         return false;
     *value = io->usb[location.offset];
     return true;
 }
 
-static bool write_usb(K22Io* io, K22PeripheralLocation location, uint8_t size,
-                      uint32_t value) {
+static bool write_usb(K22Io* io, K22PeripheralLocation location, uint8_t size, uint32_t value) {
     if (size != 1 || !usb_offset_valid(location.offset) || location.offset <= 0x0cu ||
         location.offset == K22_USB_STAT || location.offset == K22_USB_FRMNUML ||
         location.offset == K22_USB_FRMNUMH)
         return false;
-    if (location.offset == 0x10u || location.offset == K22_USB_ISTAT ||
-        location.offset == 0x88u)
+    if (location.offset == 0x10u || location.offset == K22_USB_ISTAT || location.offset == 0x88u)
         io->usb[location.offset] &= (uint8_t)~value;
     else if (location.offset == 0xd0u && (value & 0x80u) != 0) {
         const uint8_t ids[4] = {io->usb[0], io->usb[4], io->usb[8], io->usb[0x0c]};
@@ -513,8 +495,8 @@ static bool write_usb(K22Io* io, K22PeripheralLocation location, uint8_t size,
     return true;
 }
 
-static bool read_words(const uint32_t* words, uint32_t length, uint32_t offset,
-                       uint8_t size, uint32_t* value) {
+static bool read_words(const uint32_t* words, uint32_t length, uint32_t offset, uint8_t size,
+                       uint32_t* value) {
     if (size != 4 || (offset & 3u) != 0 || offset >= length)
         return false;
     *value = words[offset / 4u];
@@ -542,8 +524,7 @@ static bool can_offset_valid(uint32_t offset) {
     case 0x4c:
         return true;
     default:
-        return (offset >= 0x80u && offset < 0x180u) ||
-               (offset >= 0x880u && offset < 0x8c0u);
+        return (offset >= 0x80u && offset < 0x180u) || (offset >= 0x880u && offset < 0x8c0u);
     }
 }
 
@@ -568,8 +549,7 @@ static bool write_can(K22Io* io, uint32_t offset, uint8_t size, uint32_t value) 
         return true;
     }
     io->can[offset / 4u] = value;
-    if (offset >= K22_CAN_MB_BASE && offset < K22_CAN_MB_BASE + 16u * 16u &&
-        (offset & 15u) == 0) {
+    if (offset >= K22_CAN_MB_BASE && offset < K22_CAN_MB_BASE + 16u * 16u && (offset & 15u) == 0) {
         const uint8_t mailbox = (uint8_t)((offset - K22_CAN_MB_BASE) / 16u);
         const uint8_t code = (uint8_t)(value >> 24) & 15u;
         if (code >= 0xcu && code <= 0xfu) {
@@ -639,8 +619,7 @@ static bool read_i2s(K22Io* io, uint32_t offset, uint8_t size, uint32_t* value) 
     if (size != 4 || (offset & 3u) != 0 || !i2s_offset_valid(offset))
         return false;
     if (offset >= K22_I2S_RDR0 && offset < K22_I2S_RDR0 + 8u) {
-        if (!fifo_pop(io->i2s_receive_fifo, &io->i2s_receive_read, &io->i2s_receive_count,
-                      value)) {
+        if (!fifo_pop(io->i2s_receive_fifo, &io->i2s_receive_read, &io->i2s_receive_count, value)) {
             io->i2s[K22_I2S_RCSR / 4] |= K22_I2S_FIFO_ERROR;
             *value = 0;
         }
@@ -656,8 +635,8 @@ static bool write_i2s(K22Io* io, uint32_t offset, uint8_t size, uint32_t value) 
         offset == 0x44u || offset == 0xc0u || offset == 0xc4u)
         return false;
     if (offset >= K22_I2S_TDR0 && offset < K22_I2S_TDR0 + 8u) {
-        if (!fifo_push(io->i2s_transmit_fifo, &io->i2s_transmit_write,
-                       &io->i2s_transmit_count, value)) {
+        if (!fifo_push(io->i2s_transmit_fifo, &io->i2s_transmit_write, &io->i2s_transmit_count,
+                       value)) {
             io->i2s[K22_I2S_TCSR / 4] |= K22_I2S_FIFO_ERROR;
             return true;
         }
@@ -667,8 +646,8 @@ static bool write_i2s(K22Io* io, uint32_t offset, uint8_t size, uint32_t value) 
         return true;
     }
     if (offset == K22_I2S_TCSR || offset == K22_I2S_RCSR) {
-        const uint32_t flags = K22_I2S_REQUEST_FLAG | K22_I2S_FIFO_ERROR | (1u << 17) |
-                               (1u << 19) | (1u << 20);
+        const uint32_t flags =
+            K22_I2S_REQUEST_FLAG | K22_I2S_FIFO_ERROR | (1u << 17) | (1u << 19) | (1u << 20);
         uint32_t previous = io->i2s[offset / 4u];
         previous &= ~(value & flags);
         io->i2s[offset / 4u] = (value & ~flags) | (previous & flags);
@@ -685,8 +664,8 @@ static bool write_i2s(K22Io* io, uint32_t offset, uint8_t size, uint32_t value) 
     return true;
 }
 
-static bool read_flash_configuration(K22Io* io, K22PeripheralLocation location,
-                                     uint8_t size, uint32_t* value) {
+static bool read_flash_configuration(K22Io* io, K22PeripheralLocation location, uint8_t size,
+                                     uint32_t* value) {
     if (location.offset + size > sizeof(io->configuration.flash_configuration))
         return false;
     *value = load_bytes(io->configuration.flash_configuration + location.offset, size);
@@ -737,8 +716,7 @@ static bool sysmpu_offset_valid(uint32_t offset) {
 
 static bool read_direct(K22Io* io, uint32_t address, uint8_t size, uint32_t* value) {
     K22PeripheralLocation location;
-    if (!k22_profile_resolve_peripheral(io->configuration.profile, address, size,
-                                        &location))
+    if (!k22_profile_resolve_peripheral(io->configuration.profile, address, size, &location))
         return false;
     if (!module_clocked(io, location.id)) {
         emit(io, K22_IO_EVENT_ACCESS_ERROR, address, size, 0);
@@ -790,8 +768,7 @@ static bool read_direct(K22Io* io, uint32_t address, uint8_t size, uint32_t* val
 
 static bool write_direct(K22Io* io, uint32_t address, uint8_t size, uint32_t value) {
     K22PeripheralLocation location;
-    if (!k22_profile_resolve_peripheral(io->configuration.profile, address, size,
-                                        &location))
+    if (!k22_profile_resolve_peripheral(io->configuration.profile, address, size, &location))
         return false;
     if (!module_clocked(io, location.id)) {
         emit(io, K22_IO_EVENT_ACCESS_ERROR, address, value, size);
@@ -810,8 +787,7 @@ static bool write_direct(K22Io* io, uint32_t address, uint8_t size, uint32_t val
     if (location.id == K22_PERIPHERAL_I2S0)
         return write_i2s(io, location.offset, size, value);
     if (location.id == K22_PERIPHERAL_FB) {
-        if (size != 4 || (location.offset & 3u) != 0 ||
-            !flexbus_offset_valid(location.offset))
+        if (size != 4 || (location.offset & 3u) != 0 || !flexbus_offset_valid(location.offset))
             return false;
         io->flexbus[location.offset / 4u] = value;
         if (location.offset < 0x48u && (location.offset % 12u) == 4u && (value & 1u) != 0)
@@ -828,8 +804,7 @@ static bool write_direct(K22Io* io, uint32_t address, uint8_t size, uint32_t val
         return true;
     }
     if (location.id == K22_PERIPHERAL_SYSMPU) {
-        if (size != 4 || (location.offset & 3u) != 0 ||
-            !sysmpu_offset_valid(location.offset))
+        if (size != 4 || (location.offset & 3u) != 0 || !sysmpu_offset_valid(location.offset))
             return false;
         if (location.offset >= 0x10u && location.offset < 0x70u)
             return false;
@@ -985,8 +960,7 @@ bool k22_io_can_receive(K22Io* io, const K22CanFrame* frame) {
 bool k22_io_i2s_receive(K22Io* io, uint32_t sample) {
     if (io == NULL || !k22_io_clock_enabled(io, K22_PERIPHERAL_I2S0) ||
         (io->i2s[K22_I2S_RCSR / 4] & K22_I2S_ENABLE) == 0 ||
-        !fifo_push(io->i2s_receive_fifo, &io->i2s_receive_write, &io->i2s_receive_count,
-                   sample))
+        !fifo_push(io->i2s_receive_fifo, &io->i2s_receive_write, &io->i2s_receive_count, sample))
         return false;
     update_i2s_requests(io);
     return true;
@@ -994,8 +968,7 @@ bool k22_io_i2s_receive(K22Io* io, uint32_t sample) {
 
 bool k22_io_i2s_transmit(K22Io* io, uint32_t* sample) {
     if (io == NULL || sample == NULL ||
-        !fifo_pop(io->i2s_transmit_fifo, &io->i2s_transmit_read, &io->i2s_transmit_count,
-                  sample))
+        !fifo_pop(io->i2s_transmit_fifo, &io->i2s_transmit_read, &io->i2s_transmit_count, sample))
         return false;
     update_i2s_requests(io);
     return true;
@@ -1107,8 +1080,8 @@ void k22_io_advance(K22Io* io, uint32_t cycles) {
         const uint32_t frames = (uint32_t)(elapsed / 1000u);
         io->usb_cycle_remainder = (uint32_t)(elapsed % 1000u);
         if (frames != 0) {
-            uint16_t frame = (uint16_t)io->usb[K22_USB_FRMNUML] |
-                             ((uint16_t)io->usb[K22_USB_FRMNUMH] << 8);
+            uint16_t frame =
+                (uint16_t)io->usb[K22_USB_FRMNUML] | ((uint16_t)io->usb[K22_USB_FRMNUMH] << 8);
             frame = (uint16_t)((frame + frames) & 0x7ffu);
             io->usb[K22_USB_FRMNUML] = (uint8_t)frame;
             io->usb[K22_USB_FRMNUMH] = (uint8_t)(frame >> 8);

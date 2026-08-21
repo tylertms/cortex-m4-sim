@@ -96,16 +96,14 @@ static void initialize_symbol_image(uint8_t* image) {
 static void test_binary(TestState* state, KinetisK22* device) {
     const uint8_t image[] = {0x78, 0x56, 0x34, 0x12};
     uint32_t entry = UINT32_MAX;
-    expect(state,
-           cortex_m4_load_binary_data(device, image, sizeof(image), 0x20000010u, &entry),
+    expect(state, cortex_m4_load_binary_data(device, image, sizeof(image), 0x20000010u, &entry),
            "cortex_m4_load_binary_data(device, image, sizeof(image), address, &entry)");
     expect(state, entry == 0x20000010u, "entry == 0x20000010u");
     uint32_t value = 0;
     expect(state, kinetis_k22_read(device, 0x20000010u, &value, sizeof(value)),
            "kinetis_k22_read(device, 0x20000010u, &value, sizeof(value))");
     expect(state, value == 0x12345678u, "value == 0x12345678u");
-    expect(state,
-           cortex_m4_load_binary_data(device, image, sizeof(image), 0x20000014u, NULL),
+    expect(state, cortex_m4_load_binary_data(device, image, sizeof(image), 0x20000014u, NULL),
            "cortex_m4_load_binary_data(device, image, sizeof(image), address, NULL)");
     expect(state, !cortex_m4_load_binary_data(NULL, image, sizeof(image), 0u, NULL),
            "!cortex_m4_load_binary_data(NULL, image, sizeof(image), 0u, NULL)");

@@ -1,13 +1,12 @@
 #include "cortex_m4_internal.h"
 
-bool cortex_m4_bus_read(CortexM4* cpu, uint32_t address, uint8_t size,
-                        CortexM4Access access, uint32_t* value) {
+bool cortex_m4_bus_read(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                        uint32_t* value) {
     if (value == NULL || (size != 1 && size != 2 && size != 4)) {
         return false;
     }
     cortex_m4_timing_access(cpu, address, size, access, false);
-    const CortexM4SystemAccess mpu_access =
-        cortex_m4_mpu_read(cpu, address, size, access, value);
+    const CortexM4SystemAccess mpu_access = cortex_m4_mpu_read(cpu, address, size, access, value);
     if (mpu_access == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED) {
         return true;
     }
@@ -28,14 +27,13 @@ bool cortex_m4_bus_read(CortexM4* cpu, uint32_t address, uint8_t size,
     return cpu->bus.read(cpu->bus.context, address, size, access, value);
 }
 
-bool cortex_m4_bus_write(CortexM4* cpu, uint32_t address, uint8_t size,
-                         CortexM4Access access, uint32_t value) {
+bool cortex_m4_bus_write(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                         uint32_t value) {
     if (size != 1 && size != 2 && size != 4) {
         return false;
     }
     cortex_m4_timing_access(cpu, address, size, access, true);
-    const CortexM4SystemAccess mpu_access =
-        cortex_m4_mpu_write(cpu, address, size, access, value);
+    const CortexM4SystemAccess mpu_access = cortex_m4_mpu_write(cpu, address, size, access, value);
     if (mpu_access == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED) {
         cpu->exclusive_valid = false;
         cortex_m4_timing_observe_write(cpu, address, size);
@@ -63,8 +61,8 @@ bool cortex_m4_bus_write(CortexM4* cpu, uint32_t address, uint8_t size,
     return written;
 }
 
-bool cortex_m4_data_read(CortexM4* cpu, uint32_t address, uint8_t size,
-                         CortexM4Access access, uint32_t* value) {
+bool cortex_m4_data_read(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                         uint32_t* value) {
     if (size > 1 && (address & (size - 1u)) != 0 && (cpu->ccr & (1u << 3)) != 0) {
         cpu->cfsr |= 1u << 24;
         cortex_m4_raise_fault(cpu, 6);
@@ -83,8 +81,8 @@ bool cortex_m4_data_read(CortexM4* cpu, uint32_t address, uint8_t size,
     return false;
 }
 
-bool cortex_m4_data_write(CortexM4* cpu, uint32_t address, uint8_t size,
-                          CortexM4Access access, uint32_t value) {
+bool cortex_m4_data_write(CortexM4* cpu, uint32_t address, uint8_t size, CortexM4Access access,
+                          uint32_t value) {
     if (size > 1 && (address & (size - 1u)) != 0 && (cpu->ccr & (1u << 3)) != 0) {
         cpu->cfsr |= 1u << 24;
         cortex_m4_raise_fault(cpu, 6);

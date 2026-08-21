@@ -15,14 +15,13 @@ enum {
     SIM_SCGC5 = 0x40048038u,
 };
 
-static void write_value(TestState* state, KinetisK22* device, uint32_t address,
-                        uint8_t size, uint32_t value) {
+static void write_value(TestState* state, KinetisK22* device, uint32_t address, uint8_t size,
+                        uint32_t value) {
     expect(state, kinetis_k22_write(device, address, &value, size),
            "kinetis_k22_write(device, address, &value, size)");
 }
 
-static uint32_t read_value(TestState* state, KinetisK22* device, uint32_t address,
-                           uint8_t size) {
+static uint32_t read_value(TestState* state, KinetisK22* device, uint32_t address, uint8_t size) {
     uint32_t value = 0;
     expect(state, kinetis_k22_read(device, address, &value, size),
            "kinetis_k22_read(device, address, &value, size)");
@@ -49,8 +48,7 @@ int main(void) {
     expect(&state, (read_value(&state, device, MCG_S, 1) & 0x1cu) == 0,
            "(read_value(&state, device, MCG_S, 1) & 0x1cu) == 0");
 
-    write_value(&state, device, SIM_SCGC5, 4,
-                read_value(&state, device, SIM_SCGC5, 4) | 1u);
+    write_value(&state, device, SIM_SCGC5, 4, read_value(&state, device, SIM_SCGC5, 4) | 1u);
     write_value(&state, device, LPTMR0_CSR, 4, 1);
     expect(&state, read_value(&state, device, LPTMR0_CSR, 4) == 1u,
            "read_value(&state, device, LPTMR0_CSR, 4) == 1u");

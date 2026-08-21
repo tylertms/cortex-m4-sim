@@ -30,8 +30,7 @@ int main(void) {
     expect(&state, device != NULL, "device != NULL");
 
     const uint32_t vectors[2] = {0x20000100u, 0x00000101u};
-    const uint16_t program[] = {0x2000u, 0x2801u, 0xbf08u, 0x3001u,
-                                0xf240u, 0x0102u, 0xbe00u};
+    const uint16_t program[] = {0x2000u, 0x2801u, 0xbf08u, 0x3001u, 0xf240u, 0x0102u, 0xbe00u};
     expect(&state, kinetis_k22_load(device, 0, vectors, sizeof(vectors)),
            "kinetis_k22_load(device, 0, vectors, sizeof(vectors))");
     expect(&state, kinetis_k22_load(device, 0x100, program, sizeof(program)),

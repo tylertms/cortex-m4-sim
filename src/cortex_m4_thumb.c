@@ -47,8 +47,7 @@ static void set_logic_flags(CortexM4* cpu, uint32_t value, bool carry) {
 static uint32_t add_flags(CortexM4* cpu, uint32_t left, uint32_t right, bool carry) {
     bool carry_out = false;
     bool overflow = false;
-    const uint32_t result =
-        cortex_m4_add_with_carry(left, right, carry, &carry_out, &overflow);
+    const uint32_t result = cortex_m4_add_with_carry(left, right, carry, &carry_out, &overflow);
     cortex_m4_set_nzcv(cpu, result, carry_out, overflow);
     return result;
 }
@@ -62,8 +61,7 @@ static bool execute_shift_immediate(CortexM4* cpu, uint16_t opcode) {
     const uint8_t source = (uint8_t)((opcode >> 3) & 7u);
     const uint8_t destination = (uint8_t)(opcode & 7u);
     bool carry = (cpu->xpsr & CORTEX_M4_XPSR_C) != 0;
-    const uint32_t result =
-        cortex_m4_shift(cpu->registers[source], type, amount, carry, &carry);
+    const uint32_t result = cortex_m4_shift(cpu->registers[source], type, amount, carry, &carry);
     cpu->registers[destination] = result;
     set_logic_flags(cpu, result, carry);
     return true;
@@ -76,9 +74,8 @@ static bool execute_add_subtract(CortexM4* cpu, uint16_t opcode) {
     const uint8_t source = (uint8_t)((opcode >> 3) & 7u);
     const uint8_t destination = (uint8_t)(opcode & 7u);
     const uint32_t right = immediate ? operand : cpu->registers[operand];
-    cpu->registers[destination] =
-        subtract ? add_flags(cpu, cpu->registers[source], ~right, true)
-                 : add_flags(cpu, cpu->registers[source], right, false);
+    cpu->registers[destination] = subtract ? add_flags(cpu, cpu->registers[source], ~right, true)
+                                           : add_flags(cpu, cpu->registers[source], right, false);
     return true;
 }
 
@@ -92,11 +89,9 @@ static bool execute_immediate(CortexM4* cpu, uint16_t opcode) {
     } else if (operation == 1) {
         add_flags(cpu, cpu->registers[destination], ~immediate, true);
     } else if (operation == 2) {
-        cpu->registers[destination] =
-            add_flags(cpu, cpu->registers[destination], immediate, false);
+        cpu->registers[destination] = add_flags(cpu, cpu->registers[destination], immediate, false);
     } else {
-        cpu->registers[destination] =
-            add_flags(cpu, cpu->registers[destination], ~immediate, true);
+        cpu->registers[destination] = add_flags(cpu, cpu->registers[destination], ~immediate, true);
     }
     return true;
 }
@@ -189,8 +184,7 @@ static bool execute_high_register(CortexM4* cpu, uint16_t opcode) {
     const uint32_t source_value =
         source == 15 ? visible_pc16(cpu) : cortex_m4_read_register_internal(cpu, source);
     const uint32_t destination_value =
-        destination == 15 ? visible_pc16(cpu)
-                          : cortex_m4_read_register_internal(cpu, destination);
+        destination == 15 ? visible_pc16(cpu) : cortex_m4_read_register_internal(cpu, destination);
     if (operation == 0) {
         const uint32_t result = destination_value + source_value;
         if (destination == 15) {
@@ -224,8 +218,7 @@ static bool execute_register_offset_memory(CortexM4* cpu, uint16_t opcode) {
     const uint8_t offset_register = (uint8_t)((opcode >> 6) & 7u);
     const uint8_t base_register = (uint8_t)((opcode >> 3) & 7u);
     const uint8_t target_register = (uint8_t)(opcode & 7u);
-    const uint32_t address =
-        cpu->registers[base_register] + cpu->registers[offset_register];
+    const uint32_t address = cpu->registers[base_register] + cpu->registers[offset_register];
     uint32_t value = 0;
     switch (operation) {
     case 0:
@@ -299,8 +292,7 @@ static bool execute_halfword_memory(CortexM4* cpu, uint16_t opcode) {
 static bool execute_stack_memory(CortexM4* cpu, uint16_t opcode) {
     const bool load = (opcode & (1u << 11)) != 0;
     const uint8_t target_register = (uint8_t)((opcode >> 8) & 7u);
-    const uint32_t address =
-        cortex_m4_read_register_internal(cpu, 13) + (opcode & 0xffu) * 4u;
+    const uint32_t address = cortex_m4_read_register_internal(cpu, 13) + (opcode & 0xffu) * 4u;
     if (!load) {
         return write_data(cpu, address, 4, cpu->registers[target_register]);
     }
@@ -397,8 +389,7 @@ static bool execute_multiple(CortexM4* cpu, uint16_t opcode) {
     const bool load = (opcode & (1u << 11)) != 0;
     const uint8_t base = (uint8_t)((opcode >> 8) & 7u);
     const uint8_t list = (uint8_t)opcode;
-    uint32_t address =
-        cortex_m4_exception_advanced_multiple_address(cpu, cpu->registers[base]);
+    uint32_t address = cortex_m4_exception_advanced_multiple_address(cpu, cpu->registers[base]);
     const uint8_t resume = cortex_m4_exception_advanced_multiple_resume(cpu);
     for (uint8_t index = 0; index < 8; index++) {
         if (index < resume)
@@ -435,15 +426,14 @@ static bool execute_miscellaneous(CortexM4* cpu, uint16_t opcode) {
     if ((opcode & 0xff00u) == 0xb000u) {
         const uint32_t amount = (opcode & 0x7fu) * 4u;
         const uint32_t stack = cortex_m4_read_register_internal(cpu, 13);
-        cortex_m4_write_register_internal(
-            cpu, 13, (opcode & 0x80u) != 0 ? stack - amount : stack + amount);
+        cortex_m4_write_register_internal(cpu, 13,
+                                          (opcode & 0x80u) != 0 ? stack - amount : stack + amount);
         return true;
     }
     if ((opcode & 0xf500u) == 0xb100u) {
         const bool nonzero = (opcode & (1u << 11)) != 0;
         const uint8_t source = (uint8_t)(opcode & 7u);
-        const uint32_t immediate =
-            ((opcode >> 3) & 0x1fu) * 2u + ((opcode >> 9) & 1u) * 64u;
+        const uint32_t immediate = ((opcode >> 3) & 0x1fu) * 2u + ((opcode >> 9) & 1u) * 64u;
         if ((cpu->registers[source] != 0) == nonzero) {
             cpu->registers[15] = visible_pc16(cpu) + immediate;
         }
@@ -550,9 +540,8 @@ bool cortex_m4_execute_thumb16(CortexM4* cpu, uint16_t opcode) {
         return execute_stack_memory(cpu, opcode);
     if ((opcode & 0xf000u) == 0xa000u) {
         const uint8_t target = (uint8_t)((opcode >> 8) & 7u);
-        const uint32_t base = (opcode & (1u << 11)) != 0
-                                  ? cortex_m4_read_register_internal(cpu, 13)
-                                  : visible_pc16(cpu) & ~3u;
+        const uint32_t base = (opcode & (1u << 11)) != 0 ? cortex_m4_read_register_internal(cpu, 13)
+                                                         : visible_pc16(cpu) & ~3u;
         cpu->registers[target] = base + (opcode & 0xffu) * 4u;
         return true;
     }
@@ -569,14 +558,12 @@ bool cortex_m4_execute_thumb16(CortexM4* cpu, uint16_t opcode) {
         if (condition == 14)
             return false;
         if (cortex_m4_condition_passed(cpu, condition)) {
-            cpu->registers[15] =
-                visible_pc16(cpu) + (uint32_t)(sign_extend(opcode & 0xffu, 8) * 2);
+            cpu->registers[15] = visible_pc16(cpu) + (uint32_t)(sign_extend(opcode & 0xffu, 8) * 2);
         }
         return true;
     }
     if ((opcode & 0xf800u) == 0xe000u) {
-        cpu->registers[15] =
-            visible_pc16(cpu) + (uint32_t)(sign_extend(opcode & 0x7ffu, 11) * 2);
+        cpu->registers[15] = visible_pc16(cpu) + (uint32_t)(sign_extend(opcode & 0x7ffu, 11) * 2);
         return true;
     }
     return false;
@@ -588,8 +575,8 @@ static uint32_t decode_branch_offset(uint16_t first, uint16_t second) {
     const uint32_t j2 = (second >> 11) & 1u;
     const uint32_t i1 = ~(j1 ^ sign) & 1u;
     const uint32_t i2 = ~(j2 ^ sign) & 1u;
-    const uint32_t encoded = (sign << 24) | (i1 << 23) | (i2 << 22) |
-                             ((first & 0x03ffu) << 12) | ((second & 0x07ffu) << 1);
+    const uint32_t encoded = (sign << 24) | (i1 << 23) | (i2 << 22) | ((first & 0x03ffu) << 12) |
+                             ((second & 0x07ffu) << 1);
     return (uint32_t)sign_extend(encoded, 25);
 }
 
@@ -675,8 +662,7 @@ static uint32_t reverse_bits(uint32_t value) {
     return (value << 16) | (value >> 16);
 }
 
-static uint32_t expand_immediate(uint16_t first, uint16_t second, bool carry_in,
-                                 bool* carry_out) {
+static uint32_t expand_immediate(uint16_t first, uint16_t second, bool carry_in, bool* carry_out) {
     const uint16_t immediate = (uint16_t)(((first >> 10) & 1u) << 11) |
                                (uint16_t)(((second >> 12) & 7u) << 8) | (second & 0xffu);
     uint32_t value = immediate & 0xffu;
@@ -735,13 +721,13 @@ static bool execute_data_operation(CortexM4* cpu, uint8_t operation, uint8_t des
         break;
     case 10:
         arithmetic = true;
-        result = cortex_m4_add_with_carry(left, right, (cpu->xpsr & CORTEX_M4_XPSR_C) != 0,
-                                          &carry, &overflow);
+        result = cortex_m4_add_with_carry(left, right, (cpu->xpsr & CORTEX_M4_XPSR_C) != 0, &carry,
+                                          &overflow);
         break;
     case 11:
         arithmetic = true;
-        result = cortex_m4_add_with_carry(left, ~right, (cpu->xpsr & CORTEX_M4_XPSR_C) != 0,
-                                          &carry, &overflow);
+        result = cortex_m4_add_with_carry(left, ~right, (cpu->xpsr & CORTEX_M4_XPSR_C) != 0, &carry,
+                                          &overflow);
         break;
     case 13:
         arithmetic = true;
@@ -777,8 +763,7 @@ static bool execute_modified_immediate(CortexM4* cpu, uint16_t first, uint16_t s
     bool carry = (cpu->xpsr & CORTEX_M4_XPSR_C) != 0;
     const uint32_t immediate = expand_immediate(first, second, carry, &carry);
     const uint32_t left = source == 15 ? 0 : cortex_m4_read_register_internal(cpu, source);
-    return execute_data_operation(cpu, operation, destination, left, immediate, set_flags,
-                                  carry);
+    return execute_data_operation(cpu, operation, destination, left, immediate, set_flags, carry);
 }
 
 static bool execute_shifted_register(CortexM4* cpu, uint16_t first, uint16_t second) {
@@ -791,12 +776,10 @@ static bool execute_shifted_register(CortexM4* cpu, uint16_t first, uint16_t sec
     const uint8_t shift_amount =
         (uint8_t)(((second >> 12) & 7u) << 2) | (uint8_t)((second >> 6) & 3u);
     bool carry = (cpu->xpsr & CORTEX_M4_XPSR_C) != 0;
-    const uint32_t right =
-        cortex_m4_shift(cortex_m4_read_register_internal(cpu, right_register), shift_type,
-                        shift_amount, carry, &carry);
+    const uint32_t right = cortex_m4_shift(cortex_m4_read_register_internal(cpu, right_register),
+                                           shift_type, shift_amount, carry, &carry);
     const uint32_t left = source == 15 ? 0 : cortex_m4_read_register_internal(cpu, source);
-    return execute_data_operation(cpu, operation, destination, left, right, set_flags,
-                                  carry);
+    return execute_data_operation(cpu, operation, destination, left, right, set_flags, carry);
 }
 
 bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
@@ -822,11 +805,10 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
     if ((first & 0xf800u) == 0xf000u && (second & 0xd000u) == 0x8000u) {
         const uint8_t condition = (uint8_t)((first >> 6) & 15u);
         if (condition < 14 && cortex_m4_condition_passed(cpu, condition)) {
-            const uint32_t encoded = ((uint32_t)((first >> 10) & 1u) << 20) |
-                                     ((uint32_t)((second >> 11) & 1u) << 19) |
-                                     ((uint32_t)((second >> 13) & 1u) << 18) |
-                                     ((uint32_t)(first & 0x3fu) << 12) |
-                                     ((uint32_t)(second & 0x7ffu) << 1);
+            const uint32_t encoded =
+                ((uint32_t)((first >> 10) & 1u) << 20) | ((uint32_t)((second >> 11) & 1u) << 19) |
+                ((uint32_t)((second >> 13) & 1u) << 18) | ((uint32_t)(first & 0x3fu) << 12) |
+                ((uint32_t)(second & 0x7ffu) << 1);
             cpu->registers[15] = visible_pc32(cpu) + (uint32_t)sign_extend(encoded, 21);
         }
         if (condition < 14) {
@@ -841,8 +823,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
     }
     if ((first & 0xfff0u) == 0xf380u && (second & 0xff00u) == 0x8800u) {
         const uint8_t source = (uint8_t)(first & 15u);
-        write_special_register(cpu, (uint8_t)second,
-                               cortex_m4_read_register_internal(cpu, source));
+        write_special_register(cpu, (uint8_t)second, cortex_m4_read_register_internal(cpu, source));
         return true;
     }
     if ((first & 0xfbf0u) == 0xf240u || (first & 0xfbf0u) == 0xf2c0u) {
@@ -879,8 +860,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         const uint8_t source = (uint8_t)(first & 15u);
         const uint8_t destination = (uint8_t)((second >> 8) & 15u);
         cortex_m4_write_register_internal(
-            cpu, destination,
-            count_leading_zeros(cortex_m4_read_register_internal(cpu, source)));
+            cpu, destination, count_leading_zeros(cortex_m4_read_register_internal(cpu, source)));
         return true;
     }
     if ((first & 0xfff0u) == 0xfa90u && (second & 0xf0f0u) == 0xf0a0u) {
@@ -898,12 +878,10 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         const uint8_t most_bit = (uint8_t)(second & 31u);
         if (most_bit >= least_bit) {
             const uint8_t width = (uint8_t)(most_bit - least_bit + 1u);
-            const uint32_t mask =
-                width == 32 ? UINT32_MAX : ((1u << width) - 1u) << least_bit;
+            const uint32_t mask = width == 32 ? UINT32_MAX : ((1u << width) - 1u) << least_bit;
             const uint32_t source_value =
                 source == 15 ? 0 : cortex_m4_read_register_internal(cpu, source);
-            const uint32_t destination_value =
-                cortex_m4_read_register_internal(cpu, destination);
+            const uint32_t destination_value = cortex_m4_read_register_internal(cpu, destination);
             cortex_m4_write_register_internal(cpu, destination,
                                               (destination_value & ~mask) |
                                                   ((source_value << least_bit) & mask));
@@ -915,10 +893,8 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         const uint8_t numerator_register = (uint8_t)(first & 15u);
         const uint8_t destination = (uint8_t)((second >> 8) & 15u);
         const uint8_t denominator_register = (uint8_t)(second & 15u);
-        const uint32_t numerator =
-            cortex_m4_read_register_internal(cpu, numerator_register);
-        const uint32_t denominator =
-            cortex_m4_read_register_internal(cpu, denominator_register);
+        const uint32_t numerator = cortex_m4_read_register_internal(cpu, numerator_register);
+        const uint32_t denominator = cortex_m4_read_register_internal(cpu, denominator_register);
         if (denominator == 0) {
             if ((cpu->ccr & (1u << 4)) != 0) {
                 cpu->cfsr |= 1u << 25;
@@ -952,8 +928,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         cortex_m4_write_register_internal(cpu, destination, result);
         return true;
     }
-    if (((first & 0xfff0u) == 0xfba0u || (first & 0xfff0u) == 0xfb80u) &&
-        (second & 0x00f0u) == 0) {
+    if (((first & 0xfff0u) == 0xfba0u || (first & 0xfff0u) == 0xfb80u) && (second & 0x00f0u) == 0) {
         const uint8_t left_register = (uint8_t)(first & 15u);
         const uint8_t low_destination = (uint8_t)(second >> 12);
         const uint8_t high_destination = (uint8_t)((second >> 8) & 15u);
@@ -964,16 +939,14 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
                      cortex_m4_read_register_internal(cpu, right_register);
         } else {
             result =
-                (uint64_t)((int64_t)(int32_t)cortex_m4_read_register_internal(
-                               cpu, left_register) *
+                (uint64_t)((int64_t)(int32_t)cortex_m4_read_register_internal(cpu, left_register) *
                            (int32_t)cortex_m4_read_register_internal(cpu, right_register));
         }
         cortex_m4_write_register_internal(cpu, low_destination, (uint32_t)result);
         cortex_m4_write_register_internal(cpu, high_destination, (uint32_t)(result >> 32));
         return true;
     }
-    if (((first & 0xfff0u) == 0xfbe0u || (first & 0xfff0u) == 0xfbc0u) &&
-        (second & 0x00f0u) == 0) {
+    if (((first & 0xfff0u) == 0xfbe0u || (first & 0xfff0u) == 0xfbc0u) && (second & 0x00f0u) == 0) {
         const uint8_t left_register = (uint8_t)(first & 15u);
         const uint8_t low_destination = (uint8_t)(second >> 12);
         const uint8_t high_destination = (uint8_t)((second >> 8) & 15u);
@@ -984,8 +957,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
                       cortex_m4_read_register_internal(cpu, right_register);
         } else {
             product =
-                (uint64_t)((int64_t)(int32_t)cortex_m4_read_register_internal(
-                               cpu, left_register) *
+                (uint64_t)((int64_t)(int32_t)cortex_m4_read_register_internal(cpu, left_register) *
                            (int32_t)cortex_m4_read_register_internal(cpu, right_register));
         }
         const uint64_t accumulator =
@@ -996,8 +968,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         cortex_m4_write_register_internal(cpu, high_destination, (uint32_t)(result >> 32));
         return true;
     }
-    if (((first & 0xfff0u) == 0xf3c0u || (first & 0xfff0u) == 0xf340u) &&
-        (second & 0x8000u) == 0) {
+    if (((first & 0xfff0u) == 0xf3c0u || (first & 0xfff0u) == 0xf340u) && (second & 0x8000u) == 0) {
         const uint8_t source = (uint8_t)(first & 15u);
         const uint8_t destination = (uint8_t)((second >> 8) & 15u);
         const uint8_t least_bit =
@@ -1074,8 +1045,8 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
             return true;
         }
         const bool matched = cortex_m4_timing_consume_reservation(cpu, address, size);
-        if (matched && !write_data(cpu, address, size,
-                                   cortex_m4_read_register_internal(cpu, target))) {
+        if (matched &&
+            !write_data(cpu, address, size, cortex_m4_read_register_internal(cpu, target))) {
             return true;
         }
         cortex_m4_write_register_internal(cpu, status, matched ? 0 : 1);
@@ -1117,8 +1088,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
                     return true;
                 }
                 cortex_m4_write_register_internal(cpu, index, value);
-            } else if (!write_data(cpu, address, 4,
-                                   cortex_m4_read_register_internal(cpu, index))) {
+            } else if (!write_data(cpu, address, 4, cortex_m4_read_register_internal(cpu, index))) {
                 return true;
             }
             address += 4;
@@ -1152,23 +1122,20 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         (second >> 12) == 15u) {
         return true;
     }
-    if (memory_operation == 0xf8c0u || memory_operation == 0xf8d0u ||
-        memory_operation == 0xf880u || memory_operation == 0xf890u ||
-        memory_operation == 0xf8a0u || memory_operation == 0xf8b0u ||
+    if (memory_operation == 0xf8c0u || memory_operation == 0xf8d0u || memory_operation == 0xf880u ||
+        memory_operation == 0xf890u || memory_operation == 0xf8a0u || memory_operation == 0xf8b0u ||
         memory_operation == 0xf990u || memory_operation == 0xf9b0u) {
         const uint8_t base = (uint8_t)(first & 15u);
         const uint8_t target = (uint8_t)(second >> 12);
-        const uint32_t base_value = base == 15
-                                        ? visible_pc32(cpu) & ~3u
-                                        : cortex_m4_read_register_internal(cpu, base);
+        const uint32_t base_value =
+            base == 15 ? visible_pc32(cpu) & ~3u : cortex_m4_read_register_internal(cpu, base);
         const uint32_t address = base_value + (second & 0x0fffu);
         const bool load = (memory_operation & 0x0010u) != 0;
         const uint8_t size = (memory_operation & 0x0040u) != 0   ? 4
                              : (memory_operation & 0x0020u) != 0 ? 2
                                                                  : 1;
         if (!load) {
-            return write_data(cpu, address, size,
-                              cortex_m4_read_register_internal(cpu, target));
+            return write_data(cpu, address, size, cortex_m4_read_register_internal(cpu, target));
         }
         uint32_t value = 0;
         if (!read_data(cpu, address, size, &value)) {
@@ -1184,9 +1151,8 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
         }
         return true;
     }
-    if (memory_operation == 0xf840u || memory_operation == 0xf850u ||
-        memory_operation == 0xf800u || memory_operation == 0xf810u ||
-        memory_operation == 0xf820u || memory_operation == 0xf830u ||
+    if (memory_operation == 0xf840u || memory_operation == 0xf850u || memory_operation == 0xf800u ||
+        memory_operation == 0xf810u || memory_operation == 0xf820u || memory_operation == 0xf830u ||
         memory_operation == 0xf910u || memory_operation == 0xf930u) {
         const uint8_t base = (uint8_t)(first & 15u);
         const uint8_t target = (uint8_t)(second >> 12);
@@ -1214,8 +1180,7 @@ bool cortex_m4_execute_thumb32(CortexM4* cpu, uint16_t first, uint16_t second) {
             } else {
                 cortex_m4_write_register_internal(cpu, target, value);
             }
-        } else if (!write_data(cpu, address, size,
-                               cortex_m4_read_register_internal(cpu, target))) {
+        } else if (!write_data(cpu, address, size, cortex_m4_read_register_internal(cpu, target))) {
             return true;
         }
         if (write_back) {

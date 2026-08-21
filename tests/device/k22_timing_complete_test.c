@@ -179,20 +179,18 @@ static void expect_read(TestState* state, K22Timing* timing, uint32_t address, u
     expect(state, k22_timing_read(timing, address, size, &value),
            "k22_timing_read(timing, address, size, &value)");
     if (value != expected) {
-        fprintf(stderr, "address 0x%08x: expected 0x%08x, got 0x%08x\n", address, expected,
-                value);
+        fprintf(stderr, "address 0x%08x: expected 0x%08x, got 0x%08x\n", address, expected, value);
     }
     expect(state, value == expected, "value == expected");
 }
 
-static void expect_write(TestState* state, K22Timing* timing, uint32_t address,
-                         uint8_t size, uint32_t value) {
+static void expect_write(TestState* state, K22Timing* timing, uint32_t address, uint8_t size,
+                         uint32_t value) {
     expect(state, k22_timing_write(timing, address, size, value),
            "k22_timing_write(timing, address, size, value)");
 }
 
-static uint32_t cycles_for_ticks(const K22Timing* timing, uint32_t ticks,
-                                 uint32_t clock_hz) {
+static uint32_t cycles_for_ticks(const K22Timing* timing, uint32_t ticks, uint32_t clock_hz) {
     return (uint32_t)(((uint64_t)timing->core_clock_hz * ticks + clock_hz - 1u) / clock_hz);
 }
 
@@ -210,15 +208,12 @@ static void test_profiles_and_reset(TestState* state) {
         Observations observations = {0};
         const K22Profile* profile = k22_profile_get(id);
         expect(state, profile != NULL, "profile != NULL");
-        expect(
-            state,
-            k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
-            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
+        expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+               "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
         expect_read(state, &timing, SIM_SDID, 4, profile->sim_sdid_reset);
         expect_read(state, &timing, 0x4004804cu, 4,
-                    id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212
-                        ? 0xff0f0f00u
-                        : 0x0f0f0f00u);
+                    id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212 ? 0xff0f0f00u
+                                                                                   : 0x0f0f0f00u);
         expect(state,
                k22_timing_read(&timing, SIM_SCGC3, 4, &(uint32_t){0}) ==
                    (id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212),
@@ -226,8 +221,7 @@ static void test_profiles_and_reset(TestState* state) {
                "K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212)");
         expect_read(state, &timing, RCM_SRS0, 1, 0x82u);
         expect_read(state, &timing, 0x40037000u, 4,
-                    id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212 ? 2u
-                                                                                   : 6u);
+                    id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212 ? 2u : 6u);
         expect_read(state, &timing, 0x4003d014u, 4, 1u);
         expect_read(state, &timing, 0x40052000u, 2, 0x01d3u);
         expect(state, k22_timing_core_clock_hz(&timing) == 20971520u,
@@ -423,10 +417,8 @@ static void test_pit(TestState* state, K22Timing* timing, Observations* observat
     expect(state, observations->irq[48], "observations->irq[48]");
     expect(state, observations->alternate_triggers == alternate_before + 2u,
            "observations->alternate_triggers == alternate_before + 2u");
-    expect(state, observations->dma_triggers[0] == 1u,
-           "observations->dma_triggers[0] == 1u");
-    expect(state, observations->dma_triggers[1] == 1u,
-           "observations->dma_triggers[1] == 1u");
+    expect(state, observations->dma_triggers[0] == 1u, "observations->dma_triggers[0] == 1u");
+    expect(state, observations->dma_triggers[1] == 1u, "observations->dma_triggers[1] == 1u");
     expect(state, observations->last_trigger_instance == 5u,
            "observations->last_trigger_instance == 5u");
     expect_write(state, timing, PIT_TFLG0, 4, 1u);
@@ -656,8 +648,7 @@ static void test_rtc(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, RTC_TPR, 4, 0u);
     expect(state, observations->irq[46], "observations->irq[46]");
     expect(state, !observations->irq[47], "!observations->irq[47]");
-    expect(state, observations->irq_assertions[47] == 1u,
-           "observations->irq_assertions[47] == 1u");
+    expect(state, observations->irq_assertions[47] == 1u, "observations->irq_assertions[47] == 1u");
     expect_read(state, timing, RTC_SR, 4, 0x14u);
     expect(state, observations->alternate_triggers == alternate_before + 2u,
            "observations->alternate_triggers == alternate_before + 2u");
@@ -683,12 +674,10 @@ static void test_rtc(TestState* state, K22Timing* timing, Observations* observat
     expect_read(state, timing, RCM_SRS0, 1, 0x20u);
 }
 
-static void test_rtc_protection_and_compensation(TestState* state,
-                                                 const K22Profile* profile) {
+static void test_rtc_protection_and_compensation(TestState* state, const K22Profile* profile) {
     Observations observations = {0};
     K22Timing timing;
-    expect(state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     disable_watchdog_fixture(&timing);
     expect_write(state, &timing, RTC_TSR, 4, 1u);
@@ -702,8 +691,7 @@ static void test_rtc_protection_and_compensation(TestState* state,
     k22_timing_advance(&timing, timing.core_clock_hz);
     expect_read(state, &timing, RTC_TSR, 4, 2u);
     expect_read(state, &timing, RTC_TCR, 4, 0x017f017fu);
-    k22_timing_advance(&timing,
-                       cycles_for_ticks(&timing, 32640u, timing.rtc_oscillator_hz));
+    k22_timing_advance(&timing, cycles_for_ticks(&timing, 32640u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_TSR, 4, 2u);
     k22_timing_advance(&timing, cycles_for_ticks(&timing, 1u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_TSR, 4, 3u);
@@ -726,9 +714,8 @@ static void test_rtc_protection_and_compensation(TestState* state,
     expect_write(state, &timing, RTC_IER, 4, 2u);
     expect_write(state, &timing, RTC_CR, 4, 0x100u);
     expect_write(state, &timing, RTC_SR, 4, 0x10u);
-    k22_timing_advance(&timing,
-                       timing.core_clock_hz +
-                           cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
+    k22_timing_advance(&timing, timing.core_clock_hz +
+                                    cycles_for_ticks(&timing, 128u, timing.rtc_oscillator_hz));
     expect_read(state, &timing, RTC_SR, 4, 0x16u);
     expect_read(state, &timing, RTC_TSR, 4, 0u);
     expect_read(state, &timing, RTC_TPR, 4, 0u);
@@ -978,8 +965,7 @@ static void test_ftm(TestState* state, K22Timing* timing, Observations* observat
 static void test_ftm_input_capture(TestState* state, const K22Profile* profile) {
     K22Timing timing;
     Observations observations = {0};
-    expect(state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     disable_watchdog_fixture(&timing);
     expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 24u));
@@ -1052,8 +1038,7 @@ static void expect_ftm_output(TestState* state, const K22Timing* timing, bool ex
 static void test_ftm_output(TestState* state, const K22Profile* profile) {
     K22Timing timing;
     Observations observations = {0};
-    expect(state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     disable_watchdog_fixture(&timing);
     expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 24u));
@@ -1214,8 +1199,7 @@ static void test_ftm_output(TestState* state, const K22Profile* profile) {
     expect_ftm_output(state, &timing, true);
 
     expect_write(state, &timing, FTM0_SYNCONF, 4,
-                 (1u << 12u) | (1u << 11u) | (1u << 10u) | (1u << 7u) | (1u << 5u) |
-                     (1u << 4u));
+                 (1u << 12u) | (1u << 11u) | (1u << 10u) | (1u << 7u) | (1u << 5u) | (1u << 4u));
     expect_write(state, &timing, FTM0_SC, 4, 0u);
     expect_write(state, &timing, FTM0_MOD, 4, 1u);
     expect_write(state, &timing, FTM0_CNT, 4, 0u);
@@ -1262,8 +1246,7 @@ static void unlock_watchdog(TestState* state, K22Timing* timing) {
     expect_write(state, timing, WDOG_UNLOCK, 2, 0xd928u);
 }
 
-static void test_watchdogs(TestState* state, K22Timing* timing,
-                           Observations* observations) {
+static void test_watchdogs(TestState* state, K22Timing* timing, Observations* observations) {
     unlock_watchdog(state, timing);
     expect_write(state, timing, WDOG_TOVALH, 2, 0);
     expect_write(state, timing, WDOG_TOVALL, 2, 3u);
@@ -1303,10 +1286,8 @@ static void test_copy_and_split_advance(TestState* state, const K22Profile* prof
     Observations second_observations = {0};
     K22Timing first;
     K22Timing second;
-    expect(
-        state,
-        k22_timing_init(&first, profile, 8000000u, 32768u, signals(&first_observations)),
-        "k22_timing_init(&first, profile, 8000000u, 32768u, signals(&first_observations))");
+    expect(state, k22_timing_init(&first, profile, 8000000u, 32768u, signals(&first_observations)),
+           "k22_timing_init(&first, profile, 8000000u, 32768u, signals(&first_observations))");
     disable_watchdog_fixture(&first);
     expect_write(state, &first, SIM_SCGC6, 4, first.sim_scgc6 | (1u << 23u));
     expect_write(state, &first, PIT_MCR, 4, 0);
@@ -1355,9 +1336,8 @@ static void test_copy_and_split_advance(TestState* state, const K22Profile* prof
 
 static void test_sim_surface(TestState* state, K22Timing* timing) {
     const uint32_t writable[] = {
-        0x40047000u, 0x40047004u, 0x40048004u, 0x4004800cu, 0x40048010u,
-        0x40048018u, 0x4004801cu, 0x40048030u, 0x40048034u, 0x40048038u,
-        0x4004803cu, 0x40048040u, 0x40048044u, 0x40048048u,
+        0x40047000u, 0x40047004u, 0x40048004u, 0x4004800cu, 0x40048010u, 0x40048018u, 0x4004801cu,
+        0x40048030u, 0x40048034u, 0x40048038u, 0x4004803cu, 0x40048040u, 0x40048044u, 0x40048048u,
     };
     for (size_t index = 0; index < sizeof(writable) / sizeof(writable[0]); index++) {
         expect_write(state, timing, writable[index], 4, 0x5a5a0000u + (uint32_t)index);
@@ -1373,8 +1353,7 @@ static void test_sim_surface(TestState* state, K22Timing* timing) {
            "!k22_timing_write(timing, 0x40048028u, 4, 0)");
 }
 
-static void test_control_surface(TestState* state, K22Timing* timing,
-                                 Observations* observations) {
+static void test_control_surface(TestState* state, K22Timing* timing, Observations* observations) {
     const uint8_t mcg_offsets[] = {0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13};
     for (size_t index = 0; index < sizeof(mcg_offsets); index++) {
         const uint32_t address = MCG_C1 + mcg_offsets[index];
@@ -1423,35 +1402,30 @@ static void test_control_surface(TestState* state, K22Timing* timing,
 
 static void test_timer_register_surface(TestState* state, K22Timing* timing) {
     const uint32_t pit_registers[] = {PIT_LDVAL0, PIT_CVAL0, PIT_TCTRL0, PIT_TFLG0};
-    for (size_t index = 0; index < sizeof(pit_registers) / sizeof(pit_registers[0]);
-         index++)
+    for (size_t index = 0; index < sizeof(pit_registers) / sizeof(pit_registers[0]); index++)
         expect(state, k22_timing_read(timing, pit_registers[index], 4, &(uint32_t){0}),
                "k22_timing_read(timing, pit_registers[index], 4, &(uint32_t){0})");
     expect_read(state, timing, LPTMR_PSR, 4, timing->lptmr_psr);
     expect_read(state, timing, LPTMR_CMR, 4, timing->lptmr_cmr);
     expect_write(state, timing, LPTMR_CSR, 4, 0);
     const uint32_t rtc_registers[] = {
-        RTC_TAR,     0x4003d00cu, 0x4003d010u, RTC_SR,
-        0x4003d018u, RTC_IER,     0x4003d800u, 0x4003d804u,
+        RTC_TAR, 0x4003d00cu, 0x4003d010u, RTC_SR, 0x4003d018u, RTC_IER, 0x4003d800u, 0x4003d804u,
     };
-    for (size_t index = 0; index < sizeof(rtc_registers) / sizeof(rtc_registers[0]);
-         index++) {
+    for (size_t index = 0; index < sizeof(rtc_registers) / sizeof(rtc_registers[0]); index++) {
         expect(state, k22_timing_read(timing, rtc_registers[index], 4, &(uint32_t){0}),
                "k22_timing_read(timing, rtc_registers[index], 4, &(uint32_t){0})");
     }
     expect_write(state, timing, RTC_TSR, 4, 0u);
     expect_write(state, timing, RTC_TPR, 4, 123u);
     expect_read(state, timing, RTC_TPR, 4, 123u);
-    const uint32_t pdb_offsets[] = {0x10u,  0x14u,  0x18u,  0x1cu,  0x38u,
-                                    0x3cu,  0x40u,  0x44u,  0x150u, 0x154u,
-                                    0x158u, 0x15cu, 0x190u, 0x194u, 0x198u};
+    const uint32_t pdb_offsets[] = {0x10u,  0x14u,  0x18u,  0x1cu,  0x38u,  0x3cu,  0x40u, 0x44u,
+                                    0x150u, 0x154u, 0x158u, 0x15cu, 0x190u, 0x194u, 0x198u};
     for (size_t index = 0; index < sizeof(pdb_offsets) / sizeof(pdb_offsets[0]); index++) {
         const uint32_t address = PDB_SC + pdb_offsets[index];
         expect_write(state, timing, address, 4, (uint32_t)index);
         expect_read(state, timing, address, 4,
-                    pdb_offsets[index] == 0x14u || pdb_offsets[index] == 0x3cu
-                        ? 0u
-                        : (uint32_t)index);
+                    pdb_offsets[index] == 0x14u || pdb_offsets[index] == 0x3cu ? 0u
+                                                                               : (uint32_t)index);
     }
     expect_read(state, timing, PDB_MOD, 4, timing->pdb_mod);
     expect_read(state, timing, PDB_IDLY, 4, timing->pdb_idly);
@@ -1476,8 +1450,7 @@ static void test_ftm_surface(TestState* state, K22Timing* timing) {
     k22_timing_advance(timing, timing->core_clock_hz / 8000000u + 1u);
 }
 
-static void test_watchdog_surface(TestState* state, K22Timing* timing,
-                                  Observations* observations) {
+static void test_watchdog_surface(TestState* state, K22Timing* timing, Observations* observations) {
     unlock_watchdog(state, timing);
     for (uint32_t offset = 0; offset < 0x18u; offset += 2u) {
         if (offset != 0x0cu && offset != 0x0eu && offset != 0x10u && offset != 0x12u)
@@ -1503,8 +1476,7 @@ static void test_watchdog_surface(TestState* state, K22Timing* timing,
 static void test_register_surface(TestState* state, const K22Profile* profile) {
     K22Timing timing;
     Observations observations = {0};
-    expect(state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     disable_watchdog_fixture(&timing);
     test_sim_surface(state, &timing);
@@ -1524,8 +1496,7 @@ static void test_register_surface(TestState* state, const K22Profile* profile) {
 static void test_edge_paths(TestState* state, const K22Profile* profile) {
     K22Timing timing;
     Observations observations = {0};
-    expect(state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     disable_watchdog_fixture(&timing);
     timing.external_oscillator_hz = 0u;
@@ -1547,8 +1518,7 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
         k22_timing_advance(&timing, timing.core_clock_hz);
     }
     expect_write(state, &timing, LPTMR_CSR, 4, 0u);
-    expect_write(state, &timing, SIM_SCGC6, 4,
-                 timing.sim_scgc6 | (1u << 29u) | (1u << 22u));
+    expect_write(state, &timing, SIM_SCGC6, 4, timing.sim_scgc6 | (1u << 29u) | (1u << 22u));
     expect_write(state, &timing, RTC_TSR, 4, UINT32_MAX);
     expect_write(state, &timing, RTC_IER, 4, 2u);
     expect_write(state, &timing, RTC_CR, 4, 0x100u);
@@ -1630,8 +1600,7 @@ int main(void) {
     K22Timing timing;
     const K22Profile* profile = k22_profile_get(K22_PROFILE_MK22FN51212);
     test_profiles_and_reset(&state);
-    expect(&state,
-           k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
+    expect(&state, k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations)),
            "k22_timing_init(&timing, profile, 8000000u, 32768u, signals(&observations))");
     test_clock_tree_and_power(&state, &timing);
     k22_timing_reset(&timing, 0x82u, 0);
@@ -1663,7 +1632,6 @@ int main(void) {
            "!k22_timing_init(NULL, profile, 0, 0, signals(NULL))");
     expect(&state, !k22_timing_copy(NULL, &timing, signals(NULL)),
            "!k22_timing_copy(NULL, &timing, signals(NULL))");
-    expect(&state, k22_timing_core_clock_hz(NULL) == 0,
-           "k22_timing_core_clock_hz(NULL) == 0");
+    expect(&state, k22_timing_core_clock_hz(NULL) == 0, "k22_timing_core_clock_hz(NULL) == 0");
     return test_finish(&state);
 }
