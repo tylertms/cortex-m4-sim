@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "allocation_failure.h"
 #include "test.h"
 
 enum {
@@ -323,8 +324,9 @@ static void expect_invalid_inputs(TestState* state) {
     expect(state, !k22_sdhc_init(NULL, bus), "!k22_sdhc_init(NULL, bus)");
     k22_sdhc_reset(NULL);
     k22_sdhc_eject(NULL);
-    expect(state, !k22_sdhc_copy(NULL, &sdhc, bus) && !k22_sdhc_copy(&sdhc, NULL, bus) &&
-                      !k22_sdhc_copy(&sdhc, &sdhc, (K22SdhcBus){0}),
+    expect(state,
+           !k22_sdhc_copy(NULL, &sdhc, bus) && !k22_sdhc_copy(&sdhc, NULL, bus) &&
+               !k22_sdhc_copy(&sdhc, &sdhc, (K22SdhcBus){0}),
            "SDHC copy rejects invalid arguments");
     expect(state, !k22_sdhc_init(&sdhc, (K22SdhcBus){0}), "!k22_sdhc_init(&sdhc, (K22SdhcBus){0})");
     expect(state, k22_sdhc_init(&sdhc, bus), "k22_sdhc_init(&sdhc, bus)");
@@ -349,8 +351,9 @@ static void expect_invalid_inputs(TestState* state) {
     expect(state, !k22_sdhc_write(&sdhc, SDHC_BASE, 4u, 0u),
            "!k22_sdhc_write(&sdhc, SDHC_BASE, 4u, 0u)");
     k22_sdhc_set_clock(&sdhc, true);
-    expect(state, !k22_sdhc_read(&sdhc, SDHC_DATPORT, 4u, &value) &&
-                      !k22_sdhc_write(&sdhc, SDHC_DATPORT, 4u, 0u),
+    expect(state,
+           !k22_sdhc_read(&sdhc, SDHC_DATPORT, 4u, &value) &&
+               !k22_sdhc_write(&sdhc, SDHC_DATPORT, 4u, 0u),
            "inactive SDHC data port rejects transfers");
     expect(state, !k22_sdhc_read(&sdhc, SDHC_BASE - 4u, 4u, &value),
            "!k22_sdhc_read(&sdhc, SDHC_BASE - 4u, 4u, &value)");
@@ -364,6 +367,17 @@ static void expect_invalid_inputs(TestState* state) {
     k22_sdhc_destroy(NULL);
 }
 
+static void expect_insert_allocation_failure(TestState* state) {
+    BusMemory memory = {0};
+    K22Sdhc sdhc = create_sdhc(state, &memory);
+    uint8_t card[512] = {0};
+    test_fail_allocation_after(0u);
+    expect(state, !k22_sdhc_insert(&sdhc, card, sizeof(card), false),
+           "SDHC insert reports card allocation failure");
+    test_allow_allocations();
+    k22_sdhc_destroy(&sdhc);
+}
+
 int main(void) {
     TestState state = {0};
     expect_initialization_and_access(&state);
@@ -371,5 +385,6 @@ int main(void) {
     expect_command_and_transfer_lifecycle(&state);
     expect_dma_failures(&state);
     expect_invalid_inputs(&state);
+    expect_insert_allocation_failure(&state);
     return test_finish(&state);
 }

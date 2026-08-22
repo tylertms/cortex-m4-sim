@@ -156,6 +156,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     tests/architecture/cortex_m4/execution/thumb32_memory_test.c
     "core;integration")
   kinetis_k22_add_test(
+    core_memory_faults
+    tests/architecture/cortex_m4/execution/memory_fault_test.c "core;unit")
+  kinetis_k22_add_test(
     core_power tests/architecture/cortex_m4/system/power_test.c
     "core;integration")
   kinetis_k22_add_test(
@@ -194,6 +197,13 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     core_mpu_complete tests/architecture/cortex_m4/system/mpu_test.c
     "core;unit;integration")
+  kinetis_k22_add_test(
+    core_bus_protection
+    tests/architecture/cortex_m4/system/bus_protection_test.c "core;unit")
+  kinetis_k22_add_test(
+    core_fpu_encoding_boundaries
+    tests/architecture/cortex_m4/floating_point/encoding_boundary_test.c
+    "core;unit")
   kinetis_k22_add_test(
     core_instruction_census
     tests/architecture/cortex_m4/execution/instruction_census_test.c
@@ -287,6 +297,12 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_fmc_complete tests/device/kinetis_k22/memory/fmc_test.c
     "device;unit;integration")
   kinetis_k22_add_test(
+    device_dma_faults tests/device/kinetis_k22/memory/dma_fault_test.c
+    "device;unit")
+  kinetis_k22_add_test(
+    device_flash_faults tests/device/kinetis_k22/memory/flash_fault_test.c
+    "device;unit")
+  kinetis_k22_add_test(
     device_io_complete tests/device/kinetis_k22/platform/io_test.c
     "device;integration" tests/device/kinetis_k22/platform/io_boundaries.c)
   kinetis_k22_add_test(
@@ -301,6 +317,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     device_sdhc_complete tests/device/kinetis_k22/communication/sdhc_test.c
     "device;integration")
+  kinetis_k22_enable_allocation_failure(kinetis_k22_device_sdhc_complete_test)
   kinetis_k22_add_test(
     device_sdhc_state_census
     tests/device/kinetis_k22/communication/sdhc_state_census_test.c

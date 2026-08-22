@@ -418,9 +418,6 @@ static CortexM4SystemAccess fpb_write(CortexM4* cpu, uint32_t address, uint8_t s
 
 static CortexM4SystemAccess itm_read(CortexM4* cpu, uint32_t address, uint8_t size,
                                      uint32_t* value) {
-    if (!valid_access(address, size)) {
-        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
-    }
     const uint32_t offset = address - ITM_BASE;
     if (offset < 0x80u && (offset & 3u) == 0) {
         const uint8_t port = (uint8_t)(offset / 4u);
@@ -458,9 +455,6 @@ static CortexM4SystemAccess itm_read(CortexM4* cpu, uint32_t address, uint8_t si
 
 static CortexM4SystemAccess itm_write(CortexM4* cpu, uint32_t address, uint8_t size,
                                       uint32_t value) {
-    if (!valid_access(address, size)) {
-        return CORTEX_M4_SYSTEM_ACCESS_REJECTED;
-    }
     const uint32_t offset = address - ITM_BASE;
     if (offset == CORESIGHT_LAR && word_access(address, size)) {
         cpu->debug.itm_locked = value != CORESIGHT_UNLOCK;

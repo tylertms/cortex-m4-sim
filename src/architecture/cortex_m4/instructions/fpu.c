@@ -453,9 +453,6 @@ static bool execute_scalar_memory(CortexM4* cpu, uint16_t first, uint16_t second
     const uint8_t target = double_register ? (uint8_t)(double_destination(first, second) * 2u)
                                            : single_destination(first, second);
     const uint8_t words = double_register ? 2 : 1;
-    if (target + words > CORTEX_M4_FP_REGISTER_COUNT) {
-        return false;
-    }
     const uint32_t base_value =
         base == 15 ? cpu->registers[15] & ~3u : cortex_m4_read_register_internal(cpu, base);
     const uint32_t offset = (second & 0xffu) * 4u;
@@ -489,10 +486,6 @@ static bool execute_multiple_memory(CortexM4* cpu, uint16_t first, uint16_t seco
     const uint8_t start = double_registers ? (uint8_t)(double_destination(first, second) * 2u)
                                            : single_destination(first, second);
     const uint8_t count = (uint8_t)(second & 0xffu);
-    if (count == 0 || (double_registers && (count & 1u) != 0) ||
-        start + count > CORTEX_M4_FP_REGISTER_COUNT) {
-        return false;
-    }
     const uint32_t base_value = cortex_m4_read_register_internal(cpu, base);
     uint32_t address = add ? base_value : base_value - (uint32_t)count * 4u;
     for (uint8_t index = 0; index < count; index++, address += 4u) {
@@ -532,9 +525,6 @@ static bool execute_core_transfers(CortexM4* cpu, uint16_t first, uint16_t secon
         const bool double_register = (second & 0x0100u) != 0;
         const uint8_t single =
             double_register ? (uint8_t)(double_m(second) * 2u) : single_m(second);
-        if (single + 1u >= CORTEX_M4_FP_REGISTER_COUNT) {
-            return false;
-        }
         if ((first & 0x0010u) != 0) {
             cortex_m4_write_register_internal(cpu, first_core, cpu->fp_registers[single]);
             cortex_m4_write_register_internal(cpu, second_core, cpu->fp_registers[single + 1u]);
