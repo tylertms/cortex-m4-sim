@@ -576,6 +576,7 @@ static void test_invalid_operations(TestState* state) {
     expect(state, !k22_serial_pop_event(&serial, NULL), "!k22_serial_pop_event(&serial, NULL)");
     K22SerialEvent event;
     expect(state, !k22_serial_pop_event(&serial, &event), "!k22_serial_pop_event(&serial, &event)");
+    expect(state, !k22_serial_pop_event(NULL, &event), "!k22_serial_pop_event(NULL, &event)");
     expect(state, !k22_serial_i2c_set_acknowledge(NULL, K22_SERIAL_I2C0, true),
            "!k22_serial_i2c_set_acknowledge(NULL, K22_SERIAL_I2C0, true)");
     expect(state, !k22_serial_i2c_lose_arbitration(NULL, K22_SERIAL_I2C0),
@@ -586,6 +587,31 @@ static void test_invalid_operations(TestState* state) {
            "!k22_serial_irq(&serial, K22_SERIAL_IRQ_COUNT)");
     expect(state, !k22_serial_dma_request(&serial, K22_SERIAL_DMA_COUNT),
            "!k22_serial_dma_request(&serial, K22_SERIAL_DMA_COUNT)");
+    expect(state, !k22_serial_irq(NULL, K22_SERIAL_IRQ_UART0),
+           "!k22_serial_irq(NULL, K22_SERIAL_IRQ_UART0)");
+    expect(state, !k22_serial_dma_request(NULL, K22_SERIAL_DMA_UART0_RECEIVE),
+           "!k22_serial_dma_request(NULL, K22_SERIAL_DMA_UART0_RECEIVE)");
+
+    K22Serial unavailable = {0};
+    k22_serial_advance_endpoint(NULL, K22_SERIAL_UART0);
+    k22_serial_advance_endpoint(&unavailable, K22_SERIAL_I2C0);
+    expect(state,
+           !k22_serial_push_receive(&unavailable, K22_SERIAL_UART0, 0u, 0u) &&
+               !k22_serial_push_receive(&unavailable, K22_SERIAL_SPI0, 0u, 0u) &&
+               !k22_serial_push_receive(&unavailable, K22_SERIAL_I2C0, 0u, 0u),
+           "unavailable serial receivers reject data");
+    expect(state,
+           !k22_serial_pop_transmit(&unavailable, K22_SERIAL_UART0, &output) &&
+               !k22_serial_pop_transmit(&unavailable, K22_SERIAL_SPI0, &output) &&
+               !k22_serial_pop_transmit(&unavailable, K22_SERIAL_I2C0, &output),
+           "unavailable serial transmitters have no data");
+    expect(state, !k22_serial_pop_spi_transfer(&unavailable, K22_SERIAL_SPI0, &transfer),
+           "unavailable SPI has no transfers");
+    expect(state,
+           !k22_serial_i2c_set_acknowledge(&unavailable, K22_SERIAL_I2C0, true) &&
+               !k22_serial_i2c_lose_arbitration(&unavailable, K22_SERIAL_I2C0) &&
+               !k22_serial_i2c_slave_address(&unavailable, K22_SERIAL_I2C0, 0u, false),
+           "unavailable I2C rejects bus events");
 }
 
 int main(void) {

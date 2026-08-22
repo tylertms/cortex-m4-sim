@@ -34,6 +34,9 @@ static void test_invalid_state(TestState* state, K22Timing* timing) {
     expect(state, !k22_timing_set_ewm_input(&invalid, false),
            "EWM input rejects an uninitialized state");
     expect(state, !k22_timing_ewm_output(&invalid), "EWM output rejects an uninitialized state");
+    k22_timing_watchdog_advance(NULL, 1u);
+    k22_timing_watchdog_advance(&invalid, 1u);
+    k22_timing_watchdog_advance(timing, 0u);
     expect(state, !k22_timing_copy(&destination, NULL, k22_timing_test_signals(NULL)),
            "timing copy rejects a null source");
     expect(state, !k22_timing_copy(&destination, &invalid, k22_timing_test_signals(NULL)),
