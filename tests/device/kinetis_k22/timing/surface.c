@@ -1,4 +1,4 @@
-#include "device/kinetis_k22/timing/timing/internal.h"
+#include "device/kinetis_k22/timing/internal.h"
 
 static void unlock_watchdog(TestState* state, K22Timing* timing) {
     k22_timing_test_expect_write(state, timing, WDOG_UNLOCK, 2, 0xc520u);

@@ -115,7 +115,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 
   kinetis_k22_add_test(
     core_reset tests/architecture/cortex_m4/system/reset_test.c "core;unit")
-  kinetis_k22_add_test(core_api tests/architecture/cortex_m4/api/api_test.c
+  kinetis_k22_add_test(core_api tests/architecture/cortex_m4/api_test.c
                        "core;unit;integration")
   kinetis_k22_add_test(
     core_thumb tests/architecture/cortex_m4/execution/thumb_test.c
@@ -243,9 +243,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_sdhc_complete tests/device/kinetis_k22/communication/sdhc_test.c
     "device;integration")
   kinetis_k22_add_test(
-    device_timing_complete tests/device/kinetis_k22/timing/timing/core.c
-    "device;integration" tests/device/kinetis_k22/timing/timing/ftm.c
-    tests/device/kinetis_k22/timing/timing/surface.c)
+    device_timing_complete tests/device/kinetis_k22/timing/core.c
+    "device;integration" tests/device/kinetis_k22/timing/ftm.c
+    tests/device/kinetis_k22/timing/surface.c)
   kinetis_k22_add_test(
     device_watchdog_complete
     tests/device/kinetis_k22/timing/watchdog_api_test.c "device;integration")
