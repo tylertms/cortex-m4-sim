@@ -1,4 +1,4 @@
-#include "device/kinetis_k22/timing/internal.h"
+#include "device/kinetis_k22/timing/support.h"
 
 static void irq_signal(void* context, uint8_t irq, bool asserted) {
     Observations* observations = context;

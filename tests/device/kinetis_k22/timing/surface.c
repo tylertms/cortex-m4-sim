@@ -1,4 +1,4 @@
-#include "device/kinetis_k22/timing/internal.h"
+#include "device/kinetis_k22/timing/support.h"
 
 static void unlock_watchdog(TestState* state, K22Timing* timing) {
     k22_timing_test_expect_write(state, timing, WDOG_UNLOCK, 2, 0xc520u);
@@ -401,6 +401,7 @@ int main(void) {
     k22_timing_test_test_pdb(&state, &timing, &observations);
     k22_timing_test_test_ftm(&state, &timing, &observations);
     k22_timing_test_test_ftm_census(&state, &timing);
+    k22_timing_test_test_state_census(&state, &timing);
     k22_timing_test_test_ftm_input_capture(&state, profile);
     k22_timing_test_test_ftm_output(&state, profile);
     k22_timing_reset(&timing, 0x82u, 0);

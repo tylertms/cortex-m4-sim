@@ -51,7 +51,9 @@ static bool flash_load(K22Data* data, uint32_t address, uint8_t size, uint32_t* 
         *value = k22_data_internal_load_bytes(data->flash_config, address - 0x400u, size);
         return true;
     }
-    return data->bus.read != NULL && data->bus.read(data->bus.context, address, size, value);
+    if (data->bus.read == NULL)
+        return false;
+    return data->bus.read(data->bus.context, address, size, value);
 }
 
 static uint32_t flash_data_size(const K22Data* data) {

@@ -1,5 +1,5 @@
-#ifndef KINETIS_K22_TIMING_TEST_INTERNAL_H
-#define KINETIS_K22_TIMING_TEST_INTERNAL_H
+#ifndef KINETIS_K22_TIMING_TEST_SUPPORT_H
+#define KINETIS_K22_TIMING_TEST_SUPPORT_H
 
 #include "device/kinetis_k22/timing/api.h"
 #include "test.h"
@@ -141,6 +141,7 @@ void k22_timing_test_test_ftm_input_capture(TestState* state, const K22Profile* 
 void k22_timing_test_test_ftm_output(TestState* state, const K22Profile* profile);
 void k22_timing_test_test_ftm(TestState* state, K22Timing* timing, Observations* observations);
 void k22_timing_test_test_ftm_census(TestState* state, K22Timing* timing);
+void k22_timing_test_test_state_census(TestState* state, K22Timing* timing);
 void k22_timing_test_test_low_leakage_wakeup(TestState* state, K22Timing* timing,
                                              Observations* observations);
 void k22_timing_test_test_api_boundaries(TestState* state, K22Timing* timing);

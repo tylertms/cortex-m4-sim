@@ -41,12 +41,15 @@ void k22_timing_internal_trigger_adc_alternate(K22Timing* timing, uint8_t source
 }
 
 bool k22_timing_internal_has(const K22Timing* timing, K22PeripheralId peripheral) {
-    return timing->profile != NULL && k22_profile_has_peripheral(timing->profile, peripheral);
+    if (timing->profile == NULL)
+        return false;
+    return k22_profile_has_peripheral(timing->profile, peripheral);
 }
 
 bool k22_timing_internal_contains(const K22Timing* timing, K22PeripheralId peripheral,
                                   uint32_t address, uint8_t size) {
     K22PeripheralLocation location;
-    return k22_profile_resolve_peripheral(timing->profile, address, size, &location) &&
-           location.id == peripheral;
+    if (!k22_profile_resolve_peripheral(timing->profile, address, size, &location))
+        return false;
+    return location.id == peripheral;
 }

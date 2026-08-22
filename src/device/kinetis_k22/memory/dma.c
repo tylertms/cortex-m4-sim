@@ -98,11 +98,15 @@ void k22_data_internal_dma_error(K22Data* data, uint8_t channel, uint32_t reason
 }
 
 static bool dma_bus_read(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
-    return data->bus.read != NULL && data->bus.read(data->bus.context, address, size, value);
+    if (data->bus.read == NULL)
+        return false;
+    return data->bus.read(data->bus.context, address, size, value);
 }
 
 static bool dma_bus_write(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
-    return data->bus.write != NULL && data->bus.write(data->bus.context, address, size, value);
+    if (data->bus.write == NULL)
+        return false;
+    return data->bus.write(data->bus.context, address, size, value);
 }
 
 static void dma_queue_channel(K22Data* data, uint8_t channel) {

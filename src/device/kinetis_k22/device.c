@@ -6,7 +6,9 @@
 #include "device/kinetis_k22/internal.h"
 
 static bool valid_range(uint32_t address, uint8_t size, uint32_t base, size_t length) {
-    return size != 0 && address >= base && (uint64_t)address + size <= (uint64_t)base + length;
+    if (size == 0u || address < base)
+        return false;
+    return (uint64_t)address + size <= (uint64_t)base + length;
 }
 
 static uint32_t load_little_endian(const uint8_t* bytes, uint8_t size) {
@@ -170,8 +172,9 @@ static bool sysmpu_access_allowed(KinetisK22* device, uint32_t address, uint8_t 
     if (!k22_profile_has_peripheral(device->profile, K22_PERIPHERAL_SYSMPU) ||
         !k22_io_clock_enabled(&device->io, K22_PERIPHERAL_SYSMPU))
         return true;
-    return k22_io_sysmpu_access(&device->io, address, master, supervisor, access) &&
-           k22_io_sysmpu_access(&device->io, address + size - 1u, master, supervisor, access);
+    if (!k22_io_sysmpu_access(&device->io, address, master, supervisor, access))
+        return false;
+    return k22_io_sysmpu_access(&device->io, address + size - 1u, master, supervisor, access);
 }
 
 static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_t size,
@@ -225,8 +228,9 @@ static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_
     if (device->profile->flexram_size != 0u &&
         valid_range(address, size, device->profile->flexram_address,
                     device->profile->flexram_size)) {
-        return flash_access_allowed(device, access, flash_master, false) &&
-               k22_data_read(device->data, address, size, value);
+        if (!flash_access_allowed(device, access, flash_master, false))
+            return false;
+        return k22_data_read(device->data, address, size, value);
     }
     if (device->flexbus_memory != NULL &&
         valid_range(address, size, device->flexbus_address, device->flexbus_size) &&
@@ -268,8 +272,9 @@ static bool memory_write_unprotected(KinetisK22* device, uint32_t address, uint8
     if (device->profile->flexram_size != 0u &&
         valid_range(address, size, device->profile->flexram_address,
                     device->profile->flexram_size)) {
-        return flash_access_allowed(device, access, flash_master, true) &&
-               k22_data_write(device->data, address, size, value);
+        if (!flash_access_allowed(device, access, flash_master, true))
+            return false;
+        return k22_data_write(device->data, address, size, value);
     }
     if (device->flexbus_memory != NULL && !device->flexbus_read_only &&
         valid_range(address, size, device->flexbus_address, device->flexbus_size) &&
@@ -313,15 +318,17 @@ bool kinetis_k22_memory_write(KinetisK22* device, uint32_t address, uint8_t size
 }
 
 bool kinetis_k22_dma_read(KinetisK22* device, uint32_t address, uint8_t size, uint32_t* value) {
-    return device != NULL && value != NULL && (size == 1u || size == 2u || size == 4u) &&
-           sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_READ) &&
-           memory_read_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 2u, value);
+    if (device == NULL || value == NULL || (size != 1u && size != 2u && size != 4u) ||
+        !sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_READ))
+        return false;
+    return memory_read_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 2u, value);
 }
 
 bool kinetis_k22_dma_write(KinetisK22* device, uint32_t address, uint8_t size, uint32_t value) {
-    return device != NULL && (size == 1u || size == 2u || size == 4u) &&
-           sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_WRITE) &&
-           memory_write_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 2u, value);
+    if (device == NULL || (size != 1u && size != 2u && size != 4u) ||
+        !sysmpu_access_allowed(device, address, size, 2u, true, K22_SYSMPU_WRITE))
+        return false;
+    return memory_write_unprotected(device, address, size, CORTEX_M4_ACCESS_DATA, 2u, value);
 }
 
 bool kinetis_k22_flash_controller_write(KinetisK22* device, uint32_t address, uint8_t size,
@@ -409,8 +416,9 @@ static bool k22_read_bus(void* context, uint32_t address, uint8_t size, CortexM4
                          uint32_t* value) {
     KinetisK22* device = context;
     if (address >= K22_BIT_BAND_BASE && address < K22_BIT_BAND_BASE + K22_BIT_BAND_SIZE) {
-        return (size == 1 || size == 2 || size == 4) &&
-               bit_band_read(device, address, access, value);
+        if (size != 1u && size != 2u && size != 4u)
+            return false;
+        return bit_band_read(device, address, access, value);
     }
     return kinetis_k22_memory_read(device, address, size, access, value);
 }
@@ -419,8 +427,9 @@ static bool k22_write_bus(void* context, uint32_t address, uint8_t size, CortexM
                           uint32_t value) {
     KinetisK22* device = context;
     if (address >= K22_BIT_BAND_BASE && address < K22_BIT_BAND_BASE + K22_BIT_BAND_SIZE) {
-        return (size == 1 || size == 2 || size == 4) &&
-               bit_band_write(device, address, access, value);
+        if (size != 1u && size != 2u && size != 4u)
+            return false;
+        return bit_band_write(device, address, access, value);
     }
     return kinetis_k22_memory_write(device, address, size, access, value);
 }
@@ -702,8 +711,7 @@ bool kinetis_k22_copy(KinetisK22* destination, const KinetisK22* source) {
     memcpy(destination->fmc_bank, source->fmc_bank, sizeof(destination->fmc_bank));
     memcpy(destination->fmc_age, source->fmc_age, sizeof(destination->fmc_age));
     destination->fmc_access_count = source->fmc_access_count;
-    if (!k22_usbdcd_copy(&destination->usbdcd, &source->usbdcd))
-        return false;
+    (void)k22_usbdcd_copy(&destination->usbdcd, &source->usbdcd);
     memcpy(destination->comparator_output, source->comparator_output,
            sizeof(destination->comparator_output));
     memcpy(destination->events, source->events, sizeof(destination->events));

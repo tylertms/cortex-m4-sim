@@ -633,7 +633,9 @@ bool kinetis_k22_internal_semantic_read(KinetisK22* device, K22PeripheralId id, 
     }
     if (id == K22_PERIPHERAL_SDHC)
         return k22_sdhc_read(&device->sdhc, address, size, value);
-    return io_peripheral(id) && k22_io_read(&device->io, address, size, value);
+    if (!io_peripheral(id))
+        return false;
+    return k22_io_read(&device->io, address, size, value);
 }
 
 bool kinetis_k22_internal_semantic_write(KinetisK22* device, K22PeripheralId id, uint32_t address,
@@ -656,7 +658,9 @@ bool kinetis_k22_internal_semantic_write(KinetisK22* device, K22PeripheralId id,
     }
     if (id == K22_PERIPHERAL_SDHC)
         return k22_sdhc_write(&device->sdhc, address, size, value);
-    return io_peripheral(id) && k22_io_write(&device->io, address, size, value);
+    if (!io_peripheral(id))
+        return false;
+    return k22_io_write(&device->io, address, size, value);
 }
 
 const K22RegisterDescriptor*

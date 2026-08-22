@@ -236,5 +236,7 @@ bool kinetis_k22_next_event(KinetisK22* device, KinetisK22Event* event) {
 
 bool kinetis_k22_set_adc_channel(KinetisK22* device, uint8_t instance, uint8_t channel,
                                  uint16_t value) {
-    return device != NULL && k22_data_set_adc_input(device->data, instance, channel, value);
+    if (device == NULL)
+        return false;
+    return k22_data_set_adc_input(device->data, instance, channel, value);
 }

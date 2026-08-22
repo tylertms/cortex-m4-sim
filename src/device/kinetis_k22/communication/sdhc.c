@@ -398,6 +398,7 @@ bool k22_sdhc_write(K22Sdhc* sdhc, uint32_t address, uint8_t size, uint32_t valu
 }
 
 bool k22_sdhc_irq(const K22Sdhc* sdhc) {
-    return sdhc != NULL && sdhc->clock_enabled &&
-           (*const_reg(sdhc, SDHC_IRQSTAT) & *const_reg(sdhc, SDHC_IRQSIGEN)) != 0u;
+    if (sdhc == NULL || !sdhc->clock_enabled)
+        return false;
+    return (*const_reg(sdhc, SDHC_IRQSTAT) & *const_reg(sdhc, SDHC_IRQSIGEN)) != 0u;
 }

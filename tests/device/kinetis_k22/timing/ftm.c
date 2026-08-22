@@ -1,4 +1,4 @@
-#include "device/kinetis_k22/timing/internal.h"
+#include "device/kinetis_k22/timing/support.h"
 
 void k22_timing_test_test_pdb(TestState* state, K22Timing* timing, Observations* observations) {
     k22_timing_test_expect_write(state, timing, SIM_SCGC6, 4, timing->sim_scgc6 | (1u << 22u));

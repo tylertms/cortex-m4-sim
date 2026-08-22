@@ -249,9 +249,12 @@ bool k22_serial_push_receive(K22Serial* serial, K22SerialEndpoint endpoint, uint
                k22_serial_internal_fifo_push(&uart->wire_receive, K22_SERIAL_FIFO_CAPACITY, value,
                                              errors & 0x0fu);
     K22SerialSpi* spi = endpoint_spi(serial, endpoint);
-    if (spi != NULL)
-        return spi->present && k22_serial_internal_fifo_push(&spi->wire_receive,
-                                                             K22_SERIAL_FIFO_CAPACITY, value, 0);
+    if (spi != NULL) {
+        if (!spi->present)
+            return false;
+        return k22_serial_internal_fifo_push(&spi->wire_receive, K22_SERIAL_FIFO_CAPACITY, value,
+                                             0);
+    }
     K22SerialI2c* i2c = endpoint_i2c(serial, endpoint);
     if (i2c == NULL || !i2c->present)
         return false;
@@ -270,14 +273,21 @@ bool k22_serial_pop_transmit(K22Serial* serial, K22SerialEndpoint endpoint, uint
         return false;
     bool lpuart;
     K22SerialUart* uart = endpoint_uart(serial, endpoint, &lpuart);
-    if (uart != NULL)
-        return uart->present && k22_serial_internal_fifo_pop(&uart->wire_transmit, value, NULL);
+    if (uart != NULL) {
+        if (!uart->present)
+            return false;
+        return k22_serial_internal_fifo_pop(&uart->wire_transmit, value, NULL);
+    }
     K22SerialSpi* spi = endpoint_spi(serial, endpoint);
-    if (spi != NULL)
-        return spi->present && k22_serial_internal_fifo_pop(&spi->wire_transmit, value, NULL);
+    if (spi != NULL) {
+        if (!spi->present)
+            return false;
+        return k22_serial_internal_fifo_pop(&spi->wire_transmit, value, NULL);
+    }
     K22SerialI2c* i2c = endpoint_i2c(serial, endpoint);
-    return i2c != NULL && i2c->present &&
-           k22_serial_internal_fifo_pop(&i2c->slave_transmit_fifo, value, NULL);
+    if (i2c == NULL || !i2c->present)
+        return false;
+    return k22_serial_internal_fifo_pop(&i2c->slave_transmit_fifo, value, NULL);
 }
 
 bool k22_serial_pop_spi_transfer(K22Serial* serial, K22SerialEndpoint endpoint,

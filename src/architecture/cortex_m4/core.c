@@ -442,12 +442,15 @@ void cortex_m4_set_fpscr(CortexM4* cpu, uint32_t value) {
 }
 
 bool cortex_m4_read_memory(CortexM4* cpu, uint32_t address, uint8_t size, uint32_t* value) {
-    return cpu != NULL && value != NULL &&
-           cortex_m4_bus_read(cpu, address, size, CORTEX_M4_ACCESS_DEBUG, value);
+    if (cpu == NULL || value == NULL)
+        return false;
+    return cortex_m4_bus_read(cpu, address, size, CORTEX_M4_ACCESS_DEBUG, value);
 }
 
 bool cortex_m4_write_memory(CortexM4* cpu, uint32_t address, uint8_t size, uint32_t value) {
-    return cpu != NULL && cortex_m4_bus_write(cpu, address, size, CORTEX_M4_ACCESS_DEBUG, value);
+    if (cpu == NULL)
+        return false;
+    return cortex_m4_bus_write(cpu, address, size, CORTEX_M4_ACCESS_DEBUG, value);
 }
 
 void cortex_m4_set_nz(CortexM4* cpu, uint32_t value) {

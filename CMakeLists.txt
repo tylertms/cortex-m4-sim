@@ -172,6 +172,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_debug_boundary tests/architecture/cortex_m4/system/debug_boundary_test.c
     "core;unit")
   kinetis_k22_add_test(
+    core_debug_census tests/architecture/cortex_m4/system/debug_census_test.c
+    "core;unit")
+  kinetis_k22_add_test(
     core_dsp tests/architecture/cortex_m4/execution/dsp_test.c "core;unit")
   kinetis_k22_add_test(
     core_fpu tests/architecture/cortex_m4/floating_point/fpu_test.c
@@ -184,6 +187,10 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_fpu_edge_complete
     tests/architecture/cortex_m4/floating_point/edge_test.c
     "core;unit;integration")
+  kinetis_k22_add_test(
+    core_fpu_census
+    tests/architecture/cortex_m4/floating_point/census_test.c
+    "core;unit")
   kinetis_k22_add_test(
     core_mpu_complete tests/architecture/cortex_m4/system/mpu_test.c
     "core;unit;integration")
@@ -235,6 +242,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_timing_complete tests/architecture/cortex_m4/system/timing_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
+    core_timing_census tests/architecture/cortex_m4/system/timing_census_test.c
+    "core;unit")
+  kinetis_k22_add_test(
     core_trace tests/architecture/cortex_m4/system/trace_test.c
     "core;integration")
   kinetis_k22_add_test(
@@ -242,6 +252,10 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     device_profile tests/device/kinetis_k22/variants/profile_test.c
     "device;unit")
+  kinetis_k22_add_test(
+    device_boundary_census
+    tests/device/kinetis_k22/platform/device_boundary_test.c "device;unit")
+  kinetis_k22_enable_allocation_failure(kinetis_k22_device_boundary_census_test)
   kinetis_k22_add_test(
     device_register_manifest tests/device/kinetis_k22/variants/manifest_test.c
     "device;unit")
@@ -254,17 +268,30 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     tests/device/kinetis_k22/variants/peripheral_census_test.c
     "device;unit;integration")
   kinetis_k22_add_test(
+    device_stateful_census
+    tests/device/kinetis_k22/platform/stateful_census_test.c
+    "device;integration")
+  kinetis_k22_add_test(
+    device_peripheral_state_census
+    tests/device/kinetis_k22/platform/peripheral_state_census_test.c
+    "device;unit")
+  kinetis_k22_add_test(
     device_data_complete tests/device/kinetis_k22/memory/data/core.c
     "device;integration" tests/device/kinetis_k22/memory/data/flash.c
     tests/device/kinetis_k22/memory/data/swap.c
     tests/device/kinetis_k22/memory/data/boundary.c
-    tests/device/kinetis_k22/memory/data/command_census.c)
+    tests/device/kinetis_k22/memory/data/command_census.c
+    tests/device/kinetis_k22/memory/data/flash_state_census.c
+    tests/device/kinetis_k22/memory/data/state_census.c)
   kinetis_k22_add_test(
     device_fmc_complete tests/device/kinetis_k22/memory/fmc_test.c
     "device;unit;integration")
   kinetis_k22_add_test(
     device_io_complete tests/device/kinetis_k22/platform/io_test.c
     "device;integration" tests/device/kinetis_k22/platform/io_boundaries.c)
+  kinetis_k22_add_test(
+    device_io_state_census
+    tests/device/kinetis_k22/platform/io_state_census_test.c "device;unit")
   kinetis_k22_add_test(
     device_package tests/device/kinetis_k22/variants/package_test.c
     "device;unit")
@@ -275,14 +302,31 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_sdhc_complete tests/device/kinetis_k22/communication/sdhc_test.c
     "device;integration")
   kinetis_k22_add_test(
+    device_sdhc_state_census
+    tests/device/kinetis_k22/communication/sdhc_state_census_test.c
+    "device;unit")
+  kinetis_k22_add_test(
     device_timing_complete tests/device/kinetis_k22/timing/core.c
     "device;integration" tests/device/kinetis_k22/timing/ftm.c
     tests/device/kinetis_k22/timing/surface.c
     tests/device/kinetis_k22/timing/boundaries.c
-    tests/device/kinetis_k22/timing/ftm_census.c)
+    tests/device/kinetis_k22/timing/ftm_census.c
+    tests/device/kinetis_k22/timing/state_census.c)
   kinetis_k22_add_test(
     device_watchdog_complete
     tests/device/kinetis_k22/timing/watchdog_api_test.c "device;integration")
+  kinetis_k22_add_test(
+    device_watchdog_state_census
+    tests/device/kinetis_k22/timing/watchdog_state_census_test.c
+    "device;unit")
+  kinetis_k22_add_test(
+    device_timing_register_state_census
+    tests/device/kinetis_k22/timing/register_state_census_test.c
+    "device;unit")
+  kinetis_k22_add_test(
+    device_ftm_state_census
+    tests/device/kinetis_k22/timing/ftm_state_census_test.c
+    "device;unit")
   kinetis_k22_add_test(
     device_cmt_complete tests/device/kinetis_k22/timing/cmt_test.c
     "device;integration")

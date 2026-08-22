@@ -1,4 +1,4 @@
-#include "device/kinetis_k22/timing/internal.h"
+#include "device/kinetis_k22/timing/support.h"
 
 typedef struct {
     uint8_t edge;

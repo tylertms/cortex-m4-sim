@@ -65,6 +65,8 @@ void k22_data_test_test_dmamux_triggers(TestState* state);
 void k22_data_test_test_flash_collision_lifecycle(TestState* state);
 void k22_data_test_test_flash_command_semantics(TestState* state);
 void k22_data_test_test_flash_command_census(TestState* state);
+void k22_data_test_test_flash_state_census(TestState* state);
+void k22_data_test_test_state_census(TestState* state);
 void k22_data_test_test_flash_commands_and_failures(TestState* state);
 void k22_data_test_test_flash_controller_geometry(TestState* state);
 void k22_data_test_test_flash_flex_copy(TestState* state);

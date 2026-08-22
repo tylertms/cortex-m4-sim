@@ -247,6 +247,7 @@ bool k22_usbdcd_set_pullup(K22UsbDcd* usbdcd, bool enabled) {
 }
 
 bool k22_usbdcd_irq(const K22UsbDcd* usbdcd) {
-    return usbdcd != NULL &&
-           (usbdcd->control & (CONTROL_IF | CONTROL_IE)) == (CONTROL_IF | CONTROL_IE);
+    if (usbdcd == NULL)
+        return false;
+    return (usbdcd->control & (CONTROL_IF | CONTROL_IE)) == (CONTROL_IF | CONTROL_IE);
 }
