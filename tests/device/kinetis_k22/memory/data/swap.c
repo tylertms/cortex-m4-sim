@@ -358,6 +358,7 @@ int main(void) {
     TestState state = {0};
     k22_data_reset(NULL);
     k22_data_test_test_profile_boundaries(&state);
+    k22_data_test_test_api_boundaries(&state);
     k22_data_test_test_dma(&state);
     k22_data_test_test_dma_advanced(&state);
     k22_data_test_test_dmamux_triggers(&state);

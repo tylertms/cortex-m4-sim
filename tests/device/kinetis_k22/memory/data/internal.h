@@ -55,6 +55,7 @@ void k22_data_test_set_flash_data(TestState* state, K22Data* data, const uint8_t
 void k22_data_test_store(uint8_t* bytes, uint32_t offset, uint8_t size, uint32_t value);
 void k22_data_test_test_adc_compare_dma_and_continuous(TestState* state);
 void k22_data_test_test_adc(TestState* state);
+void k22_data_test_test_api_boundaries(TestState* state);
 void k22_data_test_test_dac_cmp_vref(TestState* state);
 void k22_data_test_test_dma_advanced(TestState* state);
 void k22_data_test_test_dma_arbitration_and_control(TestState* state);
