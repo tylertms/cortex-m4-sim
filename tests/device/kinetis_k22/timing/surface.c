@@ -400,6 +400,7 @@ int main(void) {
     k22_timing_test_test_rtc_protection_and_compensation(&state, profile);
     k22_timing_test_test_pdb(&state, &timing, &observations);
     k22_timing_test_test_ftm(&state, &timing, &observations);
+    k22_timing_test_test_ftm_census(&state, &timing);
     k22_timing_test_test_ftm_input_capture(&state, profile);
     k22_timing_test_test_ftm_output(&state, profile);
     k22_timing_reset(&timing, 0x82u, 0);

@@ -140,6 +140,7 @@ void k22_timing_test_test_clock_tree_and_power(TestState* state, K22Timing* timi
 void k22_timing_test_test_ftm_input_capture(TestState* state, const K22Profile* profile);
 void k22_timing_test_test_ftm_output(TestState* state, const K22Profile* profile);
 void k22_timing_test_test_ftm(TestState* state, K22Timing* timing, Observations* observations);
+void k22_timing_test_test_ftm_census(TestState* state, K22Timing* timing);
 void k22_timing_test_test_low_leakage_wakeup(TestState* state, K22Timing* timing,
                                              Observations* observations);
 void k22_timing_test_test_api_boundaries(TestState* state, K22Timing* timing);

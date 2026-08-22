@@ -278,7 +278,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_timing_complete tests/device/kinetis_k22/timing/core.c
     "device;integration" tests/device/kinetis_k22/timing/ftm.c
     tests/device/kinetis_k22/timing/surface.c
-    tests/device/kinetis_k22/timing/boundaries.c)
+    tests/device/kinetis_k22/timing/boundaries.c
+    tests/device/kinetis_k22/timing/ftm_census.c)
   kinetis_k22_add_test(
     device_watchdog_complete
     tests/device/kinetis_k22/timing/watchdog_api_test.c "device;integration")
