@@ -257,7 +257,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_data_complete tests/device/kinetis_k22/memory/data/core.c
     "device;integration" tests/device/kinetis_k22/memory/data/flash.c
     tests/device/kinetis_k22/memory/data/swap.c
-    tests/device/kinetis_k22/memory/data/boundary.c)
+    tests/device/kinetis_k22/memory/data/boundary.c
+    tests/device/kinetis_k22/memory/data/command_census.c)
   kinetis_k22_add_test(
     device_fmc_complete tests/device/kinetis_k22/memory/fmc_test.c
     "device;unit;integration")

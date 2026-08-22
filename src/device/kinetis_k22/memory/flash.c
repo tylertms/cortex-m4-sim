@@ -87,10 +87,8 @@ static bool flash_memory_range(const K22Data* data, uint32_t address, uint32_t l
 }
 
 static bool flash_memory_load(K22Data* data, uint32_t address, uint8_t size, uint32_t* value) {
-    bool data_flash = false;
-    uint32_t offset = 0;
-    if (!flash_memory_range(data, address, size, &data_flash, &offset))
-        return false;
+    const bool data_flash = (address & 0x800000u) != 0u;
+    const uint32_t offset = address & 0x7fffffu;
     if (!data_flash)
         return flash_load(data, offset, size, value);
     *value = k22_data_internal_load_bytes(data->flexnvm, offset, size);
@@ -98,10 +96,8 @@ static bool flash_memory_load(K22Data* data, uint32_t address, uint8_t size, uin
 }
 
 static bool flash_memory_store(K22Data* data, uint32_t address, uint8_t size, uint32_t value) {
-    bool data_flash = false;
-    uint32_t offset = 0;
-    if (!flash_memory_range(data, address, size, &data_flash, &offset))
-        return false;
+    const bool data_flash = (address & 0x800000u) != 0u;
+    const uint32_t offset = address & 0x7fffffu;
     if (!data_flash)
         return flash_store(data, offset, size, value);
     k22_data_internal_store_bytes(data->flexnvm, offset, size, value);
@@ -109,10 +105,8 @@ static bool flash_memory_store(K22Data* data, uint32_t address, uint8_t size, ui
 }
 
 static bool flash_memory_range_protected(const K22Data* data, uint32_t address, uint32_t length) {
-    bool data_flash = false;
-    uint32_t offset = 0;
-    if (length == 0u || !flash_memory_range(data, address, length, &data_flash, &offset))
-        return true;
+    const bool data_flash = (address & 0x800000u) != 0u;
+    const uint32_t offset = address & 0x7fffffu;
     const uint32_t region_count = data_flash ? 8u : 32u;
     const uint32_t memory_size =
         data_flash ? flash_data_size(data) : data->profile->program_flash_size;
@@ -193,8 +187,6 @@ static bool flash_block_range(const K22Data* data, uint32_t address, uint32_t* s
     if (!flash_memory_range(data, address, 1u, data_flash, &offset))
         return false;
     *length = *data_flash ? flash_data_size(data) : flash_block_size(data);
-    if (*length == 0u)
-        return false;
     *start = *data_flash ? 0x800000u : address & ~(*length - 1u);
     return true;
 }
