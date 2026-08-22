@@ -33,6 +33,10 @@ set(kinetis_k22_simulator_sources
     src/device/k22_package.c
     src/device/k22_profile.c
     src/device/k22_register_manifest.c
+    src/device/registers/mk22f12.c
+    src/device/registers/mk22f12810.c
+    src/device/registers/mk22f25612.c
+    src/device/registers/mk22f51212.c
     src/device/k22_sdhc.c
     src/device/k22_serial.c
     src/device/k22_timing.c
@@ -83,7 +87,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     add_executable(${target} ${source} ${ARGN})
     target_compile_features(${target} PRIVATE c_std_11)
     target_include_directories(${target} PRIVATE tests/support tests/device
-                                                   src/core src/device)
+                                                 src/core src/device)
     target_link_libraries(${target} PRIVATE kinetis_k22_simulator)
     if(MSVC)
       target_compile_options(${target} PRIVATE /W4 /WX)
@@ -153,23 +157,24 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                        "core;unit;integration")
   kinetis_k22_add_test(core_trace tests/core/trace_test.c "core;integration")
   kinetis_k22_add_test(device_memory tests/device/model/memory_test.c
-                        "device;unit")
+                       "device;unit")
   kinetis_k22_add_test(device_profile tests/device/model/k22_profile_test.c
                        "device;unit")
-  kinetis_k22_add_test(device_register_manifest
-                       tests/device/model/k22_register_manifest_test.c
-                       "device;unit")
+  kinetis_k22_add_test(
+    device_register_manifest tests/device/model/k22_register_manifest_test.c
+    "device;unit")
   kinetis_k22_add_test(
     device_register_access tests/device/model/k22_register_access_test.c
     "device;integration")
   kinetis_k22_add_test(
     device_data_complete tests/device/data/k22_data_complete_test.c
     "device;integration")
-  kinetis_k22_add_test(device_fmc_complete
-                       tests/device/data/k22_fmc_complete_test.c
-                       "device;unit;integration")
-  kinetis_k22_add_test(device_io_complete tests/device/io/k22_io_complete_test.c
-                       "device;integration")
+  kinetis_k22_add_test(
+    device_fmc_complete tests/device/data/k22_fmc_complete_test.c
+    "device;unit;integration")
+  kinetis_k22_add_test(
+    device_io_complete tests/device/io/k22_io_complete_test.c
+    "device;integration")
   kinetis_k22_add_test(device_package tests/device/model/k22_package_test.c
                        "device;unit")
   kinetis_k22_add_test(
@@ -184,25 +189,24 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     device_watchdog_complete tests/device/timing/k22_watchdog_complete_test.c
     "device;integration")
-  kinetis_k22_add_test(device_cmt_complete
-                       tests/device/timing/k22_cmt_complete_test.c
-                       "device;integration")
+  kinetis_k22_add_test(
+    device_cmt_complete tests/device/timing/k22_cmt_complete_test.c
+    "device;integration")
   kinetis_k22_add_test(
     device_usbdcd_complete tests/device/serial/k22_usbdcd_complete_test.c
     "device;unit;integration")
   kinetis_k22_add_test(
     device_ftm_synchronization
-    tests/device/timing/k22_ftm_synchronization_test.c
+    tests/device/timing/k22_ftm_synchronization_test.c "device;integration")
+  kinetis_k22_add_test(
+    device_ftm_combine tests/device/timing/k22_ftm_combine_test.c
     "device;integration")
-  kinetis_k22_add_test(device_ftm_combine
-                       tests/device/timing/k22_ftm_combine_test.c
-                       "device;integration")
-  kinetis_k22_add_test(device_ftm_deadtime
-                       tests/device/timing/k22_ftm_deadtime_test.c
-                       "device;integration")
-  kinetis_k22_add_test(device_ftm_fault
-                       tests/device/timing/k22_ftm_fault_test.c
-                       "device;integration")
+  kinetis_k22_add_test(
+    device_ftm_deadtime tests/device/timing/k22_ftm_deadtime_test.c
+    "device;integration")
+  kinetis_k22_add_test(
+    device_ftm_fault tests/device/timing/k22_ftm_fault_test.c
+    "device;integration")
   kinetis_k22_add_test(
     device_ftm_quadrature tests/device/timing/k22_ftm_quadrature_test.c
     "device;integration")
@@ -211,38 +215,37 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     tests/device/integration/k22_integration_complete_test.c
     "device;integration")
   kinetis_k22_add_test(
-    device_host_api_complete tests/device/integration/k22_host_api_complete_test.c
-    "device;integration")
+    device_host_api_complete
+    tests/device/integration/k22_host_api_complete_test.c "device;integration")
   kinetis_k22_add_test(
     device_clock_gate_complete
     tests/device/integration/k22_clock_gate_complete_test.c
     "device;integration")
   kinetis_k22_add_test(
     device_sysmpu_integration
-    tests/device/integration/k22_sysmpu_integration_test.c
-    "device;integration")
+    tests/device/integration/k22_sysmpu_integration_test.c "device;integration")
   kinetis_k22_add_test(
     device_infrastructure tests/device/integration/k22_infrastructure_test.c
     "device;integration")
   kinetis_k22_add_test(device_gpio tests/device/io/gpio_test.c
                        "device;integration")
   kinetis_k22_add_test(device_pit tests/device/timing/pit_test.c
-                        "device;integration")
+                       "device;integration")
   kinetis_k22_add_test(device_adc tests/device/data/adc_test.c
-                        "device;integration")
+                       "device;integration")
   kinetis_k22_add_test(device_uart tests/device/serial/uart_test.c
                        "device;integration")
   kinetis_k22_add_test(device_spi tests/device/serial/spi_test.c
-                        "device;integration")
+                       "device;integration")
   kinetis_k22_add_test(device_dma tests/device/data/dma_test.c
-                        "device;integration")
+                       "device;integration")
   kinetis_k22_add_test(device_i2c tests/device/serial/i2c_test.c
-                        "device;integration")
+                       "device;integration")
   kinetis_k22_add_test(device_watchdog tests/device/timing/watchdog_test.c
                        "device;integration")
-  kinetis_k22_add_test(device_clock_power
-                       tests/device/timing/clock_power_test.c
-                       "device;integration")
+  kinetis_k22_add_test(
+    device_clock_power tests/device/timing/clock_power_test.c
+    "device;integration")
   kinetis_k22_add_test(firmware_image tests/system/firmware_image_test.c
                        "runner;system")
   target_link_libraries(kinetis_k22_firmware_image_test

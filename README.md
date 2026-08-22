@@ -16,7 +16,7 @@ The 50 MHz K22D5 devices use Cortex-M4 cores without floating-point units and a 
 
 - `include/` contains the public Cortex-M4F, K22, and firmware-image APIs.
 - `src/core/` contains the Armv7E-M processor implementation.
-- `src/device/` contains K22 profiles, register manifests, and peripheral domains.
+- `src/device/` contains the K22 device model, profiles, and profile-specific register data.
 - `src/image/` and `src/runner/` contain firmware loading and the command-line runner.
 - `tests/` mirrors the core, device, and system boundaries.
 

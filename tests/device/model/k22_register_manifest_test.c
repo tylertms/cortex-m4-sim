@@ -8,16 +8,16 @@
 
 #define K22_EXPECTED_PERIPHERAL(name) name,
 static const char* const mk22f12810_peripherals[] = {
-#include "expected/mk22f12810_peripherals.inc"
+#include "expected/mk22f12810_peripherals.def"
 };
 static const char* const mk22f25612_peripherals[] = {
-#include "expected/mk22f25612_peripherals.inc"
+#include "expected/mk22f25612_peripherals.def"
 };
 static const char* const mk22f51212_peripherals[] = {
-#include "expected/mk22f51212_peripherals.inc"
+#include "expected/mk22f51212_peripherals.def"
 };
 static const char* const mk22f12_peripherals[] = {
-#include "expected/mk22f12_peripherals.inc"
+#include "expected/mk22f12_peripherals.def"
 };
 #undef K22_EXPECTED_PERIPHERAL
 
@@ -26,16 +26,16 @@ static const char* const mk22f12_peripherals[] = {
     {address,  reset_value,      reset_mask, implemented_mask,         read_mask, write_mask,      \
      w1c_mask, peripheral_index, width,      (K22RegisterAccess)access},
 static const K22RegisterDescriptor mk22f12810_registers[] = {
-#include "expected/mk22f12810_registers.inc"
+#include "expected/mk22f12810_registers.def"
 };
 static const K22RegisterDescriptor mk22f25612_registers[] = {
-#include "expected/mk22f25612_registers.inc"
+#include "expected/mk22f25612_registers.def"
 };
 static const K22RegisterDescriptor mk22f51212_registers[] = {
-#include "expected/mk22f51212_registers.inc"
+#include "expected/mk22f51212_registers.def"
 };
 static const K22RegisterDescriptor mk22f12_registers[] = {
-#include "expected/mk22f12_registers.inc"
+#include "expected/mk22f12_registers.def"
 };
 #undef K22_EXPECTED_REGISTER
 
@@ -53,7 +53,7 @@ typedef struct {
     {family##_registers, register_count,  family##_peripherals,                                    \
      peripheral_count,   register_digest, peripheral_digest},
 static const ExpectedManifest expected_manifests[] = {
-#include "expected/k22_register_manifest_constants.inc"
+#include "expected/k22_register_manifest_constants.def"
 };
 #undef K22_EXPECTED_MANIFEST
 

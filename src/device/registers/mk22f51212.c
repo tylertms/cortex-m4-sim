@@ -1,3 +1,7 @@
+#include "k22_register_data.h"
+
+#define COUNT(array) (sizeof(array) / sizeof((array)[0]))
+
 
 static const char* const mk22f51212_peripherals[] = {
     "FTFA_FlashConfig",
@@ -2555,3 +2559,12 @@ static const K22RegisterDescriptor mk22f51212_registers[] = {
     {0xe0080040u, 0x00000000u, 0xffffffffu, 0x00000007u, 0x00000007u, 0x00000005u, 0x00000000u, 54u,
      32u, (K22RegisterAccess)3},
 };
+
+const K22RegisterManifest* k22_mk22fn51212_register_manifest(void) {
+    static const K22RegisterManifest manifest = {
+        K22_PROFILE_MK22FN51212, mk22f51212_registers, COUNT(mk22f51212_registers),
+        mk22f51212_peripherals, COUNT(mk22f51212_peripherals),
+        UINT64_C(0x888f32dea7d49bde), UINT64_C(0xcb5f795ba1e30ea8),
+    };
+    return &manifest;
+}

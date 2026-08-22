@@ -2,32 +2,25 @@
 
 #include <string.h>
 
-#include "registers/mk22f12810.inc"
-#include "registers/mk22f25612.inc"
-#include "registers/mk22f51212.inc"
-#include "registers/mk22f12.inc"
-
-#define COUNT(array) (sizeof(array) / sizeof((array)[0]))
-
-static const K22RegisterManifest manifests[K22_PROFILE_COUNT] = {
-    {(K22ProfileId)0, mk22f12810_registers, COUNT(mk22f12810_registers), mk22f12810_peripherals,
-     COUNT(mk22f12810_peripherals), UINT64_C(0xf61e2e5f714e55ac), UINT64_C(0x8b036d005f6d0028)},
-    {(K22ProfileId)1, mk22f25612_registers, COUNT(mk22f25612_registers), mk22f25612_peripherals,
-     COUNT(mk22f25612_peripherals), UINT64_C(0x3c6c83a0b34beb78), UINT64_C(0x79118955ad2407ab)},
-    {(K22ProfileId)2, mk22f25612_registers, COUNT(mk22f25612_registers), mk22f25612_peripherals,
-     COUNT(mk22f25612_peripherals), UINT64_C(0x3c6c83a0b34beb78), UINT64_C(0x79118955ad2407ab)},
-    {(K22ProfileId)3, mk22f51212_registers, COUNT(mk22f51212_registers), mk22f51212_peripherals,
-     COUNT(mk22f51212_peripherals), UINT64_C(0x888f32dea7d49bde), UINT64_C(0xcb5f795ba1e30ea8)},
-    {(K22ProfileId)4, mk22f12_registers, COUNT(mk22f12_registers), mk22f12_peripherals,
-     COUNT(mk22f12_peripherals), UINT64_C(0xfa25597b9f6fc31f), UINT64_C(0x640ec2eadda02f54)},
-    {(K22ProfileId)5, mk22f12_registers, COUNT(mk22f12_registers), mk22f12_peripherals,
-     COUNT(mk22f12_peripherals), UINT64_C(0xfa25597b9f6fc31f), UINT64_C(0x640ec2eadda02f54)},
-};
+#include "registers/k22_register_data.h"
 
 const K22RegisterManifest* k22_register_manifest_get(K22ProfileId profile) {
-    if (profile < 0 || profile >= K22_PROFILE_COUNT)
+    switch (profile) {
+    case K22_PROFILE_MK22F12810:
+        return k22_mk22f12810_register_manifest();
+    case K22_PROFILE_MK22FN12812:
+        return k22_mk22fn12812_register_manifest();
+    case K22_PROFILE_MK22FN25612:
+        return k22_mk22fn25612_register_manifest();
+    case K22_PROFILE_MK22FN51212:
+        return k22_mk22fn51212_register_manifest();
+    case K22_PROFILE_MK22FN1M012:
+        return k22_mk22fn1m012_register_manifest();
+    case K22_PROFILE_MK22FX51212:
+        return k22_mk22fx51212_register_manifest();
+    default:
         return NULL;
-    return &manifests[profile];
+    }
 }
 
 const K22RegisterDescriptor* k22_register_manifest_lookup(K22ProfileId profile, uint32_t address,
