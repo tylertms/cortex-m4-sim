@@ -78,6 +78,57 @@ static void test_reset_and_boundaries(TestState* state) {
            "cortex_m4_debug_read(NULL, DHCSR, 4, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
     expect(state, cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "cortex_m4_debug_read(&cpu, DHCSR, 4, NULL) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_read(&cpu, DHCSR, 2, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(&cpu, DHCSR, 2, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_write(&cpu, DHCSR, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, DHCSR, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_write(NULL, DHCSR, 4, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(NULL, DHCSR, 4, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_write(&cpu, DWT_BASE, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, DWT_BASE, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_write(&cpu, FPB_BASE, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, FPB_BASE, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state,
+           cortex_m4_debug_write(&cpu, FPB_BASE + CORESIGHT_LSR, 4, 0u) ==
+               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "cortex_m4_debug_write(&cpu, FPB_BASE + CORESIGHT_LSR, 4, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state,
+           cortex_m4_debug_read(&cpu, ITM_BASE + 1u, 2, &value) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(&cpu, ITM_BASE + 1u, 2, &value) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state,
+           cortex_m4_debug_read(&cpu, ITM_BASE + 0x81u, 1, &value) ==
+               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(&cpu, ITM_BASE + 0x81u, 1, &value) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state,
+           cortex_m4_debug_read(&cpu, ITM_BASE + 0x100u, 4, &value) ==
+               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_read(&cpu, ITM_BASE + 0x100u, 4, &value) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state,
+           cortex_m4_debug_write(&cpu, ITM_BASE + 1u, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, ITM_BASE + 1u, 2, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    debug_write(state, &cpu, ITM_BASE + CORESIGHT_LAR, 4, CORESIGHT_UNLOCK);
+    expect(state,
+           cortex_m4_debug_write(&cpu, ITM_BASE + CORESIGHT_LSR, 4, 0u) ==
+               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "cortex_m4_debug_write(&cpu, ITM_BASE + CORESIGHT_LSR, 4, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_ACCEPTED");
+    expect(state,
+           cortex_m4_debug_write(&cpu, ITM_BASE + 0x81u, 1, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, ITM_BASE + 0x81u, 1, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state,
+           cortex_m4_debug_write(&cpu, ITM_BASE + 0x100u, 4, 0u) ==
+               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, ITM_BASE + 0x100u, 4, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
+    expect(state, cortex_m4_debug_write(&cpu, TPIU_BASE, 2, 0u) == CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "cortex_m4_debug_write(&cpu, TPIU_BASE, 2, 0u) == "
+           "CORTEX_M4_SYSTEM_ACCESS_REJECTED");
 }
 
 static void test_halt_and_step(TestState* state) {
@@ -346,6 +397,12 @@ static void test_dwt(TestState* state) {
     cortex_m4_debug_memory_access(&cpu, 0x20000200u, 2u, false, 0xa55au);
     expect(state, (cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0u,
            "(cpu.debug.dwt_comparators[2].function & (1u << 24)) != 0u");
+    cortex_m4_debug_memory_access(&cpu, 0x20000200u, 3u, false, 0xa55au);
+    debug_write(state, &cpu, DWT_BASE + 0x48u, 4, 5u | (4u << 12));
+    cortex_m4_debug_memory_access(&cpu, 0x20000200u, 1u, false, 0x5au);
+    debug_write(state, &cpu, DWT_BASE + 0x48u, 4, 5u | (1u << 8) | (1u << 12));
+    debug_write(state, &cpu, DWT_BASE + 0x40u, 4, 0xa5u);
+    cortex_m4_debug_memory_access(&cpu, 0x20000200u, 1u, false, 0x5au);
 }
 
 static void test_fpb(TestState* state) {

@@ -2,6 +2,7 @@
 #define KINETIS_K22_DATA_TEST_INTERNAL_H
 
 #include "device/kinetis_k22/memory/api.h"
+#include "device/kinetis_k22/memory/internal.h"
 
 #include <stdint.h>
 #include <string.h>

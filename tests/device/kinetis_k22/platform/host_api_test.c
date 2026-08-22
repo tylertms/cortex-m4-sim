@@ -43,6 +43,15 @@ static void serial_write(TestState* state, KinetisK22* device, uint32_t address,
 }
 
 static void test_data_api(TestState* state, KinetisK22* device) {
+    const uint32_t seeded = 0x12345678u;
+    uint32_t loaded = 0u;
+    expect(state, kinetis_k22_seed(device, 0x20000000u, &seeded, sizeof(seeded)),
+           "kinetis_k22_seed(device, 0x20000000u, &seeded, sizeof(seeded))");
+    expect(state,
+           kinetis_k22_read(device, 0x20000000u, &loaded, sizeof(loaded)) && loaded == seeded,
+           "kinetis_k22_read(device, 0x20000000u, &loaded, sizeof(loaded)) && loaded == seeded");
+    expect(state, !kinetis_k22_seed(NULL, 0u, &seeded, sizeof(seeded)),
+           "!kinetis_k22_seed(NULL, 0u, &seeded, sizeof(seeded))");
     expect(state, kinetis_k22_set_adc_channel(device, 0u, 31u, 0x1234u),
            "kinetis_k22_set_adc_channel(device, 0u, 31u, 0x1234u)");
     expect(state, !kinetis_k22_set_adc_channel(device, 2u, 0u, 0u),
@@ -242,13 +251,74 @@ static void test_io_api(TestState* state, KinetisK22* device) {
            "!kinetis_k22_i2s_transmit(NULL, &sample)");
     expect(state, !kinetis_k22_i2s_receive(NULL, 0u), "!kinetis_k22_i2s_receive(NULL, 0u)");
 
-    kinetis_k22_gpio_drive(device, 0u, 1u, true);
-    kinetis_k22_gpio_release(device, 0u, 1u);
-    kinetis_k22_gpio_drive(NULL, 0u, 0u, false);
-    kinetis_k22_gpio_release(NULL, 0u, 0u);
+    bool high = false;
+    expect(state, kinetis_k22_gpio_drive(device, 0u, 1u, true),
+           "kinetis_k22_gpio_drive(device, 0u, 1u, true)");
+    expect(state, kinetis_k22_gpio_pin(device, 0u, 1u, &high) && high,
+           "kinetis_k22_gpio_pin(device, 0u, 1u, &high) && high");
+    expect(state, kinetis_k22_gpio_release(device, 0u, 1u),
+           "kinetis_k22_gpio_release(device, 0u, 1u)");
+    expect(state, !kinetis_k22_gpio_pin(NULL, 0u, 1u, &high),
+           "!kinetis_k22_gpio_pin(NULL, 0u, 1u, &high)");
+    expect(state, !kinetis_k22_gpio_pin(device, 0u, 1u, NULL),
+           "!kinetis_k22_gpio_pin(device, 0u, 1u, NULL)");
+    expect(state, !kinetis_k22_gpio_pin(device, UINT8_MAX, 0u, &high),
+           "!kinetis_k22_gpio_pin(device, UINT8_MAX, 0u, &high)");
+    expect(state, !kinetis_k22_gpio_drive(NULL, 0u, 0u, false),
+           "!kinetis_k22_gpio_drive(NULL, 0u, 0u, false)");
+    expect(state, !kinetis_k22_gpio_release(NULL, 0u, 0u),
+           "!kinetis_k22_gpio_release(NULL, 0u, 0u)");
 }
 
 static void test_guards(TestState* state, KinetisK22* device) {
+    uint32_t value = 0u;
+    const uint8_t memory[] = {1u, 2u, 3u, 4u};
+    expect(state, !kinetis_k22_reset(NULL), "!kinetis_k22_reset(NULL)");
+    expect(state, !kinetis_k22_load(NULL, 0u, memory, sizeof(memory)),
+           "!kinetis_k22_load(NULL, 0u, memory, sizeof(memory))");
+    expect(state, !kinetis_k22_load(device, 0u, NULL, sizeof(memory)),
+           "!kinetis_k22_load(device, 0u, NULL, sizeof(memory))");
+    expect(state, !kinetis_k22_load(device, UINT32_MAX, memory, sizeof(memory)),
+           "!kinetis_k22_load(device, UINT32_MAX, memory, sizeof(memory))");
+    expect(state, !kinetis_k22_read(NULL, 0u, &value, sizeof(value)),
+           "!kinetis_k22_read(NULL, 0u, &value, sizeof(value))");
+    expect(state, !kinetis_k22_read(device, 0u, NULL, sizeof(value)),
+           "!kinetis_k22_read(device, 0u, NULL, sizeof(value))");
+    expect(state, !kinetis_k22_write(NULL, 0u, &value, sizeof(value)),
+           "!kinetis_k22_write(NULL, 0u, &value, sizeof(value))");
+    expect(state, !kinetis_k22_write(device, 0u, NULL, sizeof(value)),
+           "!kinetis_k22_write(device, 0u, NULL, sizeof(value))");
+    expect(state, !kinetis_k22_copy(NULL, device), "!kinetis_k22_copy(NULL, device)");
+    expect(state, !kinetis_k22_copy(device, NULL), "!kinetis_k22_copy(device, NULL)");
+    expect(state, !kinetis_k22_memory_read(NULL, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, &value),
+           "!kinetis_k22_memory_read(NULL, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, &value)");
+    expect(state, !kinetis_k22_memory_read(device, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, NULL),
+           "!kinetis_k22_memory_read(device, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, NULL)");
+    expect(state, !kinetis_k22_memory_read(device, 0u, 3u, CORTEX_M4_ACCESS_DEBUG, &value),
+           "!kinetis_k22_memory_read(device, 0u, 3u, CORTEX_M4_ACCESS_DEBUG, &value)");
+    expect(state, !kinetis_k22_memory_write(NULL, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, value),
+           "!kinetis_k22_memory_write(NULL, 0u, 4u, CORTEX_M4_ACCESS_DEBUG, value)");
+    expect(state, !kinetis_k22_memory_write(device, 0u, 3u, CORTEX_M4_ACCESS_DEBUG, value),
+           "!kinetis_k22_memory_write(device, 0u, 3u, CORTEX_M4_ACCESS_DEBUG, value)");
+    expect(state, !kinetis_k22_flash_controller_write(NULL, 0u, 4u, value),
+           "!kinetis_k22_flash_controller_write(NULL, 0u, 4u, value)");
+    expect(state, !kinetis_k22_flash_controller_write(device, UINT32_MAX, 4u, value),
+           "!kinetis_k22_flash_controller_write(device, UINT32_MAX, 4u, value)");
+    expect(state, !kinetis_k22_flexbus_attach(NULL, 0u, memory, sizeof(memory), false),
+           "!kinetis_k22_flexbus_attach(NULL, 0u, memory, sizeof(memory), false)");
+    expect(state, !kinetis_k22_flexbus_attach(device, 0u, NULL, sizeof(memory), false),
+           "!kinetis_k22_flexbus_attach(device, 0u, NULL, sizeof(memory), false)");
+    expect(state, !kinetis_k22_flexbus_attach(device, 0u, memory, 0u, false),
+           "!kinetis_k22_flexbus_attach(device, 0u, memory, 0u, false)");
+    expect(state, !kinetis_k22_flexbus_attach(device, UINT32_MAX, memory, sizeof(memory), false),
+           "!kinetis_k22_flexbus_attach(device, UINT32_MAX, memory, sizeof(memory), false)");
+    kinetis_k22_flexbus_detach(NULL);
+    expect(state, !kinetis_k22_flexbus_read(NULL, 0u, &value, sizeof(value)),
+           "!kinetis_k22_flexbus_read(NULL, 0u, &value, sizeof(value))");
+    expect(state, !kinetis_k22_flexbus_read(device, 0u, NULL, sizeof(value)),
+           "!kinetis_k22_flexbus_read(device, 0u, NULL, sizeof(value))");
+    expect(state, !kinetis_k22_flexbus_read(device, 0u, &value, sizeof(value)),
+           "!kinetis_k22_flexbus_read(device, 0u, &value, sizeof(value))");
     expect(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_NONE),
            "kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_NONE)");
     expect(state, kinetis_k22_set_usb_charger(device, KINETIS_K22_USB_CHARGER_ERROR),

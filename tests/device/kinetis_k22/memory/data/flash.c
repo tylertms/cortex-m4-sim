@@ -274,6 +274,10 @@ void k22_data_test_test_flash_commands_and_failures(TestState* state) {
     bus.fail_read = false;
     k22_data_test_write_value(state, data, FTFA, 1, 0x20u);
     bus.fail_write = true;
+    k22_data_test_flash_command(state, data, 0x07u, 0x3000u, 40u);
+    expect(state, (k22_data_test_read_value(state, data, FTFA, 1) & 0x20u) != 0u,
+           "(k22_data_test_read_value(state, data, FTFA, 1) & 0x20u) != 0u");
+    k22_data_test_write_value(state, data, FTFA, 1, 0x20u);
     k22_data_test_flash_command(state, data, 0x09u, 0x4000u, 2000u);
     expect(state, (k22_data_test_read_value(state, data, FTFA, 1) & 0x20u) != 0u,
            "(k22_data_test_read_value(state, data, FTFA, 1) & 0x20u) != 0u");
@@ -453,6 +457,20 @@ void k22_data_test_test_flash_command_semantics(TestState* state) {
            "(k22_data_test_read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u");
     expect(state, k22_data_test_read_value(state, data, 0x10000000u, 4u) == UINT32_MAX,
            "k22_data_test_read_value(state, data, 0x10000000u, 4u) == UINT32_MAX");
+    k22_data_test_write_fccob(state, data, 1u, 0xffu);
+    k22_data_test_flash_command_without_address(state, data, 0x81u, 40u);
+    expect(state, (k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) == 0u,
+           "(k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) == 0u");
+    for (uint8_t index = 0u; index < 16u; index++)
+        k22_data_test_write_value(state, data, 0x14000000u + index, 1u, (uint8_t)index);
+    bus.fail_write = true;
+    k22_data_test_write_fccob(state, data, 4u, 0u);
+    k22_data_test_write_fccob(state, data, 5u, 1u);
+    k22_data_test_flash_command(state, data, 0x0bu, 0x5000u, 40u);
+    expect(state, (k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) != 0u,
+           "(k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) != 0u");
+    bus.fail_write = false;
+    k22_data_test_clear_flash_status(state, data);
     k22_data_reset(data);
     expect(state, (k22_data_test_read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u,
            "(k22_data_test_read_value(state, data, FTFA + 1u, 1u) & 3u) == 1u");
@@ -599,13 +617,13 @@ void k22_data_test_test_flash_command_semantics(TestState* state) {
     expect(state, (k22_data_test_read_value(state, data, FTFA + 2u, 1u) & 3u) == 2u,
            "(k22_data_test_read_value(state, data, FTFA + 2u, 1u) & 3u) == 2u");
     k22_data_reset(data);
-    configuration[0] ^= 0xffu;
-    k22_data_test_set_flash_data(state, data, configuration, 8u);
+    uint8_t constant_key[8];
+    memset(constant_key, 0xff, sizeof(constant_key));
+    k22_data_test_set_flash_data(state, data, constant_key, sizeof(constant_key));
     k22_data_test_flash_command(state, data, 0x45u, 0u, 40u);
     expect(state, (k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) != 0u,
            "(k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) != 0u");
     k22_data_test_clear_flash_status(state, data);
-    configuration[0] ^= 0xffu;
     k22_data_test_set_flash_data(state, data, configuration, 8u);
     k22_data_test_flash_command(state, data, 0x45u, 0u, 40u);
     expect(state, (k22_data_test_read_value(state, data, FTFA, 1u) & 0x20u) != 0u,
