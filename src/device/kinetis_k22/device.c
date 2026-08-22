@@ -176,9 +176,6 @@ static bool sysmpu_access_allowed(KinetisK22* device, uint32_t address, uint8_t 
 
 static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_t size,
                                     CortexM4Access access, uint8_t flash_master, uint32_t* value) {
-    if (device == NULL || value == NULL || (size != 1 && size != 2 && size != 4)) {
-        return false;
-    }
     if (valid_range(address, size, K22_FLASH_BASE, device->configuration.flash_size)) {
         if (!flash_access_allowed(device, access, flash_master, false)) {
             return false;
@@ -243,9 +240,6 @@ static bool memory_read_unprotected(KinetisK22* device, uint32_t address, uint8_
 
 static bool memory_write_unprotected(KinetisK22* device, uint32_t address, uint8_t size,
                                      CortexM4Access access, uint8_t flash_master, uint32_t value) {
-    if (device == NULL || (size != 1 && size != 2 && size != 4)) {
-        return false;
-    }
     if (valid_range(address, size, K22_FLASH_BASE, device->configuration.flash_size)) {
         if (access != CORTEX_M4_ACCESS_DEBUG) {
             return false;

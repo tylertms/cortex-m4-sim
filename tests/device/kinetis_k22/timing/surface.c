@@ -370,6 +370,11 @@ static void test_edge_paths(TestState* state, const K22Profile* profile) {
 
 int main(void) {
     TestState state = {0};
+    uint64_t remainder = 0u;
+    expect(&state,
+           k22_timing_internal_clock_ticks(&remainder, 1u, 0u, 1u) == 0u &&
+               k22_timing_internal_clock_ticks(&remainder, 1u, 1u, 0u) == 0u,
+           "clock conversion rejects stopped clocks");
     Observations observations = {0};
     K22Timing timing;
     const K22Profile* profile = k22_profile_get(K22_PROFILE_MK22FN51212);

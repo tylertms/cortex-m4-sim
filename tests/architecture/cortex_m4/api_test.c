@@ -181,6 +181,11 @@ static void test_api_boundaries(TestState* state) {
     expect(state, carry, "carry");
     expect(state, cortex_m4_bus_write(cpu, 0xe000ed94u, 4u, CORTEX_M4_ACCESS_DEBUG, 1u),
            "cortex_m4_bus_write(cpu, 0xe000ed94u, 4u, CORTEX_M4_ACCESS_DEBUG, 1u)");
+    uint32_t value = 0u;
+    expect(state, !cortex_m4_bus_read(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, &value) &&
+                      !cortex_m4_bus_read(cpu, 0u, 1u, CORTEX_M4_ACCESS_DATA, NULL) &&
+                      !cortex_m4_bus_write(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, 0u),
+           "core bus rejects invalid access widths and outputs");
     cpu->ccr |= 1u << 3u;
     expect(state, !cortex_m4_data_write(cpu, 1u, 4u, CORTEX_M4_ACCESS_DATA, 0u),
            "!cortex_m4_data_write(cpu, 1u, 4u, CORTEX_M4_ACCESS_DATA, 0u)");

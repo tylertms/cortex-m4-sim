@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "device/kinetis_k22/internal.h"
+#include "allocation_failure.h"
 #include "test.h"
 
 enum {
@@ -180,6 +181,8 @@ static void test_serial_api(TestState* state, KinetisK22* device) {
            "!kinetis_k22_spi_transfer(device, KINETIS_K22_SERIAL_UART0, &spi)");
     expect(state, !kinetis_k22_spi_transfer(device, KINETIS_K22_SERIAL_SPI0, NULL),
            "!kinetis_k22_spi_transfer(device, KINETIS_K22_SERIAL_SPI0, NULL)");
+    expect(state, !kinetis_k22_spi_transfer(device, KINETIS_K22_SERIAL_SPI0, &spi),
+           "empty SPI transfer queue is reported");
 
     expect(state, k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C0, true),
            "k22_serial_set_clock_gate(&device->serial, K22_PERIPHERAL_I2C0, true)");
@@ -215,6 +218,30 @@ static void test_serial_api(TestState* state, KinetisK22* device) {
            "kinetis_k22_i2c_receive(device, KINETIS_K22_SERIAL_I2C0, 0x6bu)");
     expect(state, !kinetis_k22_i2c_receive(device, KINETIS_K22_SERIAL_UART0, 0u),
            "!kinetis_k22_i2c_receive(device, KINETIS_K22_SERIAL_UART0, 0u)");
+
+    uint8_t uart_value = 0u;
+    uint16_t spi_value = 0u;
+    expect(state, !kinetis_k22_uart1_receive(NULL, 0u, 0u) &&
+                      !kinetis_k22_uart1_transmit(NULL, &uart_value) &&
+                      !kinetis_k22_uart1_transmit(device, NULL) &&
+                      !kinetis_k22_spi0_receive(NULL, 0u) &&
+                      !kinetis_k22_spi0_transmit(NULL, &spi_value) &&
+                      !kinetis_k22_spi0_transmit(device, NULL) &&
+                      !kinetis_k22_i2c0_receive(NULL, 0u),
+           "legacy serial APIs reject null arguments");
+    uint16_t uart_accepted = 0u;
+    uint16_t spi_accepted = 0u;
+    while (uart_accepted <= K22_SERIAL_FIFO_CAPACITY &&
+           kinetis_k22_uart1_receive(device, (uint8_t)uart_accepted, 0u))
+        uart_accepted++;
+    while (spi_accepted <= K22_SERIAL_FIFO_CAPACITY &&
+           kinetis_k22_spi0_receive(device, spi_accepted))
+        spi_accepted++;
+    expect(state, uart_accepted != 0u && spi_accepted != 0u,
+           "legacy serial receive queues accept data before filling");
+    expect(state, !kinetis_k22_uart1_receive(device, 0u, 0u) &&
+                      !kinetis_k22_spi0_receive(device, 0u),
+           "legacy serial receive queues reject overflow");
 }
 
 static void test_io_api(TestState* state, KinetisK22* device) {
@@ -342,6 +369,39 @@ static void test_guards(TestState* state, KinetisK22* device) {
     expect(state, !kinetis_k22_next_event(device, NULL), "!kinetis_k22_next_event(device, NULL)");
 }
 
+#ifdef K22_TEST_ALLOCATION_FAILURE
+static void test_allocation_failures(TestState* state) {
+    KinetisK22Configuration configuration = kinetis_k22_default_configuration();
+    configuration.profile = KINETIS_K22_PROFILE_MK22FN1M012;
+    configuration.package = KINETIS_K22_PACKAGE_LQ_144_LQFP;
+    configuration.flash_size = 4096u;
+    configuration.sram_size = 65536u;
+    uint32_t failures = 0u;
+    uint32_t successes = 0u;
+    for (size_t accepted = 0u; accepted < 24u; accepted++) {
+        test_fail_allocation_after(accepted);
+        KinetisK22* device = kinetis_k22_create(configuration);
+        test_allow_allocations();
+        if (device == NULL) {
+            failures++;
+        } else {
+            successes++;
+            kinetis_k22_destroy(device);
+        }
+    }
+    expect(state, failures >= 6u && successes != 0u,
+           "device construction handles each allocation boundary");
+
+    KinetisK22* device = kinetis_k22_create(configuration);
+    const uint8_t memory[] = {1u, 2u, 3u, 4u};
+    test_fail_allocation_after(0u);
+    bool attached = kinetis_k22_flexbus_attach(device, 0u, memory, sizeof(memory), false);
+    test_allow_allocations();
+    expect(state, !attached, "FlexBus attachment reports allocation failure");
+    kinetis_k22_destroy(device);
+}
+#endif
+
 int main(void) {
     TestState state = {0};
     KinetisK22* device = create_device(&state);
@@ -350,5 +410,8 @@ int main(void) {
     test_io_api(&state, device);
     test_guards(&state, device);
     kinetis_k22_destroy(device);
+#ifdef K22_TEST_ALLOCATION_FAILURE
+    test_allocation_failures(&state);
+#endif
     return test_finish(&state);
 }

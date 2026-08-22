@@ -62,6 +62,8 @@ static void test_reset_and_access(TestState* state) {
            "!k22_usbdcd_read(&usbdcd, CONTROL, 2u, &value)");
     expect(state, !k22_usbdcd_read(&usbdcd, CONTROL + 1u, 4u, &value),
            "!k22_usbdcd_read(&usbdcd, CONTROL + 1u, 4u, &value)");
+    expect(state, !k22_usbdcd_read(&usbdcd, CONTROL + 0x0cu, 4u, &value),
+           "unimplemented USB DCD register is rejected");
     expect(state, !k22_usbdcd_read(&usbdcd, CONTROL, 4u, NULL),
            "!k22_usbdcd_read(&usbdcd, CONTROL, 4u, NULL)");
     expect(state, !k22_usbdcd_write(NULL, CONTROL, 4u, 0u),
@@ -75,6 +77,11 @@ static void test_reset_and_access(TestState* state) {
     expect(state, !k22_usbdcd_set_pullup(NULL, true), "!k22_usbdcd_set_pullup(NULL, true)");
     expect(state, !k22_usbdcd_irq(NULL), "!k22_usbdcd_irq(NULL)");
     k22_usbdcd_reset(NULL);
+    write_value(state, &usbdcd, CLOCK, 0u);
+    write_value(state, &usbdcd, CONTROL, IE | START);
+    k22_usbdcd_advance(&usbdcd, 1u);
+    k22_usbdcd_reset(&usbdcd);
+    k22_usbdcd_advance(&usbdcd, 1u);
 }
 
 static void test_standard_host(TestState* state) {

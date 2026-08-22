@@ -444,11 +444,8 @@ static uint8_t flash_busy_banks(uint8_t command, uint32_t address) {
     case 0x45u:
     case 0x46u:
         return 1u;
-    case 0x80u:
-    case 0x81u:
-        return 2u;
     default:
-        return 0u;
+        return 2u;
     }
 }
 

@@ -113,6 +113,16 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     set_tests_properties(${target} PROPERTIES LABELS "${labels}")
   endfunction()
 
+  function(kinetis_k22_enable_allocation_failure target)
+    target_sources(${target} PRIVATE tests/support/allocation_failure.c)
+    if(NOT MSVC)
+      target_compile_definitions(${target} PRIVATE K22_TEST_ALLOCATION_FAILURE=1)
+      target_link_options(
+        ${target} PRIVATE -Wl,--wrap=malloc -Wl,--wrap=calloc
+        -Wl,--wrap=realloc)
+    endif()
+  endfunction()
+
   kinetis_k22_add_test(
     core_reset tests/architecture/cortex_m4/system/reset_test.c "core;unit")
   kinetis_k22_add_test(core_api tests/architecture/cortex_m4/api_test.c
@@ -292,6 +302,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     device_host_api_complete tests/device/kinetis_k22/platform/host_api_test.c
     "device;integration")
+  kinetis_k22_enable_allocation_failure(kinetis_k22_device_host_api_complete_test)
   kinetis_k22_add_test(
     device_clock_gate_complete
     tests/device/kinetis_k22/platform/clock_gate_test.c "device;integration")

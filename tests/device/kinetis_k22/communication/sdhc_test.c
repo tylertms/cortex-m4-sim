@@ -321,6 +321,11 @@ static void expect_invalid_inputs(TestState* state) {
     K22Sdhc sdhc;
     const K22SdhcBus bus = {&memory, bus_read, bus_write};
     expect(state, !k22_sdhc_init(NULL, bus), "!k22_sdhc_init(NULL, bus)");
+    k22_sdhc_reset(NULL);
+    k22_sdhc_eject(NULL);
+    expect(state, !k22_sdhc_copy(NULL, &sdhc, bus) && !k22_sdhc_copy(&sdhc, NULL, bus) &&
+                      !k22_sdhc_copy(&sdhc, &sdhc, (K22SdhcBus){0}),
+           "SDHC copy rejects invalid arguments");
     expect(state, !k22_sdhc_init(&sdhc, (K22SdhcBus){0}), "!k22_sdhc_init(&sdhc, (K22SdhcBus){0})");
     expect(state, k22_sdhc_init(&sdhc, bus), "k22_sdhc_init(&sdhc, bus)");
     expect(state, !k22_sdhc_insert(&sdhc, NULL, 512u, false),
@@ -344,6 +349,9 @@ static void expect_invalid_inputs(TestState* state) {
     expect(state, !k22_sdhc_write(&sdhc, SDHC_BASE, 4u, 0u),
            "!k22_sdhc_write(&sdhc, SDHC_BASE, 4u, 0u)");
     k22_sdhc_set_clock(&sdhc, true);
+    expect(state, !k22_sdhc_read(&sdhc, SDHC_DATPORT, 4u, &value) &&
+                      !k22_sdhc_write(&sdhc, SDHC_DATPORT, 4u, 0u),
+           "inactive SDHC data port rejects transfers");
     expect(state, !k22_sdhc_read(&sdhc, SDHC_BASE - 4u, 4u, &value),
            "!k22_sdhc_read(&sdhc, SDHC_BASE - 4u, 4u, &value)");
     expect(state, !k22_sdhc_read(&sdhc, SDHC_BASE + 2u, 4u, &value),

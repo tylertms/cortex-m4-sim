@@ -102,6 +102,9 @@ void k22_timing_test_test_profiles_and_reset(TestState* state) {
                    (id == K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212),
                "k22_timing_read(&timing, SIM_SCGC3, 4, &(uint32_t){0}) == (id == "
                "K22_PROFILE_MK22FN1M012 || id == K22_PROFILE_MK22FX51212)");
+        if (id != K22_PROFILE_MK22FN1M012 && id != K22_PROFILE_MK22FX51212)
+            expect(state, !k22_timing_write(&timing, SIM_SCGC3, 4, 0u),
+                   "profile without SCGC3 rejects the register");
         k22_timing_test_expect_read(state, &timing, RCM_SRS0, 1, 0x82u);
         k22_timing_test_expect_read(
             state, &timing, 0x40037000u, 4,

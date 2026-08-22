@@ -1,5 +1,7 @@
 #include "device/kinetis_k22/memory/data/internal.h"
 
+#include <stdlib.h>
+
 void k22_data_test_test_api_boundaries(TestState* state) {
     static TestBus first_bus;
     static TestBus second_bus;
@@ -39,6 +41,14 @@ void k22_data_test_test_api_boundaries(TestState* state) {
            "null flash collision request is rejected");
     k22_data_advance(NULL, 1u);
     k22_data_advance(first, 0u);
+
+    first->flash_data_ifr[0x3fcu] = 0xaau;
+    k22_data_test_clear_flash_status(state, first);
+    k22_data_test_flash_command(state, first, 0x08u, 0x800000u, 2000u);
+    free(first->flexram);
+    first->flexram = NULL;
+    k22_data_test_clear_flash_status(state, first);
+    k22_data_test_flash_command_without_address(state, first, 0x81u, 40u);
 
     k22_data_destroy(second);
     k22_data_destroy(first);

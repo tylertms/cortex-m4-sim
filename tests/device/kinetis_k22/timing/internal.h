@@ -125,6 +125,9 @@ typedef struct {
     uint8_t last_trigger_channel;
 } Observations;
 
+uint64_t k22_timing_internal_clock_ticks(uint64_t* remainder, uint32_t cycles, uint32_t source_hz,
+                                         uint32_t core_hz);
+
 K22TimingSignals k22_timing_test_signals(Observations* observations);
 uint32_t k22_timing_test_cycles_for_ticks(const K22Timing* timing, uint32_t ticks,
                                           uint32_t clock_hz);

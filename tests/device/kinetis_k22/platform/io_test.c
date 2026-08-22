@@ -509,6 +509,18 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     expect(state, k22_io_init(&quiet, quiet_configuration),
            "k22_io_init(&quiet, quiet_configuration)");
     expect(state, !k22_io_read(&quiet, PORTA, 4, &value), "!k22_io_read(&quiet, PORTA, 4, &value)");
+    K22CanFrame oversized = {0};
+    oversized.length = 9u;
+    expect(state, !k22_io_can_receive(NULL, &oversized) &&
+                      !k22_io_can_receive(&quiet, &oversized) &&
+                      !k22_io_i2s_receive(&quiet, 0u) && !k22_io_irq_asserted(NULL, 0u) &&
+                      !k22_io_irq_asserted(&quiet, 0u),
+           "I/O APIs reject unavailable inputs");
+    expect(state, !k22_io_sysmpu_access(&quiet, 0u, 0u, false, K22_SYSMPU_READ),
+           "clock-gated SYSMPU rejects access");
+    k22_io_set_clock(&quiet, K22_PERIPHERAL_SYSMPU, true);
+    expect(state, k22_io_sysmpu_access(&quiet, 0u, 0u, false, K22_SYSMPU_READ),
+           "disabled SYSMPU permits access");
     k22_io_set_clock(&quiet, K22_PERIPHERAL_CAN0, true);
     write_value(state, &quiet, CAN0, 4, 0x0fu);
     write_value(state, &quiet, CAN0 + 0x90u, 4, (0xcu << 24) | (1u << 16));
