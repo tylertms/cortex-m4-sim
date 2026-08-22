@@ -12,14 +12,6 @@ C simulator for the 100 MHz and 120 MHz NXP Kinetis K22F microcontroller familie
 
 The 50 MHz K22D5 devices use Cortex-M4 cores without floating-point units and a different peripheral map. They are outside this K22F simulator's scope.
 
-## Layout
-
-- `include/` contains the public Cortex-M4F, K22, and firmware-image APIs.
-- `src/core/` contains the Armv7E-M processor implementation.
-- `src/device/` contains the K22 device model, profiles, and profile-specific register data.
-- `src/image/` and `src/runner/` contain firmware loading and the command-line runner.
-- `tests/` mirrors the core, device, and system boundaries.
-
 ## Build
 
 ```
@@ -34,6 +26,8 @@ cmake --build build/simulator --parallel
 | `kinetis_k22::simulator` | Static Library | K22 device and Cortex-M4F core simulator. |
 | `kinetis_k22::firmware_image` | Static Library | ELF and raw binary image loader. |
 | `kinetis_k22::firmware_runner` | Executable | CLI tool to load and run firmware images. |
+| `test` | Utility | Run all tests. |
+| `test-coverage` | Utility | Run all tests and write source coverage reports. |
 
 ## Run Firmware
 
@@ -62,16 +56,17 @@ target_link_libraries(your_target PRIVATE kinetis_k22::simulator)
 
 ## Run Tests
 
-Run all unit and device tests:
+Run all tests:
 
 ```
-ctest --test-dir build/simulator --output-on-failure --parallel
+cmake --build build/simulator --target test
 ```
 
-Run specific test groups:
+Run all tests with simulator source coverage:
 
 ```
-ctest --test-dir build/simulator -L core --output-on-failure --parallel
-ctest --test-dir build/simulator -L device --output-on-failure --parallel
-ctest --test-dir build/simulator -L system --output-on-failure --parallel
+cmake --build build/simulator --target test-coverage
 ```
+
+The coverage target requires GCC and gcov.
+Coverage reports are stored in `build/coverage/`.

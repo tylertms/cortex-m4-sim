@@ -4,12 +4,69 @@ project(kinetis_k22_sim LANGUAGES C)
 
 if(PROJECT_IS_TOP_LEVEL)
   option(BUILD_TESTING "Build the simulator tests" ON)
+  option(KINETIS_K22_ENABLE_COVERAGE "Enable simulator source coverage" OFF)
+  set(CMAKE_CTEST_ARGUMENTS --output-on-failure --parallel)
+  set(CMAKE_SKIP_TEST_ALL_DEPENDENCY FALSE)
+endif()
+
+if(KINETIS_K22_ENABLE_COVERAGE)
+  if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR "Simulator source coverage requires GCC")
+  endif()
+  add_compile_options(--coverage)
+  add_link_options(--coverage)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE
       Release
       CACHE STRING "Build type" FORCE)
+endif()
+
+if(PROJECT_IS_TOP_LEVEL AND NOT KINETIS_K22_ENABLE_COVERAGE)
+  get_filename_component(kinetis_k22_compiler_directory "${CMAKE_C_COMPILER}"
+                         DIRECTORY)
+  find_program(kinetis_k22_gcov gcov HINTS "${kinetis_k22_compiler_directory}")
+  set(kinetis_k22_coverage_build_directory
+      "${CMAKE_CURRENT_SOURCE_DIR}/build/test-coverage")
+  set(kinetis_k22_coverage_report_directory
+      "${CMAKE_CURRENT_SOURCE_DIR}/build/coverage")
+
+  if(kinetis_k22_gcov)
+    add_custom_target(
+      test-coverage
+      COMMAND
+        "${CMAKE_COMMAND}" -E rm -rf "${kinetis_k22_coverage_build_directory}"
+        "${kinetis_k22_coverage_report_directory}"
+      COMMAND
+        "${CMAKE_COMMAND}" -S "${CMAKE_CURRENT_SOURCE_DIR}" -B
+        "${kinetis_k22_coverage_build_directory}" -G Ninja
+        -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+        -DKINETIS_K22_ENABLE_COVERAGE=ON
+        "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" --build
+              "${kinetis_k22_coverage_build_directory}" --parallel
+      COMMAND
+        "${CMAKE_CTEST_COMMAND}" --test-dir
+        "${kinetis_k22_coverage_build_directory}" --output-on-failure --parallel
+      COMMAND
+        "${CMAKE_COMMAND}"
+        "-DCOVERAGE_BUILD_DIRECTORY=${kinetis_k22_coverage_build_directory}"
+        "-DCOVERAGE_REPORT_DIRECTORY=${kinetis_k22_coverage_report_directory}"
+        "-DCOVERAGE_SOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DCOVERAGE_TARGET_PREFIX=kinetis_k22"
+        "-DGCOV_EXECUTABLE=${kinetis_k22_gcov}" -P
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Coverage.cmake"
+      COMMENT "Testing the Kinetis K22 simulator with source coverage"
+      USES_TERMINAL VERBATIM)
+  else()
+    add_custom_target(
+      test-coverage
+      COMMAND "${CMAKE_COMMAND}" -E echo
+              "Simulator source coverage requires gcov"
+      COMMAND "${CMAKE_COMMAND}" -E false
+      USES_TERMINAL VERBATIM)
+  endif()
 endif()
 
 set(kinetis_k22_simulator_sources
