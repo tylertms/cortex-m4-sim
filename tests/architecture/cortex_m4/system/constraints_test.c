@@ -118,10 +118,61 @@ static void test_opcode_matrix(TestState* state, CortexM4* cpu) {
     }
 }
 
+static void test_wide_constraint_census(TestState* state, CortexM4* cpu) {
+    static const uint16_t bases[] = {
+        0xe840u, 0xe850u, 0xe880u, 0xe890u, 0xe8c0u, 0xe8d0u, 0xe900u, 0xe910u, 0xea00u,
+        0xf000u, 0xf200u, 0xf240u, 0xf2a0u, 0xf2c0u, 0xf300u, 0xf340u, 0xf360u, 0xf380u,
+        0xf3c0u, 0xf800u, 0xf810u, 0xf820u, 0xf830u, 0xf840u, 0xf850u, 0xf880u, 0xf890u,
+        0xf8a0u, 0xf8b0u, 0xf8c0u, 0xf8d0u, 0xf910u, 0xf930u, 0xf990u, 0xf9b0u, 0xfa00u,
+        0xfa90u, 0xfab0u, 0xfb00u, 0xfb80u, 0xfb90u, 0xfba0u, 0xfbb0u, 0xfbc0u, 0xfbe0u,
+    };
+    uint64_t execute = 0u;
+    uint64_t undefined = 0u;
+    for (size_t base_index = 0u; base_index < sizeof(bases) / sizeof(bases[0]); base_index++) {
+        for (uint16_t source = 0u; source < 16u; source++) {
+            const uint16_t first = (uint16_t)(bases[base_index] | source);
+            for (uint32_t second = 0u; second <= UINT16_MAX; second++) {
+                const CortexM4InstructionDisposition disposition =
+                    cortex_m4_check_instruction_constraints(cpu, first, (uint16_t)second, true);
+                execute += disposition == CORTEX_M4_INSTRUCTION_EXECUTE;
+                undefined += disposition == CORTEX_M4_INSTRUCTION_UNDEFINED;
+            }
+        }
+    }
+    expect(state, execute == 35362760u, "execute == 35362760u");
+    expect(state, undefined == 11823160u, "undefined == 11823160u");
+}
+
+static void test_thumb16_constraint_census(TestState* state, CortexM4* cpu) {
+    static const uint8_t it_states[] = {0u, 0x08u, 0x0cu};
+    static const uint32_t expected[][3] = {
+        {64421u, 859u, 256u},
+        {62925u, 2355u, 256u},
+        {56509u, 8771u, 256u},
+    };
+    for (size_t state_index = 0u; state_index < sizeof(it_states) / sizeof(it_states[0]);
+         state_index++) {
+        uint32_t disposition_count[3] = {0u};
+        cpu->it_state = it_states[state_index];
+        for (uint32_t opcode = 0u; opcode <= UINT16_MAX; opcode++) {
+            const CortexM4InstructionDisposition disposition =
+                cortex_m4_check_instruction_constraints(cpu, (uint16_t)opcode, 0u, false);
+            disposition_count[disposition]++;
+        }
+        expect(state,
+               disposition_count[0] == expected[state_index][0] &&
+                   disposition_count[1] == expected[state_index][1] &&
+                   disposition_count[2] == expected[state_index][2],
+               "disposition_count matches expected census");
+    }
+}
+
 int main(void) {
     TestState state = {0};
     CortexM4 cpu = {0};
     test_opcode_matrix(&state, &cpu);
+    test_wide_constraint_census(&state, &cpu);
+    test_thumb16_constraint_census(&state, &cpu);
     expect(&state,
            cortex_m4_check_instruction_constraints(NULL, 0, 0, false) ==
                CORTEX_M4_INSTRUCTION_UNDEFINED,

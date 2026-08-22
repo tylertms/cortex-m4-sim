@@ -179,6 +179,10 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     tests/architecture/cortex_m4/execution/instruction_census_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
+    core_encoding_census
+    tests/architecture/cortex_m4/execution/encoding_census_test.c
+    "core;unit;integration")
+  kinetis_k22_add_test(
     core_it_complete tests/architecture/cortex_m4/execution/it_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
@@ -206,6 +210,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_system_complete tests/architecture/cortex_m4/system/registers_test.c
     "core;integration")
   kinetis_k22_add_test(
+    core_system_boundary tests/architecture/cortex_m4/system/boundary_test.c
+    "core;unit")
+  kinetis_k22_add_test(
     core_timing_complete tests/architecture/cortex_m4/system/timing_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
@@ -223,6 +230,10 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     device_register_access
     tests/device/kinetis_k22/variants/register_access_test.c
     "device;integration")
+  kinetis_k22_add_test(
+    device_peripheral_census
+    tests/device/kinetis_k22/variants/peripheral_census_test.c
+    "device;unit;integration")
   kinetis_k22_add_test(
     device_data_complete tests/device/kinetis_k22/memory/data/core.c
     "device;integration" tests/device/kinetis_k22/memory/data/flash.c

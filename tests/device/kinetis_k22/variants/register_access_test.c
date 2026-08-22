@@ -149,15 +149,20 @@ static void expect_reset_read(TestState* state, KinetisK22* device,
     expect(state, actual == expected, "actual == expected");
 }
 
-static void expect_declared_write(TestState* state, KinetisK22* device,
-                                  const K22RegisterDescriptor* descriptor) {
+static void expect_declared_writes(TestState* state, KinetisK22* device,
+                                   const K22RegisterDescriptor* descriptor) {
     if (descriptor->address < K22_PERIPHERAL_BASE) {
         return;
     }
     const uint8_t size = (uint8_t)(descriptor->width / 8u);
-    const uint32_t value = UINT32_MAX;
-    const bool wrote = kinetis_k22_write(device, descriptor->address, &value, size);
-    expect(state, wrote, "wrote");
+    static const uint32_t values[] = {
+        0u, 1u, 0x55555555u, 0xaaaaaaaau, UINT32_MAX,
+    };
+    for (size_t index = 0u; index < sizeof(values) / sizeof(values[0]); index++) {
+        expect(state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
+        const bool wrote = kinetis_k22_write(device, descriptor->address, &values[index], size);
+        expect(state, wrote, "wrote");
+    }
 }
 
 static bool descriptor_covers(const K22RegisterDescriptor* descriptor, uint32_t address) {
@@ -197,7 +202,7 @@ static void expect_profile(TestState* state, const ProfileFixture* fixture) {
     if (manifest != NULL) {
         for (size_t index = 0u; index < manifest->register_count; index++) {
             expect_reset_read(state, device, manifest, &manifest->registers[index]);
-            expect_declared_write(state, device, &manifest->registers[index]);
+            expect_declared_writes(state, device, &manifest->registers[index]);
         }
         expect_reserved_gaps(state, device, manifest);
     }

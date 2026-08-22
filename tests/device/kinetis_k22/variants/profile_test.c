@@ -151,6 +151,28 @@ static void expect_fail_closed(TestState* state) {
            "!k22_profile_peripheral_block(small, K22_PERIPHERAL_COUNT, NULL)");
 }
 
+static void expect_invalid_configuration(TestState* state) {
+    KinetisK22Configuration configuration = kinetis_k22_default_configuration();
+    configuration.profile = KINETIS_K22_PROFILE_COUNT;
+    expect(state, kinetis_k22_create(configuration) == NULL, "invalid profile is rejected");
+    configuration = kinetis_k22_default_configuration();
+    configuration.package = KINETIS_K22_PACKAGE_COUNT;
+    expect(state, kinetis_k22_create(configuration) == NULL, "invalid package is rejected");
+    configuration = kinetis_k22_default_configuration();
+    configuration.flash_size = 0u;
+    expect(state, kinetis_k22_create(configuration) == NULL, "empty flash is rejected");
+    configuration = kinetis_k22_default_configuration();
+    configuration.flash_size++;
+    expect(state, kinetis_k22_create(configuration) == NULL, "oversized flash is rejected");
+    configuration = kinetis_k22_default_configuration();
+    configuration.sram_size = 0u;
+    expect(state, kinetis_k22_create(configuration) == NULL, "empty SRAM is rejected");
+    configuration = kinetis_k22_default_configuration();
+    configuration.sram_size = (size_t)0x40000001u;
+    expect(state, kinetis_k22_create(configuration) == NULL, "oversized SRAM is rejected");
+    kinetis_k22_destroy(NULL);
+}
+
 int main(void) {
     TestState state = {0};
     for (size_t index = 0; index < EXPECTED_COUNT(expected_k22_profiles); index++)
@@ -171,5 +193,6 @@ int main(void) {
     expect(&state, kinetis_k22_profile_name(KINETIS_K22_PROFILE_COUNT) == NULL,
            "kinetis_k22_profile_name(KINETIS_K22_PROFILE_COUNT) == NULL");
     expect_fail_closed(&state);
+    expect_invalid_configuration(&state);
     return test_finish(&state);
 }
