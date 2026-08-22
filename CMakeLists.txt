@@ -226,6 +226,12 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_system_boundary tests/architecture/cortex_m4/system/boundary_test.c
     "core;unit")
   kinetis_k22_add_test(
+    core_system_access_boundary
+    tests/architecture/cortex_m4/system/access_boundary_test.c "core;unit")
+  kinetis_k22_add_test(
+    core_system_exception_census
+    tests/architecture/cortex_m4/system/exception_census_test.c "core;unit")
+  kinetis_k22_add_test(
     core_timing_complete tests/architecture/cortex_m4/system/timing_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
