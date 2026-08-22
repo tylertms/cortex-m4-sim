@@ -64,10 +64,17 @@ static void test_reset_and_access(TestState* state) {
            "!k22_usbdcd_read(&usbdcd, CONTROL + 1u, 4u, &value)");
     expect(state, !k22_usbdcd_read(&usbdcd, CONTROL + 0x0cu, 4u, &value),
            "unimplemented USB DCD register is rejected");
+    expect(state, !k22_usbdcd_read(&usbdcd, CONTROL - 4u, 4u, &value),
+           "USB DCD rejects reads below its register block");
     expect(state, !k22_usbdcd_read(&usbdcd, CONTROL, 4u, NULL),
            "!k22_usbdcd_read(&usbdcd, CONTROL, 4u, NULL)");
     expect(state, !k22_usbdcd_write(NULL, CONTROL, 4u, 0u),
            "!k22_usbdcd_write(NULL, CONTROL, 4u, 0u)");
+    expect(state, !k22_usbdcd_write(&usbdcd, CONTROL, 2u, 0u), "USB DCD rejects narrow writes");
+    expect(state, !k22_usbdcd_write(&usbdcd, CONTROL - 4u, 4u, 0u),
+           "USB DCD rejects writes below its register block");
+    expect(state, !k22_usbdcd_write(&usbdcd, CONTROL + 1u, 4u, 0u),
+           "USB DCD rejects unaligned writes");
     expect(state, !k22_usbdcd_write(&usbdcd, STATUS, 4u, 0u),
            "!k22_usbdcd_write(&usbdcd, STATUS, 4u, 0u)");
     expect(state, !k22_usbdcd_set_charger(NULL, KINETIS_K22_USB_CHARGER_NONE),

@@ -79,6 +79,37 @@ void k22_data_test_test_api_boundaries(TestState* state) {
     k22_data_test_clear_flash_status(state, first);
     k22_data_test_flash_command_without_address(state, first, 0x81u, 40u);
 
+    first->crc_control = 0x01000000u;
+    first->crc_polynomial = 0x04c11db7u;
+    first->crc_value = UINT32_MAX;
+    expect(state, k22_data_internal_crc_write(first, CRC, 4u, 0x12345678u),
+           "32-bit CRC accepts word input");
+    expect(state, k22_data_internal_crc_read(first, CRC, 4u, &word),
+           "32-bit CRC result is readable");
+    for (uint32_t transpose = 0u; transpose < 4u; transpose++) {
+        first->crc_control = 0x01000000u | (transpose << 30u);
+        expect(state, k22_data_internal_crc_write(first, CRC, 4u, 0x12345678u),
+               "CRC accepts every write transpose mode");
+        first->crc_control = 0x01000000u | (transpose << 28u);
+        expect(state, k22_data_internal_crc_read(first, CRC, 4u, &word),
+               "CRC accepts every read transpose mode");
+    }
+    expect(state,
+           !k22_data_internal_crc_read(first, CRC + 12u, 4u, &word) &&
+               !k22_data_internal_crc_write(first, CRC + 12u, 4u, 0u),
+           "CRC rejects out-of-range registers");
+    expect(state, k22_data_internal_rng_next(0u) == 0x6d2b79f5u,
+           "zero RNG state recovers to the default seed");
+    for (uint32_t offset = 0u; offset < 16u; offset += 4u)
+        expect(state, k22_data_internal_rng_read(first, RNG + offset, 4u, &word),
+               "RNG register is readable");
+    expect(state,
+           !k22_data_internal_rng_read(first, RNG, 2u, &word) &&
+               !k22_data_internal_rng_read(first, RNG + 16u, 4u, &word) &&
+               !k22_data_internal_rng_write(first, RNG, 2u, 0u) &&
+               !k22_data_internal_rng_write(first, RNG + 4u, 4u, 0u),
+           "RNG rejects invalid register accesses");
+
     k22_data_destroy(second);
     k22_data_destroy(first);
 }
