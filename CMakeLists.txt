@@ -169,6 +169,9 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_debug_complete tests/architecture/cortex_m4/system/debug_test.c
     "core;unit;integration")
   kinetis_k22_add_test(
+    core_debug_boundary tests/architecture/cortex_m4/system/debug_boundary_test.c
+    "core;unit")
+  kinetis_k22_add_test(
     core_dsp tests/architecture/cortex_m4/execution/dsp_test.c "core;unit")
   kinetis_k22_add_test(
     core_fpu tests/architecture/cortex_m4/floating_point/fpu_test.c
@@ -267,7 +270,8 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   kinetis_k22_add_test(
     device_timing_complete tests/device/kinetis_k22/timing/core.c
     "device;integration" tests/device/kinetis_k22/timing/ftm.c
-    tests/device/kinetis_k22/timing/surface.c)
+    tests/device/kinetis_k22/timing/surface.c
+    tests/device/kinetis_k22/timing/boundaries.c)
   kinetis_k22_add_test(
     device_watchdog_complete
     tests/device/kinetis_k22/timing/watchdog_api_test.c "device;integration")

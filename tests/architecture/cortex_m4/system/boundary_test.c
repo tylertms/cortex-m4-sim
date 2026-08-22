@@ -74,6 +74,29 @@ static void test_system_access_guards(TestState* state, CortexM4* cpu) {
            cortex_m4_system_write(cpu, 0xe000ef00u, 1u, CORTEX_M4_ACCESS_DEBUG, 0u) ==
                CORTEX_M4_SYSTEM_ACCESS_REJECTED,
            "software interrupt requires a word write");
+    expect(state,
+           cortex_m4_system_write(cpu, 0xe000ef00u, 4u, CORTEX_M4_ACCESS_DEBUG, UINT32_MAX) ==
+               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "software interrupt rejects an unavailable IRQ");
+    expect(state,
+           cortex_m4_system_write(cpu, 0xe000ed0cu, 4u, CORTEX_M4_ACCESS_DEBUG, 0u) ==
+               CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+           "application control ignores an invalid key");
+    expect(state,
+           cortex_m4_system_write(cpu, 0xe000ed0cu, 2u, CORTEX_M4_ACCESS_DEBUG, 0x05fau) ==
+               CORTEX_M4_SYSTEM_ACCESS_REJECTED,
+           "application control rejects a partial key");
+
+    for (uint32_t address = 0xe000ed18u; address < 0xe000ed24u; address++) {
+        expect(state,
+               cortex_m4_system_write(cpu, address, 1u, CORTEX_M4_ACCESS_DEBUG,
+                                      (uint32_t)address) == CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+               "system priority byte accepts debugger writes");
+        expect(state,
+               cortex_m4_system_read(cpu, address, 1u, CORTEX_M4_ACCESS_DEBUG, &value) ==
+                   CORTEX_M4_SYSTEM_ACCESS_ACCEPTED,
+               "system priority byte is readable");
+    }
 
     static const uint32_t read_only[] = {
         0xe000e004u, 0xe000e01cu, 0xe000e300u, 0xe000ed00u,
@@ -101,9 +124,10 @@ static void test_system_access_guards(TestState* state, CortexM4* cpu) {
 static void test_exception_masks(TestState* state, CortexM4* cpu) {
     expect(state, cortex_m4_configure_implementation(cpu, 32u, 4u, 8u),
            "configure exception matrix processor");
-    expect(state, !cortex_m4_system_exception_masked(NULL, 16u) &&
-                      !cortex_m4_system_exception_masked(cpu, 0u) &&
-                      !cortex_m4_system_exception_masked(cpu, 2u),
+    expect(state,
+           !cortex_m4_system_exception_masked(NULL, 16u) &&
+               !cortex_m4_system_exception_masked(cpu, 0u) &&
+               !cortex_m4_system_exception_masked(cpu, 2u),
            "unmaskable exception guards are preserved");
     cpu->faultmask = 1u;
     expect(state, cortex_m4_system_exception_masked(cpu, 3u), "fault mask covers hard fault");
@@ -122,51 +146,124 @@ static void test_exception_masks(TestState* state, CortexM4* cpu) {
     expect(state, !cortex_m4_system_exception_masked(cpu, 16u),
            "base priority permits higher-priority interrupts");
     cpu->basepri = 0u;
-    expect(state, !cortex_m4_system_exception_can_preempt(NULL, 16u, 0u) &&
-                      !cortex_m4_system_exception_can_preempt(cpu, 0u, 0u) &&
-                      cortex_m4_system_exception_can_preempt(cpu, 16u, 0u),
+    expect(state,
+           !cortex_m4_system_exception_can_preempt(NULL, 16u, 0u) &&
+               !cortex_m4_system_exception_can_preempt(cpu, 0u, 0u) &&
+               cortex_m4_system_exception_can_preempt(cpu, 16u, 0u),
            "exception preemption handles guards and thread mode");
     cpu->irq_priority[0] = 0u;
     cpu->irq_priority[1] = 0x80u;
-    expect(state, cortex_m4_system_exception_can_preempt(cpu, 16u, 17u) &&
-                      !cortex_m4_system_exception_can_preempt(cpu, 17u, 16u),
+    expect(state,
+           cortex_m4_system_exception_can_preempt(cpu, 16u, 17u) &&
+               !cortex_m4_system_exception_can_preempt(cpu, 17u, 16u),
            "exception preemption follows configured priorities");
 }
 
 static void test_exception_frames(TestState* state, CortexM4* cpu, TestBus* bus) {
     uint32_t stack_pointer = 0x20000100u;
     uint32_t return_value = 0u;
-    expect(state, !cortex_m4_system_stack_exception_frame(NULL, &stack_pointer, &return_value) &&
-                      !cortex_m4_system_stack_exception_frame(cpu, NULL, &return_value) &&
-                      !cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, NULL),
+    expect(state,
+           !cortex_m4_system_stack_exception_frame(NULL, &stack_pointer, &return_value) &&
+               !cortex_m4_system_stack_exception_frame(cpu, NULL, &return_value) &&
+               !cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, NULL),
            "exception stacking rejects invalid arguments");
+    expect(state,
+           !cortex_m4_system_unstack_exception_frame(NULL, &stack_pointer, 0xfffffff9u, 3u) &&
+               !cortex_m4_system_unstack_exception_frame(cpu, NULL, 0xfffffff9u, 3u),
+           "exception unstacking rejects invalid arguments");
     bus->reject = false;
     cpu->exception_frame_depth = 0u;
     cpu->xpsr = CORTEX_M4_XPSR_T;
     cpu->control = 0u;
     cpu->ccr = 0u;
-    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
-                      return_value == 0xfffffff9u,
+    expect(state,
+           cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
+               return_value == 0xfffffff9u,
            "thread exception stacks a basic MSP frame");
+    cpu->exception_depth = 1u;
+    cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
+    cpu->active_exceptions[0] = 3u;
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 3u),
+           "basic MSP exception frame round-trips");
 
     stack_pointer = 0x20000100u;
     cpu->exception_frame_depth = 0u;
     cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
-    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
-                      return_value == 0xfffffff1u,
+    expect(state,
+           cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
+               return_value == 0xfffffff1u,
            "handler exception stacks a handler frame");
+    cpu->exception_depth = 2u;
+    cpu->xpsr = CORTEX_M4_XPSR_T | 4u;
+    cpu->active_exceptions[0] = 3u;
+    cpu->active_exceptions[1] = 4u;
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 4u),
+           "handler exception frame round-trips");
 
     stack_pointer = 0x20000100u;
     cpu->exception_frame_depth = 0u;
     cpu->xpsr = CORTEX_M4_XPSR_T;
     cpu->control = CORTEX_M4_CONTROL_SPSEL | CORTEX_M4_CONTROL_FPCA;
     cpu->fpccr = FPCCR_ASPEN | FPCCR_LSPEN;
-    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
-                      return_value == 0xffffffedu && (cpu->fpccr & FPCCR_LSPACT) != 0u,
+    expect(state,
+           cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value) &&
+               return_value == 0xffffffedu && (cpu->fpccr & FPCCR_LSPACT) != 0u,
            "thread exception stacks a lazy extended PSP frame");
-    expect(state, cortex_m4_system_materialize_lazy_fp(cpu) &&
-                      (cpu->fpccr & FPCCR_LSPACT) == 0u,
+    expect(state, cortex_m4_system_materialize_lazy_fp(cpu) && (cpu->fpccr & FPCCR_LSPACT) == 0u,
            "lazy floating-point frame materializes");
+    cpu->exception_depth = 1u;
+    cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
+    cpu->active_exceptions[0] = 3u;
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 3u),
+           "extended PSP exception frame round-trips");
+
+    expect(state, cortex_m4_system_materialize_lazy_fp(NULL),
+           "null lazy frame materialization is inert");
+    cpu->fpccr = 0u;
+    expect(state, cortex_m4_system_materialize_lazy_fp(cpu),
+           "inactive lazy frame materialization is inert");
+    cpu->fpccr = FPCCR_LSPACT;
+    cpu->exception_frame_depth = 0u;
+    expect(state, cortex_m4_system_materialize_lazy_fp(cpu),
+           "missing lazy frame metadata is inert");
+    cpu->exception_frame_depth = 1u;
+    cpu->exception_frames[0].extended = false;
+    cpu->exception_frames[0].lazy = true;
+    expect(state, !cortex_m4_system_materialize_lazy_fp(cpu),
+           "basic frame cannot materialize floating-point state");
+    cpu->exception_frames[0].extended = true;
+    cpu->exception_frames[0].lazy = false;
+    expect(state, !cortex_m4_system_materialize_lazy_fp(cpu),
+           "eager frame cannot rematerialize floating-point state");
+    cpu->exception_frames[0].lazy = true;
+    cpu->exception_frames[0].address = 0x20000080u;
+    bus->reject = true;
+    expect(state, !cortex_m4_system_materialize_lazy_fp(cpu),
+           "lazy frame reports a memory write failure");
+    bus->reject = false;
+
+    stack_pointer = 0x20000100u;
+    cpu->exception_frame_depth = 0u;
+    cpu->xpsr = CORTEX_M4_XPSR_T;
+    cpu->control = CORTEX_M4_CONTROL_FPCA;
+    cpu->fpccr = FPCCR_ASPEN;
+    expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
+           "eager floating-point exception frame stacks");
+    cpu->exception_depth = 1u;
+    cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
+    cpu->active_exceptions[0] = 3u;
+    expect(state, cortex_m4_system_unstack_exception_frame(cpu, &stack_pointer, return_value, 3u),
+           "eager floating-point exception frame round-trips");
+
+    stack_pointer = 0x20000100u;
+    cpu->exception_frame_depth = 0u;
+    cpu->xpsr = CORTEX_M4_XPSR_T;
+    cpu->control = CORTEX_M4_CONTROL_FPCA;
+    cpu->fpccr = FPCCR_ASPEN;
+    bus->reject = true;
+    expect(state, !cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
+           "eager floating-point frame reports a memory write failure");
+    bus->reject = false;
 
     stack_pointer = 0x200000fcu;
     cpu->exception_frame_depth = 0u;
@@ -176,6 +273,27 @@ static void test_exception_frames(TestState* state, CortexM4* cpu, TestBus* bus)
     cpu->ccr = 1u << 9u;
     expect(state, cortex_m4_system_stack_exception_frame(cpu, &stack_pointer, &return_value),
            "aligned exception stacking inserts padding");
+}
+
+static void test_exception_returns(TestState* state, CortexM4* cpu) {
+    cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
+    cpu->exception_depth = 1u;
+    expect(state,
+           cortex_m4_system_valid_exception_return(cpu, 0xffffffe9u) &&
+               cortex_m4_system_valid_exception_return(cpu, 0xffffffedu) &&
+               cortex_m4_system_valid_exception_return(cpu, 0xfffffff9u) &&
+               cortex_m4_system_valid_exception_return(cpu, 0xfffffffdu),
+           "thread exception return encodings are valid");
+    cpu->exception_depth = 2u;
+    expect(state,
+           cortex_m4_system_valid_exception_return(cpu, 0xffffffe1u) &&
+               cortex_m4_system_valid_exception_return(cpu, 0xfffffff1u),
+           "handler exception return encodings are valid");
+    expect(state, !cortex_m4_system_valid_exception_return(cpu, 0xfffffffdu),
+           "nested thread return requires nonbase-thread enable");
+    cpu->ccr |= 1u;
+    expect(state, cortex_m4_system_valid_exception_return(cpu, 0xfffffffdu),
+           "nonbase-thread enable permits nested thread return");
 }
 
 static void test_exception_guards(TestState* state, CortexM4* cpu, TestBus* bus) {
@@ -209,6 +327,7 @@ int main(void) {
     test_system_access_guards(&state, cpu);
     test_exception_masks(&state, cpu);
     test_exception_frames(&state, cpu, &bus);
+    test_exception_returns(&state, cpu);
     test_exception_guards(&state, cpu, &bus);
     cortex_m4_destroy(cpu);
     return test_finish(&state);

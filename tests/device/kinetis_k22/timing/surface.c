@@ -410,6 +410,7 @@ int main(void) {
            "!k22_timing_read(&timing, SIM_SCGC3, 4, &(uint32_t){0})");
     test_register_surface(&state, k22_profile_get(K22_PROFILE_MK22FN1M012));
     test_edge_paths(&state, profile);
+    k22_timing_test_test_api_boundaries(&state, &timing);
     expect(&state, !k22_timing_init(NULL, profile, 0, 0, k22_timing_test_signals(NULL)),
            "!k22_timing_init(NULL, profile, 0, 0, k22_timing_test_signals(NULL))");
     expect(&state, !k22_timing_copy(NULL, &timing, k22_timing_test_signals(NULL)),
