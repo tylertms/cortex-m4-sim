@@ -1,6 +1,7 @@
 #include "cortex_m4_firmware_image.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "test.h"
@@ -93,6 +94,42 @@ static void initialize_symbol_image(uint8_t* image) {
     memcpy(image + STRING_OFFSET, "\0test", 6);
 }
 
+static bool write_file(const char* path, const void* data, size_t size) {
+    FILE* file = fopen(path, "wb");
+    if (file == NULL) {
+        return false;
+    }
+    const bool written = fwrite(data, 1u, size, file) == size;
+    return fclose(file) == 0 && written;
+}
+
+static void test_files(TestState* state, KinetisK22* device) {
+    static const char elf_path[] = "kinetis_k22_firmware_image_test.elf";
+    static const char binary_path[] = "kinetis_k22_firmware_image_test.bin";
+    static const char missing_path[] = "kinetis_k22_missing_firmware_image.bin";
+    uint8_t elf[IMAGE_SIZE];
+    const uint8_t binary[] = {0x78u, 0x56u, 0x34u, 0x12u};
+    initialize_image(elf);
+    expect(state, write_file(elf_path, elf, sizeof(elf)), "write ELF file");
+    uint32_t entry = UINT32_MAX;
+    expect(state, cortex_m4_load_elf(device, elf_path, &entry),
+           "cortex_m4_load_elf(device, elf_path, &entry)");
+    expect(state, entry == 0x101u, "file ELF entry == 0x101u");
+    expect(state, write_file(binary_path, binary, sizeof(binary)), "write binary file");
+    expect(state, cortex_m4_load_binary(device, binary_path, 0x20000020u),
+           "cortex_m4_load_binary(device, binary_path, 0x20000020u)");
+    expect(state, write_file(binary_path, binary, 0u), "write empty binary file");
+    expect(state, !cortex_m4_load_binary(device, binary_path, 0u), "empty binary file is rejected");
+    expect(state, write_file(elf_path, elf, 16u), "write truncated ELF file");
+    expect(state, !cortex_m4_load_elf(device, elf_path, &entry), "truncated file ELF is rejected");
+    expect(state, !cortex_m4_load_elf(device, missing_path, &entry),
+           "missing file ELF is rejected");
+    expect(state, !cortex_m4_load_binary(device, missing_path, 0u),
+           "missing binary file is rejected");
+    (void)remove(elf_path);
+    (void)remove(binary_path);
+}
+
 static void test_binary(TestState* state, KinetisK22* device) {
     const uint8_t image[] = {0x78, 0x56, 0x34, 0x12};
     uint32_t entry = UINT32_MAX;
@@ -107,6 +144,8 @@ static void test_binary(TestState* state, KinetisK22* device) {
            "cortex_m4_load_binary_data(device, image, sizeof(image), address, NULL)");
     expect(state, !cortex_m4_load_binary_data(NULL, image, sizeof(image), 0u, NULL),
            "!cortex_m4_load_binary_data(NULL, image, sizeof(image), 0u, NULL)");
+    expect(state, !cortex_m4_load_binary_data(device, image, 0u, 0u, NULL),
+           "empty binary data is rejected");
 }
 
 static void test_symbol(TestState* state) {
@@ -130,6 +169,7 @@ int main(void) {
     initialize_image(image);
     test_binary(&state, device);
     test_symbol(&state);
+    test_files(&state, device);
 
     uint32_t entry = 0;
     expect(&state, cortex_m4_load_elf_data(device, image, sizeof(image), &entry),
@@ -162,6 +202,20 @@ int main(void) {
     write32(image, 28, UINT32_MAX);
     expect(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL),
            "!cortex_m4_load_elf_data(device, image, sizeof(image), NULL)");
+    initialize_image(image);
+    image[4] = 2u;
+    expect(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL),
+           "ELF64 image is rejected");
+    initialize_image(image);
+    write16(image, 42, ELF_PROGRAM_HEADER_SIZE - 1u);
+    expect(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL),
+           "short program header is rejected");
+    initialize_image(image);
+    write32(image, ELF_HEADER_SIZE + 4u, UINT32_MAX);
+    expect(&state, !cortex_m4_load_elf_data(device, image, sizeof(image), NULL),
+           "out-of-range segment is rejected");
+    expect(&state, !cortex_m4_load_elf_data(device, image, ELF_HEADER_SIZE - 1u, NULL),
+           "truncated ELF header is rejected");
 
     kinetis_k22_destroy(device);
     return test_finish(&state);

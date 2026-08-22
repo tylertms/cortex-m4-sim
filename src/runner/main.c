@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     uint64_t vector_address = 0;
+    bool vector_address_set = false;
     uint64_t binary_address = 0;
     bool binary = false;
     uint64_t stop_address = 0;
@@ -68,6 +69,7 @@ int main(int argc, char** argv) {
         }
         if (strcmp(argv[index], "--reset-address") == 0) {
             vector_address = value;
+            vector_address_set = true;
         } else if (strcmp(argv[index], "--binary-address") == 0) {
             binary_address = value;
             binary = true;
@@ -82,6 +84,10 @@ int main(int argc, char** argv) {
             fprintf(stderr, "unknown option: %s\n", argv[index]);
             return EXIT_FAILURE;
         }
+    }
+    if (!vector_address_set) {
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
     }
     if (vector_address > UINT32_MAX || binary_address > UINT32_MAX || stop_address > UINT32_MAX) {
         fprintf(stderr, "an address is too large\n");

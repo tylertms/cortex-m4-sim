@@ -29,7 +29,7 @@ static bool load_file(const char* path, uint8_t** data, size_t* size) {
         return false;
     }
     const long length = ftell(file);
-    if (length < 0 || fseek(file, 0, SEEK_SET) != 0) {
+    if (length <= 0 || fseek(file, 0, SEEK_SET) != 0) {
         fclose(file);
         return false;
     }
@@ -97,7 +97,8 @@ bool cortex_m4_load_elf_data(KinetisK22* device, const void* image, size_t size,
 
 bool cortex_m4_load_binary_data(KinetisK22* device, const void* data, size_t size,
                                 uint32_t load_address, uint32_t* entry_address) {
-    if (device == NULL || data == NULL || !kinetis_k22_load(device, load_address, data, size)) {
+    if (device == NULL || data == NULL || size == 0u ||
+        !kinetis_k22_load(device, load_address, data, size)) {
         return false;
     }
     if (entry_address != NULL) {

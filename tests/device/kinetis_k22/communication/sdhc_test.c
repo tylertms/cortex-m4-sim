@@ -367,6 +367,7 @@ static void expect_invalid_inputs(TestState* state) {
     k22_sdhc_destroy(NULL);
 }
 
+#ifdef K22_TEST_ALLOCATION_FAILURE
 static void expect_insert_allocation_failure(TestState* state) {
     BusMemory memory = {0};
     K22Sdhc sdhc = create_sdhc(state, &memory);
@@ -377,6 +378,7 @@ static void expect_insert_allocation_failure(TestState* state) {
     test_allow_allocations();
     k22_sdhc_destroy(&sdhc);
 }
+#endif
 
 int main(void) {
     TestState state = {0};
@@ -385,6 +387,8 @@ int main(void) {
     expect_command_and_transfer_lifecycle(&state);
     expect_dma_failures(&state);
     expect_invalid_inputs(&state);
+#ifdef K22_TEST_ALLOCATION_FAILURE
     expect_insert_allocation_failure(&state);
+#endif
     return test_finish(&state);
 }

@@ -1,6 +1,7 @@
 #include "kinetis_k22.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "architecture/cortex_m4/internal.h"
 #include "test.h"
@@ -77,20 +78,23 @@ static Census census_thumb16(CortexM4* cpu) {
     return census;
 }
 
-static Census census_thumb32(CortexM4* cpu) {
+static Census census_thumb32(CortexM4* cpu, uint8_t shard) {
     Census census = {0u, 0u, 0u, UINT64_C(14695981039346656037)};
+    const uint32_t first_encoding = 0xe800u + (uint32_t)shard * 0x100u;
+    const uint32_t last_encoding = first_encoding + 0xffu;
     for (uint8_t state = 0u; state < 3u; state++) {
-        for (uint32_t first = 0xe800u; first <= UINT16_MAX; first++) {
-            for (uint16_t high = 0u; high <= UINT8_MAX; high++) {
-                const uint16_t second = (uint16_t)((high << 8u) | ((first + high) & 0xffu));
+        for (uint32_t first = first_encoding; first <= last_encoding; first++) {
+            for (uint32_t second = 0u; second <= UINT16_MAX; second++) {
                 prepare_cpu(cpu, state);
                 census.examined++;
-                if (cortex_m4_check_instruction_constraints(cpu, (uint16_t)first, second, true) !=
+                if (cortex_m4_check_instruction_constraints(cpu, (uint16_t)first, (uint16_t)second,
+                                                            true) !=
                     CORTEX_M4_INSTRUCTION_EXECUTE) {
                     continue;
                 }
                 census.permitted++;
-                record(&census, cpu, cortex_m4_execute_thumb32(cpu, (uint16_t)first, second),
+                record(&census, cpu,
+                       cortex_m4_execute_thumb32(cpu, (uint16_t)first, (uint16_t)second),
                        (first << 16u) | second);
             }
         }
@@ -98,8 +102,41 @@ static Census census_thumb32(CortexM4* cpu) {
     return census;
 }
 
-int main(void) {
+int main(int argc, char** argv) {
+    char* end = NULL;
+    const unsigned long parsed = argc == 2 ? strtoul(argv[1], &end, 10) : 0u;
     TestState state = {0};
+    const bool valid_shard =
+        argc == 1 || (argc == 2 && end != argv[1] && *end == '\0' && parsed < 24u);
+    expect(&state, valid_shard, "encoding census shard is valid");
+    if (!valid_shard) {
+        return test_finish(&state);
+    }
+    const uint8_t shard = (uint8_t)parsed;
+    static const uint64_t expected_permitted[24] = {
+        34459455u, 31070047u, 42017792u, 41716736u, 50331648u, 50331648u, 50331648u, 50331648u,
+        39900890u, 39557330u, 43139072u, 40799644u, 39931904u, 39587840u, 43139072u, 43614208u,
+        34774896u, 45435808u, 50196096u, 49892040u, 50331648u, 50331648u, 50331648u, 50331648u,
+    };
+    static const uint64_t expected_executed[24] = {
+        11165931u, 18487135u, 11515392u, 10687488u, 320256u,   2486784u,  2891040u,  0u,
+        25994022u, 25650462u, 19546112u, 17231371u, 26013696u, 25669632u, 19546112u, 15302656u,
+        16672624u, 7687072u,  1104264u,  3482136u,  0u,        0u,        0u,        0u,
+    };
+    static const uint64_t expected_fingerprints[24] = {
+        UINT64_C(12359392008932972023), UINT64_C(3399418810324431349),
+        UINT64_C(6814390124731425717),  UINT64_C(16073962114491256845),
+        UINT64_C(229153025585920568),   UINT64_C(8806714289990595429),
+        UINT64_C(5579980413187923948),  UINT64_C(13945169685019501349),
+        UINT64_C(14429519315073962497), UINT64_C(9360902978296142409),
+        UINT64_C(948640740039792421),   UINT64_C(8930834599203716791),
+        UINT64_C(14938244973230212133), UINT64_C(18390324586635231269),
+        UINT64_C(2073469691219679013),  UINT64_C(14976156243861903901),
+        UINT64_C(4316239447711128326),  UINT64_C(5857029729619730063),
+        UINT64_C(4570402664723792546),  UINT64_C(14807501672243050140),
+        UINT64_C(2258742799113528101),  UINT64_C(12554654631497704229),
+        UINT64_C(13714994920826217253), UINT64_C(2274096894812758821),
+    };
     KinetisK22Configuration configuration = kinetis_k22_default_configuration();
     configuration.flash_size = 4096u;
     configuration.sram_size = 65536u;
@@ -111,14 +148,15 @@ int main(void) {
     expect(&state, kinetis_k22_reset(device), "kinetis_k22_reset(device)");
     CortexM4* cpu = kinetis_k22_cpu(device);
     const Census thumb16 = census_thumb16(cpu);
-    const Census thumb32 = census_thumb32(cpu);
+    const Census thumb32 = census_thumb32(cpu, shard);
     expect(&state,
            thumb16.examined == 196608u && thumb16.permitted == 185351u &&
                thumb16.executed == 146023u && thumb16.fingerprint == UINT64_C(14300317076329787867),
            "thumb16 census matches");
     expect(&state,
-           thumb32.examined == 4718592u && thumb32.permitted == 4147778u &&
-               thumb32.executed == 1018875u && thumb32.fingerprint == UINT64_C(6564814519483446493),
+           thumb32.examined == 50331648u && thumb32.permitted == expected_permitted[shard] &&
+               thumb32.executed == expected_executed[shard] &&
+               thumb32.fingerprint == expected_fingerprints[shard],
            "thumb32 census matches");
     kinetis_k22_destroy(device);
     return test_finish(&state);

@@ -212,6 +212,14 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     core_encoding_census
     tests/architecture/cortex_m4/execution/encoding_census_test.c
     "core;unit;integration")
+  foreach(shard RANGE 1 23)
+    add_test(
+      NAME kinetis_k22_core_encoding_census_test_shard_${shard}
+      COMMAND kinetis_k22_core_encoding_census_test ${shard})
+    set_tests_properties(
+      kinetis_k22_core_encoding_census_test_shard_${shard}
+      PROPERTIES LABELS "core;unit;integration")
+  endforeach()
   kinetis_k22_add_test(
     core_it_complete tests/architecture/cortex_m4/execution/it_test.c
     "core;unit;integration")
@@ -414,5 +422,47 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
                        "runner;system")
   target_link_libraries(kinetis_k22_firmware_image_test
                         PRIVATE kinetis_k22_firmware_image)
+  set(kinetis_k22_runner_smoke_image
+      ${CMAKE_CURRENT_BINARY_DIR}/kinetis_k22_firmware_runner_smoke.bin)
+  kinetis_k22_add_test(firmware_runner_fixture
+                       tests/system/runner_fixture_test.c "runner;system")
+  target_compile_definitions(
+    kinetis_k22_firmware_runner_fixture_test
+    PRIVATE
+      KINETIS_K22_RUNNER_SMOKE_IMAGE="${kinetis_k22_runner_smoke_image}")
+  set_tests_properties(
+    kinetis_k22_firmware_runner_fixture_test
+    PROPERTIES FIXTURES_SETUP kinetis_k22_runner_smoke)
+
+  add_test(
+    NAME kinetis_k22_firmware_runner_smoke_test
+    COMMAND
+      kinetis_k22_firmware_runner ${kinetis_k22_runner_smoke_image}
+      --reset-address 0 --binary-address 0 --stop-address 10
+      --max-instructions 10)
+  set_tests_properties(
+    kinetis_k22_firmware_runner_smoke_test
+    PROPERTIES LABELS "runner;system"
+               FIXTURES_REQUIRED kinetis_k22_runner_smoke
+               PASS_REGULAR_EXPRESSION "instructions=1")
+
+  add_test(
+    NAME kinetis_k22_firmware_runner_cleanup_test
+    COMMAND ${CMAKE_COMMAND} -E rm -f ${kinetis_k22_runner_smoke_image})
+  set_tests_properties(
+    kinetis_k22_firmware_runner_cleanup_test
+    PROPERTIES LABELS "runner;system"
+               FIXTURES_CLEANUP kinetis_k22_runner_smoke)
+
+  add_test(
+    NAME kinetis_k22_firmware_runner_argument_test
+    COMMAND
+      ${CMAKE_COMMAND}
+      "-DRUNNER=$<TARGET_FILE:kinetis_k22_firmware_runner>"
+      -P
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/system/runner_argument_test.cmake)
+  set_tests_properties(
+    kinetis_k22_firmware_runner_argument_test
+    PROPERTIES LABELS "runner;system")
 
 endif()

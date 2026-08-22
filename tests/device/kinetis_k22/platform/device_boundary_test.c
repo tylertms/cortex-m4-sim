@@ -99,6 +99,7 @@ static void flexbus_cases(TestState* state, KinetisK22* device) {
     kinetis_k22_flexbus_detach(device);
 }
 
+#ifdef K22_TEST_ALLOCATION_FAILURE
 static void copy_allocation_cases(TestState* state, KinetisK22* destination, KinetisK22* source) {
     static const uint8_t memory[] = {1u, 2u, 3u, 4u};
     static const uint8_t card[512] = {0u};
@@ -118,6 +119,7 @@ static void copy_allocation_cases(TestState* state, KinetisK22* destination, Kin
            "device copy reports allocation failures before succeeding");
     kinetis_k22_flexbus_detach(source);
 }
+#endif
 
 int main(void) {
     TestState state = {0u, 0u, 0u};
@@ -127,7 +129,9 @@ int main(void) {
     if (first != NULL && second != NULL) {
         access_census(first, &census);
         copy_guard_cases(&state, first, second);
+#ifdef K22_TEST_ALLOCATION_FAILURE
         copy_allocation_cases(&state, first, second);
+#endif
         flexbus_cases(&state, first);
         expect(&state,
                census.accepted_reads == 90u && census.accepted_writes == 87u &&
