@@ -257,7 +257,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     "device;unit;integration")
   kinetis_k22_add_test(
     device_io_complete tests/device/kinetis_k22/platform/io_test.c
-    "device;integration")
+    "device;integration" tests/device/kinetis_k22/platform/io_boundaries.c)
   kinetis_k22_add_test(
     device_package tests/device/kinetis_k22/variants/package_test.c
     "device;unit")

@@ -17,6 +17,8 @@ enum {
 
 #define MCM UINT32_C(0xe0080008)
 
+void k22_io_test_peripheral_boundaries(TestState* state);
+
 typedef struct {
     K22IoEvent events[128];
     size_t count;
@@ -511,10 +513,10 @@ static void test_edges_and_fail_closed_access(TestState* state) {
     expect(state, !k22_io_read(&quiet, PORTA, 4, &value), "!k22_io_read(&quiet, PORTA, 4, &value)");
     K22CanFrame oversized = {0};
     oversized.length = 9u;
-    expect(state, !k22_io_can_receive(NULL, &oversized) &&
-                      !k22_io_can_receive(&quiet, &oversized) &&
-                      !k22_io_i2s_receive(&quiet, 0u) && !k22_io_irq_asserted(NULL, 0u) &&
-                      !k22_io_irq_asserted(&quiet, 0u),
+    expect(state,
+           !k22_io_can_receive(NULL, &oversized) && !k22_io_can_receive(&quiet, &oversized) &&
+               !k22_io_i2s_receive(&quiet, 0u) && !k22_io_irq_asserted(NULL, 0u) &&
+               !k22_io_irq_asserted(&quiet, 0u),
            "I/O APIs reject unavailable inputs");
     expect(state, !k22_io_sysmpu_access(&quiet, 0u, 0u, false, K22_SYSMPU_READ),
            "clock-gated SYSMPU rejects access");
@@ -536,5 +538,6 @@ int main(void) {
     test_i2s(&state);
     test_flexbus_sysmpu_copy_and_reset(&state);
     test_edges_and_fail_closed_access(&state);
+    k22_io_test_peripheral_boundaries(&state);
     return test_finish(&state);
 }

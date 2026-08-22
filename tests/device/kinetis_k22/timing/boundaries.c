@@ -109,9 +109,27 @@ static void test_sleep_modes(K22Timing* timing) {
     k22_timing_set_cpu_sleeping(timing, false, false);
 }
 
+static void test_ftm_boundaries(TestState* state, K22Timing* timing) {
+    K22Profile empty_profile = {0};
+    K22Timing unavailable = {.profile = &empty_profile};
+    bool high = false;
+
+    expect(state, !k22_timing_set_ftm_input(&unavailable, 0u, 0u, true),
+           "absent FTM rejects channel input");
+    expect(state, !k22_timing_set_ftm_fault(&unavailable, 0u, 0u, true),
+           "absent FTM rejects fault input");
+    expect(state, !k22_timing_trigger_ftm_hardware(&unavailable, 0u, 0u),
+           "absent FTM rejects hardware triggers");
+    expect(state, !k22_timing_get_ftm_output(&unavailable, 0u, 0u, &high),
+           "absent FTM has no channel output");
+    expect(state, !k22_timing_get_ftm_output(timing, 0u, 0u, NULL),
+           "FTM output requires a destination");
+}
+
 void k22_timing_test_test_api_boundaries(TestState* state, K22Timing* timing) {
     test_invalid_state(state, timing);
     test_voltage_modes(state, timing);
     test_llwu_edges(state, timing);
     test_sleep_modes(timing);
+    test_ftm_boundaries(state, timing);
 }

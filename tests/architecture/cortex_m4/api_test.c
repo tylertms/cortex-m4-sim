@@ -168,6 +168,32 @@ static void test_api_boundaries(TestState* state) {
     expect(state, cortex_m4_get_instruction_count(NULL) == 0u,
            "cortex_m4_get_instruction_count(NULL) == 0u");
     expect(state, cortex_m4_get_cycle_count(NULL) == 0u, "cortex_m4_get_cycle_count(NULL) == 0u");
+    expect(state,
+           cortex_m4_get_register(NULL, 0u) == 0u &&
+               cortex_m4_get_register(cpu, CORTEX_M4_REGISTER_COUNT) == 0u,
+           "invalid core register reads return zero");
+    cortex_m4_set_register(NULL, 0u, 1u);
+    cortex_m4_set_register(cpu, CORTEX_M4_REGISTER_COUNT, 1u);
+    expect(state,
+           cortex_m4_get_xpsr(NULL) == 0u && cortex_m4_get_control(NULL) == 0u &&
+               cortex_m4_get_fault_status(NULL) == 0u &&
+               cortex_m4_get_stop(NULL) == CORTEX_M4_STOP_LOCKUP,
+           "null core state getters return safe defaults");
+    cortex_m4_set_xpsr(NULL, 0u);
+    cortex_m4_set_control(NULL, 0u);
+    cpu->xpsr = CORTEX_M4_XPSR_T | 3u;
+    cpu->control = 0u;
+    cortex_m4_set_control(cpu, 3u);
+    expect(state, cpu->control == 0u, "handler mode rejects control changes");
+    cpu->xpsr = CORTEX_M4_XPSR_T;
+    expect(state,
+           cortex_m4_get_fp_register(NULL, 0u) == 0u &&
+               cortex_m4_get_fp_register(cpu, CORTEX_M4_FP_REGISTER_COUNT) == 0u,
+           "invalid floating-point register reads return zero");
+    cortex_m4_set_fp_register(NULL, 0u, 1u);
+    cortex_m4_set_fp_register(cpu, CORTEX_M4_FP_REGISTER_COUNT, 1u);
+    expect(state, cortex_m4_get_fpscr(NULL) == 0u, "null FPSCR reads return zero");
+    cortex_m4_set_fpscr(NULL, 1u);
     cortex_m4_set_nzcv(cpu, 0x80000000u, true, true);
     expect(state, (cpu->xpsr & CORTEX_M4_XPSR_V) != 0u, "(cpu->xpsr & CORTEX_M4_XPSR_V) != 0u");
     expect(state, cortex_m4_condition_passed(cpu, 14u), "cortex_m4_condition_passed(cpu, 14u)");
@@ -182,9 +208,15 @@ static void test_api_boundaries(TestState* state) {
     expect(state, cortex_m4_bus_write(cpu, 0xe000ed94u, 4u, CORTEX_M4_ACCESS_DEBUG, 1u),
            "cortex_m4_bus_write(cpu, 0xe000ed94u, 4u, CORTEX_M4_ACCESS_DEBUG, 1u)");
     uint32_t value = 0u;
-    expect(state, !cortex_m4_bus_read(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, &value) &&
-                      !cortex_m4_bus_read(cpu, 0u, 1u, CORTEX_M4_ACCESS_DATA, NULL) &&
-                      !cortex_m4_bus_write(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, 0u),
+    expect(state,
+           !cortex_m4_read_memory(NULL, 0u, 1u, &value) &&
+               !cortex_m4_read_memory(cpu, 0u, 1u, NULL) &&
+               !cortex_m4_write_memory(NULL, 0u, 1u, 0u),
+           "null debugger memory accesses are rejected");
+    expect(state,
+           !cortex_m4_bus_read(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, &value) &&
+               !cortex_m4_bus_read(cpu, 0u, 1u, CORTEX_M4_ACCESS_DATA, NULL) &&
+               !cortex_m4_bus_write(cpu, 0u, 3u, CORTEX_M4_ACCESS_DATA, 0u),
            "core bus rejects invalid access widths and outputs");
     cpu->ccr |= 1u << 3u;
     expect(state, !cortex_m4_data_write(cpu, 1u, 4u, CORTEX_M4_ACCESS_DATA, 0u),
