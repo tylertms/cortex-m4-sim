@@ -1873,7 +1873,7 @@ static bool write_wdog(K22Timing* timing, uint32_t address, uint8_t size, uint32
         const uint16_t written =
             size == 1u ? (uint16_t)((uint8_t)value << (lane * 8u)) : (uint16_t)value;
         if ((written & 0x8000u) != 0u) {
-            timing->wdog[1] &= (uint16_t)~0x8000u;
+            timing->wdog[1] &= 0x7fffu;
             update_watchdog_irq(timing);
         }
         if (timing->wdog_update_open && timing->wdog_bus_cycles >= timing->wdog_update_ready)
@@ -2752,7 +2752,7 @@ static bool write_control_register(K22Timing* timing, uint32_t address, uint8_t 
         } else {
             uint8_t status = timing->pmc[2] & 0x0cu;
             if (((uint8_t)value & 8u) != 0u)
-                status &= (uint8_t)~8u;
+                status &= 0xf7u;
             timing->pmc[2] = status | ((uint8_t)value & 0x11u);
         }
         update_pmc_irq(timing);

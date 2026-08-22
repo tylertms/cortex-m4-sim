@@ -1,5 +1,5 @@
-#ifndef CORTEX_M4_K22_PACKAGE_H
-#define CORTEX_M4_K22_PACKAGE_H
+#ifndef KINETIS_K22_SIM_K22_PACKAGE_H
+#define KINETIS_K22_SIM_K22_PACKAGE_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -24,6 +24,7 @@ typedef enum {
     K22_PACKAGE_MC_121_MAPBGA,
     K22_PACKAGE_LQ_144_LQFP,
     K22_PACKAGE_MD_144_MAPBGA,
+    K22_PACKAGE_AK_49_WLCSP,
     K22_PACKAGE_COUNT,
 } K22PackageId;
 

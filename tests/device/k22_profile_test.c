@@ -80,6 +80,7 @@ static void expect_block(TestState* state, const K22Profile* profile,
 }
 
 static void expect_profile(TestState* state, const K22ExpectedProfile* expected) {
+    KinetisK22Profile public_profile = KINETIS_K22_PROFILE_COUNT;
     const K22Profile* profile = k22_profile_get(expected->id);
     expect(state, profile != NULL, "profile != NULL");
     expect(state, profile->id == expected->id, "profile->id == expected->id");
@@ -87,6 +88,18 @@ static void expect_profile(TestState* state, const K22ExpectedProfile* expected)
            "strcmp(profile->name, expected->name) == 0");
     expect(state, k22_profile_find(expected->name) == profile,
            "k22_profile_find(expected->name) == profile");
+    expect(state, kinetis_k22_profile_from_name(expected->name, &public_profile),
+           "kinetis_k22_profile_from_name(expected->name, &public_profile)");
+    expect(state, public_profile == expected->id, "public_profile == expected->id");
+    expect(state, strcmp(kinetis_k22_profile_name(public_profile), expected->name) == 0,
+           "strcmp(kinetis_k22_profile_name(public_profile), expected->name) == 0");
+    KinetisK22Configuration configuration = kinetis_k22_configuration(public_profile);
+    expect(state, configuration.profile == public_profile,
+           "configuration.profile == public_profile");
+    expect(state, configuration.flash_size == expected->program_flash_size,
+           "configuration.flash_size == expected->program_flash_size");
+    expect(state, configuration.sram_size == expected->sram_lower_size + expected->sram_upper_size,
+           "configuration.sram_size == expected SRAM size");
     expect(state, profile->sim_sdid_reset == expected->sim_sdid_reset,
            "profile->sim_sdid_reset == expected->sim_sdid_reset");
     expect(state, profile->sim_sdid_mask == expected->sim_sdid_mask,
@@ -150,6 +163,13 @@ int main(void) {
     expect(&state, k22_profile_find("") == NULL, "k22_profile_find(\"\") == NULL");
     expect(&state, k22_profile_find("MK22FN512VLL12") == NULL,
            "k22_profile_find(\"MK22FN512VLL12\") == NULL");
+    KinetisK22Profile public_profile = KINETIS_K22_PROFILE_MK22F12810;
+    expect(&state, !kinetis_k22_profile_from_name(NULL, &public_profile),
+           "!kinetis_k22_profile_from_name(NULL, &public_profile)");
+    expect(&state, !kinetis_k22_profile_from_name("unknown", &public_profile),
+           "!kinetis_k22_profile_from_name(\"unknown\", &public_profile)");
+    expect(&state, kinetis_k22_profile_name(KINETIS_K22_PROFILE_COUNT) == NULL,
+           "kinetis_k22_profile_name(KINETIS_K22_PROFILE_COUNT) == NULL");
     expect_fail_closed(&state);
     return test_finish(&state);
 }

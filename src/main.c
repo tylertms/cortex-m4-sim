@@ -23,7 +23,8 @@ static bool parse_u64(const char* text, uint64_t* value) {
 static void print_usage(const char* program) {
     fprintf(stderr,
             "usage: %s IMAGE --reset-address ADDRESS "
-            "[--binary-address ADDRESS] [--max-instructions COUNT] "
+            "[--profile DEVICE] [--package CODE] [--binary-address ADDRESS] "
+            "[--max-instructions COUNT] "
             "[--max-cycles COUNT] [--stop-address ADDRESS]\n",
             program);
 }
@@ -38,11 +39,27 @@ int main(int argc, char** argv) {
     bool binary = false;
     uint64_t stop_address = 0;
     bool stop_address_set = false;
+    KinetisK22Profile profile = KINETIS_K22_PROFILE_MK22FN51212;
+    KinetisK22Package package = KINETIS_K22_PACKAGE_DEFAULT;
     CortexM4RunLimits limits = {1000000, 10000000};
     for (int index = 2; index < argc; index += 2) {
         if (index + 1 >= argc) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
+        }
+        if (strcmp(argv[index], "--profile") == 0) {
+            if (!kinetis_k22_profile_from_name(argv[index + 1], &profile)) {
+                fprintf(stderr, "unknown K22 profile: %s\n", argv[index + 1]);
+                return EXIT_FAILURE;
+            }
+            continue;
+        }
+        if (strcmp(argv[index], "--package") == 0) {
+            if (!kinetis_k22_package_from_code(argv[index + 1], &package)) {
+                fprintf(stderr, "unknown K22 package: %s\n", argv[index + 1]);
+                return EXIT_FAILURE;
+            }
+            continue;
         }
         uint64_t value = 0;
         if (!parse_u64(argv[index + 1], &value)) {
@@ -70,7 +87,8 @@ int main(int argc, char** argv) {
         fprintf(stderr, "an address is too large\n");
         return EXIT_FAILURE;
     }
-    KinetisK22Configuration configuration = kinetis_k22_default_configuration();
+    KinetisK22Configuration configuration = kinetis_k22_configuration(profile);
+    configuration.package = package;
     configuration.vector_table_address = (uint32_t)vector_address;
     KinetisK22* device = kinetis_k22_create(configuration);
     if (device == NULL) {

@@ -1,5 +1,5 @@
-#ifndef CORTEX_M4_K22_SDHC_H
-#define CORTEX_M4_K22_SDHC_H
+#ifndef KINETIS_K22_SIM_K22_SDHC_H
+#define KINETIS_K22_SIM_K22_SDHC_H
 
 #include <stdbool.h>
 #include <stddef.h>

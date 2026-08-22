@@ -1,5 +1,5 @@
-#ifndef CORTEX_M4_K22_TIMING_H
-#define CORTEX_M4_K22_TIMING_H
+#ifndef KINETIS_K22_SIM_K22_TIMING_H
+#define KINETIS_K22_SIM_K22_TIMING_H
 
 #include "k22_profile.h"
 

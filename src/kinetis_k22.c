@@ -439,16 +439,54 @@ static void k22_advance_bus(void* context, uint32_t cycles) {
 
 static void k22_reset_bus(void* context) { kinetis_k22_warm_reset(context, 0, 0x04u); }
 
-KinetisK22Configuration kinetis_k22_default_configuration(void) {
+KinetisK22Configuration kinetis_k22_configuration(KinetisK22Profile profile_id) {
     KinetisK22Configuration configuration;
+    const K22Profile* profile = k22_profile_get(profile_id);
     memset(&configuration, 0, sizeof(configuration));
-    configuration.profile = KINETIS_K22_PROFILE_MK22FN51212;
+    configuration.profile = profile_id;
     configuration.package = KINETIS_K22_PACKAGE_DEFAULT;
-    configuration.flash_size = 512u * 1024u;
-    configuration.sram_size = 128u * 1024u;
+    if (profile != NULL) {
+        configuration.flash_size = profile->program_flash_size;
+        configuration.sram_size = profile->sram_lower_size + profile->sram_upper_size;
+    }
     configuration.external_oscillator_hz = 8000000u;
     configuration.rtc_oscillator_hz = 32768u;
     return configuration;
+}
+
+KinetisK22Configuration kinetis_k22_default_configuration(void) {
+    return kinetis_k22_configuration(KINETIS_K22_PROFILE_MK22FN51212);
+}
+
+bool kinetis_k22_profile_from_name(const char* name, KinetisK22Profile* profile) {
+    const K22Profile* match = k22_profile_find(name);
+    if (match == NULL || profile == NULL) {
+        return false;
+    }
+    *profile = match->id;
+    return true;
+}
+
+const char* kinetis_k22_profile_name(KinetisK22Profile profile) {
+    const K22Profile* match = k22_profile_get(profile);
+    return match == NULL ? NULL : match->name;
+}
+
+bool kinetis_k22_package_from_code(const char* code, KinetisK22Package* package) {
+    const K22Package* match = k22_package_find(code);
+    if (match == NULL || package == NULL) {
+        return false;
+    }
+    *package = (KinetisK22Package)match->id;
+    return true;
+}
+
+const char* kinetis_k22_package_code(KinetisK22Package package) {
+    if (package == KINETIS_K22_PACKAGE_DEFAULT) {
+        return NULL;
+    }
+    const K22Package* match = k22_package_get((K22PackageId)package);
+    return match == NULL ? NULL : match->code;
 }
 
 static void destroy_partial(KinetisK22* device) {

@@ -355,8 +355,8 @@ static void refresh_uart(K22SerialUart* uart, bool lpuart) {
         status |= 0x40u;
     status |= fifo_error(&uart->receive) & 0x0fu;
     uart->registers[UART_S1] = status;
-    uart->registers[UART_RCFIFO] = uart->receive.count;
-    uart->registers[UART_TCFIFO] = uart->transmit.count;
+    uart->registers[UART_RCFIFO] = (uint8_t)uart->receive.count;
+    uart->registers[UART_TCFIFO] = (uint8_t)uart->transmit.count;
 }
 
 static void refresh_spi(K22SerialSpi* spi) {
@@ -545,7 +545,7 @@ static bool read_i2c(K22Serial* serial, K22SerialI2c* i2c, uint32_t offset, uint
 }
 
 static void i2c_stop(K22Serial* serial, K22SerialI2c* i2c) {
-    i2c->registers[I2C_S] &= (uint8_t)~0x20u;
+    i2c->registers[I2C_S] &= 0xdfu;
     i2c->transfer_pending = false;
     i2c->transfer_cycles = 0;
     push_event(serial, i2c_endpoint(serial, i2c), K22_SERIAL_EVENT_I2C_STOP, 0);
@@ -558,7 +558,7 @@ static bool write_i2c(K22Serial* serial, K22SerialI2c* i2c, uint32_t offset, uin
     uint8_t byte = (uint8_t)value;
     if (offset == I2C_C1) {
         uint8_t previous = i2c->registers[I2C_C1];
-        i2c->registers[I2C_C1] = byte & (uint8_t)~0x04u;
+        i2c->registers[I2C_C1] = byte & 0xfbu;
         if ((byte & 0x80u) == 0) {
             if ((previous & 0x20u) != 0 || (i2c->registers[I2C_S] & 0x20u) != 0)
                 i2c_stop(serial, i2c);
@@ -770,7 +770,7 @@ static void advance_i2c(K22SerialI2c* i2c, uint32_t cycles) {
     }
     i2c->registers[I2C_S] |= 0x82u;
     if (i2c->acknowledge)
-        i2c->registers[I2C_S] &= (uint8_t)~0x01u;
+        i2c->registers[I2C_S] &= 0xfeu;
     else
         i2c->registers[I2C_S] |= 0x01u;
 }
@@ -904,8 +904,8 @@ bool k22_serial_i2c_lose_arbitration(K22Serial* serial, K22SerialEndpoint endpoi
     if (i2c == NULL || !i2c->present || !i2c->clock_enabled)
         return false;
     i2c->registers[I2C_S] |= 0x12u;
-    i2c->registers[I2C_S] &= (uint8_t)~0x20u;
-    i2c->registers[I2C_C1] &= (uint8_t)~0x20u;
+    i2c->registers[I2C_S] &= 0xdfu;
+    i2c->registers[I2C_C1] &= 0xdfu;
     i2c->transfer_pending = false;
     i2c->transfer_cycles = 0;
     return true;
@@ -928,7 +928,7 @@ bool k22_serial_i2c_slave_address(K22Serial* serial, K22SerialEndpoint endpoint,
     if (read)
         i2c->registers[I2C_S] |= 0x04u;
     else
-        i2c->registers[I2C_S] &= (uint8_t)~0x04u;
+        i2c->registers[I2C_S] &= 0xfbu;
     i2c->slave_transmit = read;
     return true;
 }

@@ -1,5 +1,5 @@
-#ifndef CORTEX_M4_SIM_KINETIS_K22_H
-#define CORTEX_M4_SIM_KINETIS_K22_H
+#ifndef KINETIS_K22_SIM_KINETIS_K22_H
+#define KINETIS_K22_SIM_KINETIS_K22_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -33,6 +33,7 @@ typedef enum {
     KINETIS_K22_PACKAGE_MC_121_MAPBGA,
     KINETIS_K22_PACKAGE_LQ_144_LQFP,
     KINETIS_K22_PACKAGE_MD_144_MAPBGA,
+    KINETIS_K22_PACKAGE_AK_49_WLCSP,
     KINETIS_K22_PACKAGE_COUNT,
 } KinetisK22Package;
 
@@ -123,6 +124,11 @@ typedef struct {
 } KinetisK22I2cTransfer;
 
 KinetisK22Configuration kinetis_k22_default_configuration(void);
+KinetisK22Configuration kinetis_k22_configuration(KinetisK22Profile profile);
+bool kinetis_k22_profile_from_name(const char* name, KinetisK22Profile* profile);
+const char* kinetis_k22_profile_name(KinetisK22Profile profile);
+bool kinetis_k22_package_from_code(const char* code, KinetisK22Package* package);
+const char* kinetis_k22_package_code(KinetisK22Package package);
 KinetisK22* kinetis_k22_create(KinetisK22Configuration configuration);
 void kinetis_k22_destroy(KinetisK22* device);
 CortexM4* kinetis_k22_cpu(KinetisK22* device);

@@ -38,9 +38,12 @@ static const ExpectedPackage expected_packages[] = {
     {K22_PACKAGE_MC_121_MAPBGA, "MC", "121 MAPBGA", 121},
     {K22_PACKAGE_LQ_144_LQFP, "LQ", "144 LQFP", 144},
     {K22_PACKAGE_MD_144_MAPBGA, "MD", "144 MAPBGA", 144},
+    {K22_PACKAGE_AK_49_WLCSP, "AK", "49 WLCSP", 49},
 };
 
 static const ExpectedSelection expected_selections[] = {
+    EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_AK_49_WLCSP, 0x000c001fu, 0x0003000fu, 0x000000ffu,
+             0x000000ffu, 0x0000003fu, false, false),
     EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_LH_64_LQFP, 0x000c303fu, 0x000f000fu, 0x00000fffu,
              0x000000ffu, 0x00000000u, false, false),
     EXPECTED(K22_PROFILE_MK22F12810, K22_PACKAGE_MP_64_MAPBGA, 0x000c303fu, 0x000f000fu,
@@ -136,6 +139,13 @@ static void expect_package_metadata(TestState* state) {
                "package->terminal_count == expected->terminal_count");
         expect(state, k22_package_find(expected->code) == package,
                "k22_package_find(expected->code) == package");
+        KinetisK22Package public_package = KINETIS_K22_PACKAGE_DEFAULT;
+        expect(state, kinetis_k22_package_from_code(expected->code, &public_package),
+               "kinetis_k22_package_from_code(expected->code, &public_package)");
+        expect(state, public_package == (KinetisK22Package)expected->id,
+               "public_package == expected->id");
+        expect(state, strcmp(kinetis_k22_package_code(public_package), expected->code) == 0,
+               "strcmp(kinetis_k22_package_code(public_package), expected->code) == 0");
     }
 }
 
@@ -227,6 +237,13 @@ static void expect_fail_closed(TestState* state) {
     expect(state, k22_package_find(NULL) == NULL, "k22_package_find(NULL) == NULL");
     expect(state, k22_package_find("") == NULL, "k22_package_find(\"\") == NULL");
     expect(state, k22_package_find("lh") == NULL, "k22_package_find(\"lh\") == NULL");
+    KinetisK22Package public_package = KINETIS_K22_PACKAGE_LH_64_LQFP;
+    expect(state, !kinetis_k22_package_from_code(NULL, &public_package),
+           "!kinetis_k22_package_from_code(NULL, &public_package)");
+    expect(state, !kinetis_k22_package_from_code("lh", &public_package),
+           "!kinetis_k22_package_from_code(\"lh\", &public_package)");
+    expect(state, kinetis_k22_package_code(KINETIS_K22_PACKAGE_DEFAULT) == NULL,
+           "kinetis_k22_package_code(KINETIS_K22_PACKAGE_DEFAULT) == NULL");
     expect(state, k22_package_select(NULL, K22_PACKAGE_LH_64_LQFP) == NULL,
            "k22_package_select(NULL, K22_PACKAGE_LH_64_LQFP) == NULL");
     expect(state, k22_package_select(&invalid_profile, K22_PACKAGE_LH_64_LQFP) == NULL,
